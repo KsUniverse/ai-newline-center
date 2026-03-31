@@ -31,10 +31,10 @@ tools: [read, edit, search, execute, agent, todo, web]
 |------|------|----------|
 | Phase 1: 需求确认 | @pm | 用户启动迭代 |
 | Phase 2: 技术设计 | @architect | 需求确认后 |
-| Phase 3: 后端开发 | 后端角色 | 技术方案确认后 |
+| Phase 3: 后端开发 | @backend | 技术方案确认后 |
 | Phase 4: 前端开发 | @frontend | 后端完成后 |
-| Phase 5: 集成联调 | 后端角色 | 前端完成后 |
-| Phase 6: 代码评审 | 评审角色 | 集成完成后 |
+| Phase 5: 集成联调 | @backend | 前端完成后 |
+| Phase 6: 代码评审 | @reviewer | 集成完成后 |
 | Phase 7: 测试验收 | @tester | 评审通过后 |
 | Release | 编排者 | 测试通过 + 用户确认 |
 

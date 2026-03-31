@@ -67,6 +67,7 @@ tools: [read, edit, search, web]
 
 > 开始开发前必须阅读以下文档：
 
+- `docs/product/versions/vX.Y.Z/requirements.md` — 本版本需求（理解业务背景）
 - `docs/product/versions/vX.Y.Z/technical-design.md` — 本版本技术设计
 - `docs/architecture/backend.md` — 后端分层规范
 - `docs/architecture/database.md` — 数据库设计规范
