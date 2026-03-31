@@ -58,7 +58,7 @@ pnpm db:migrate       # Prisma 迁移
 
 ## Conventions
 
-- API 路由统一返回 `{ success: boolean, data?: T, error?: string }` 格式
+- API 路由统一返回 `{ success: boolean, data?: T, error?: { code: string, message: string } }` 格式
 - 错误处理使用自定义 AppError 类，包含 code + message
 - 环境变量通过 `src/lib/env.ts` 统一管理，使用 Zod 验证，代码中禁止直接 process.env
 - 数据库操作必须通过 Service 层，禁止在 Route Handler 中直接调用 Prisma
