@@ -113,5 +113,26 @@ description: 简短描述 (中文可)
 
 ```
 main                    # 稳定分支
-feature/v0.1            # 版本开发分支
+feature/v0.1.0          # 版本迭代分支
 ```
+
+## 环境变量
+
+所有环境变量通过 `src/lib/env.ts` 统一管理，使用 Zod 验证：
+
+```typescript
+// src/lib/env.ts
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+  NEXTAUTH_SECRET: z.string().min(32),
+  NEXTAUTH_URL: z.string().url(),
+  CRAWLER_API_URL: z.string().url(),
+});
+
+export const env = envSchema.parse(process.env);
+```
+
+**规则**: 代码中禁止直接 `process.env.XXX`，统一使用 `env.XXX`。

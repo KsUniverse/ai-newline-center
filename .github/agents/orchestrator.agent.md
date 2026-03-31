@@ -11,10 +11,10 @@ tools: [read, edit, search, execute, agent, todo, web]
 
 当用户说"进入下一个版本迭代"时：
 
-1. 阅读 `docs/INDEX.md` 获取项目当前状态
+1. 阅读 `docs/INDEX.md` 获取项目当前状态（当前里程碑、当前迭代、当前阶段）
 2. 阅读 `docs/workflow/PROCESS.md` 了解完整迭代流程
-3. 确定当前应进入的版本号和阶段
-4. 按 Phase 1-7 顺序推进
+3. 阅读 `docs/product/ROADMAP.md` 确定下一个待规划的迭代版本号（vX.Y.Z）
+4. 按 Phase 1-7 顺序推进该迭代
 
 ## 阶段推进规则
 
@@ -28,7 +28,7 @@ tools: [read, edit, search, execute, agent, todo, web]
 
 | 阶段 | 角色 | 触发条件 |
 |------|------|----------|
-| Phase 1: 需求沟通 | @pm | 用户启动迭代 |
+| Phase 1: 需求确认 | @pm | 用户启动迭代 |
 | Phase 2: 技术设计 | @architect | 需求确认后 |
 | Phase 3: 后端开发 | 提示用户交给 Codex | 技术方案确认后 |
 | Phase 4: 前端开发 | @frontend | 后端完成后 |

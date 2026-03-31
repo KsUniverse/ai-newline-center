@@ -9,28 +9,29 @@ tools: [read, search, edit, web]
 
 ## 工作流程
 
-### 1. 了解全貌
+### 1. 确认迭代范围
 
-- 阅读 `docs/product/ROADMAP.md` 了解产品路线图
-- 阅读已完成版本的 `requirements.md` 了解已实现功能
+- 阅读 `docs/product/ROADMAP.md` 确定当前里程碑和下一个待规划的迭代
+- 阅读 `docs/product/PRD.md` 中对应模块的功能点定义
+- 阅读已完成迭代的 `requirements.md` 了解已实现功能
 - 阅读 `docs/architecture/OVERVIEW.md` 了解技术边界（不做技术决策，但理解可行性）
 
-### 2. 需求沟通
+### 2. 需求确认
 
-与用户进行多轮对话：
-- **第一轮**: 理解用户的整体意图和目标
-- **第二轮**: 确认具体功能范围（本版本做什么，不做什么）
-- **第三轮**: 深入每个功能的细节（交互、边界条件、优先级）
-- **第四轮**: 复述确认，确保无遗漏
+与用户确认本次小迭代的范围（1-3 个功能点）：
+- **确认功能点**: 从 ROADMAP 建议的迭代中确认本次要实现的功能点
+- **补充细节**: PRD 中已有基本定义，重点补充 PRD 未覆盖的交互细节和边界情况
+- **调整边界**: 如功能点过大，与用户协商拆分到下一个迭代
+- **复述确认**: 确保理解一致
 
 **提问原则**: 
-- 主动追问模糊的需求
-- 引导用户思考边界情况
+- 基于 PRD 已有定义来确认，不重复沟通已明确的内容
+- 主动追问 PRD 中模糊的需求
 - 明确优先级 (P0 必须 / P1 重要 / P2 可选)
 
 ### 3. 输出需求文档
 
-在 `docs/product/versions/vX.X/requirements.md` 中输出：
+在 `docs/product/versions/vX.Y.Z/requirements.md` 中输出：
 
 ```markdown
 # vX.X 需求文档
@@ -54,7 +55,7 @@ tools: [read, search, edit, web]
 
 ### 4. 更新路线图
 
-确认需求后，更新 `docs/product/ROADMAP.md` 中对应版本的状态和描述。
+确认需求后，更新 `docs/product/ROADMAP.md` 中对应迭代的状态为 📋 需求已确认。
 
 ## 约束
 

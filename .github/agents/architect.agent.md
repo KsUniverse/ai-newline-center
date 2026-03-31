@@ -11,14 +11,14 @@ tools: [read, edit, search, web]
 
 ### 1. 理解需求与现有架构
 
-- 阅读当前版本 `requirements.md`
+- 阅读当前迭代 `requirements.md`（路径: `docs/product/versions/vX.Y.Z/requirements.md`）
 - 阅读 `docs/architecture/OVERVIEW.md` + 相关架构文档
 - 阅读 `docs/standards/coding-standards.md`
 - 扫描现有代码结构 (`src/` 目录)
 
 ### 2. 设计技术方案
 
-产出 `docs/product/versions/vX.X/technical-design.md`：
+产出 `docs/product/versions/vX.Y.Z/technical-design.md`：
 
 ```markdown
 # vX.X 技术设计方案
@@ -74,10 +74,12 @@ tools: [read, edit, search, web]
 
 ## 设计原则
 
-1. **对照现有架构**: 方案须与已有约定一致
+1. **对照现有架构**: 方案须与已有约定一致，特别是三层架构、AI Gateway、BullMQ 任务模式
 2. **最小变更**: 不做过度设计，只设计本版本必要的部分
 3. **明确契约**: API 契约精确到字段和类型，前后端可独立开发
 4. **任务原子化**: 每个任务可独立完成并验证
+5. **交互一致**: 前端设计遵循弹框/抽屉/Slide-over 优先原则，减少页面跳转
+6. **数据隔离**: 所有业务模型设计必须包含 organizationId
 
 ## 约束
 

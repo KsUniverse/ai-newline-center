@@ -58,12 +58,23 @@
 
 ---
 
+## 迭代粒度与版本策略
+
+采用 **里程碑 + 小迭代** 模式，版本号格式为 `vX.Y.Z`：
+- `X.Y` = 里程碑编号（对应产品模块主题，如 v0.1 = 组织与权限）
+- `Z` = 迭代序号（每次迭代覆盖 1-3 个功能点）
+- **每次迭代走完整 7 阶段流程**
+- PM 在 Phase 1 从 PRD.md 中选取功能点，组成本次迭代的范围
+- 迭代边界可根据实际情况调整，功能点过大时进一步拆分
+
+详见 [ROADMAP.md](../product/ROADMAP.md) 中的里程碑和迭代规划。
+
 ## 迭代流程 (7 阶段)
 
 ```
 [用户] "进入下一个版本迭代"
     ↓
-Phase 1: 需求沟通 ──→ Phase 2: 技术设计 ──→ Phase 3: 后端开发
+Phase 1: 需求确认 ──→ Phase 2: 技术设计 ──→ Phase 3: 后端开发
     ↓ ✅ 确认需求     ↓ ✅ 确认方案        ↓ ✅ 确认后端
 Phase 4: 前端开发 ──→ Phase 5: 集成联调 ──→ Phase 6: 代码评审
     ↓ ✅ 确认前端     ↓ ✅ 确认集成        ↓ ✅ 评审通过
@@ -72,22 +83,24 @@ Phase 7: 测试验收
 [Release] 合入 main → 更新 ROADMAP + INDEX.md
 ```
 
-### Phase 1: 需求沟通
+### Phase 1: 需求确认
 
 - **角色**: 产品经理 (PM)
-- **输入**: 用户口述需求 + ROADMAP.md + 已实现功能
+- **输入**: 用户意图 + PRD.md + ROADMAP.md + 已完成迭代的 requirements.md
 - **动作**:
-  1. 阅读 ROADMAP.md 了解产品全貌
-  2. 阅读已完成版本的 requirements.md 了解已实现功能
-  3. 与用户多轮沟通，确认本版本范围
-  4. 确认每个功能的细节（交互、边界、优先级）
-  5. 产出 `docs/product/versions/vX.X/requirements.md`
+  1. 阅读 ROADMAP.md 确定当前里程碑和下一个待规划迭代
+  2. 阅读 PRD.md 中对应模块的功能点定义
+  3. 阅读已完成迭代的 requirements.md 了解已实现功能
+  4. 与用户确认本次迭代的功能点范围（1-3 个功能点）
+  5. 确认每个功能点的细节补充（如有 PRD 未覆盖的内容）
+  6. 产出 `docs/product/versions/vX.Y.Z/requirements.md`
+  7. 更新 ROADMAP.md 中对应迭代的状态
 - **检查点**: 用户确认需求文档无误
 
 ### Phase 2: 技术设计
 
 - **角色**: 技术架构师 (Architect)
-- **输入**: requirements.md + architecture/* + standards/*
+- **输入**: requirements.md + architecture/* + standards/* + 现有代码
 - **动作**:
   1. 阅读需求文档
   2. 对照现有架构评估影响范围
@@ -159,9 +172,11 @@ Phase 7: 测试验收
 
 ### 版本目录结构
 
+每次迭代在 `docs/product/versions/` 下创建独立目录：
+
 ```
-docs/product/versions/vX.X/
-├── requirements.md        # PM 产出
+docs/product/versions/vX.Y.Z/
+├── requirements.md        # PM 产出 (引用 PRD 功能点 + 本次补充)
 ├── technical-design.md    # 架构师产出
 ├── tasks-backend.md       # 架构师产出 → 后端执行
 ├── tasks-frontend.md      # 架构师产出 → 前端执行

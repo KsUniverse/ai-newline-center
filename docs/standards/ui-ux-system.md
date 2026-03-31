@@ -1,22 +1,30 @@
 # UI/UX 设计系统
 
-> 摘要：现代深色主题设计系统，基于 shadcn/ui + Tailwind CSS。参考 Linear/Vercel 风格：简洁、高对比、克制动效。
+> 摘要：Linear 风格暗色主题设计系统，支持亮色切换。基于 shadcn/ui + Tailwind CSS。弹框/抽屉/Slide-over 优先交互，减少页面跳转。如有外部品牌设计文档，以该文档为准。
 
 ## 设计原则
 
 1. **简洁优先**: 减少视觉噪音，突出核心内容
 2. **一致性**: 相同功能使用相同组件和交互模式
 3. **层次分明**: 通过颜色、大小、间距建立清晰的视觉层次
-4. **响应式**: 移动端优先，断点向上适配
+4. **弹框优先**: 创建/编辑/详情用 Drawer/SlidePanel/Dialog，减少页面跳转
+5. **响应式**: 桌面优先（B 端后台），兼容平板
+
+## 品牌设计
+
+> **如有外部提供的品牌设计文档，以该文档为准，本文档同步更新。**
+>
+> 外部文档应包含：品牌色、字体选择、图标风格、Logo 规范。
+> 本文档提供默认设计系统作为基础。
 
 ## 色彩体系
 
-基于 shadcn/ui CSS 变量体系，在 `globals.css` 中定义：
+基于 shadcn/ui CSS 变量体系，在 `globals.css` 中定义。使用 `next-themes` 切换暗色/亮色。
 
-### 语义色
+### 暗色主题 (默认)
 
-| 用途 | CSS 变量 | 暗色值 | 场景 |
-|------|----------|--------|------|
+| 用途 | CSS 变量 | 值 | 场景 |
+|------|----------|------|------|
 | 背景 | `--background` | `hsl(240 10% 3.9%)` | 页面背景 |
 | 前景 | `--foreground` | `hsl(0 0% 98%)` | 主要文字 |
 | 卡片 | `--card` | `hsl(240 10% 3.9%)` | 卡片背景 |
@@ -26,8 +34,24 @@
 | 强调 | `--accent` | `hsl(240 3.7% 15.9%)` | 悬停状态 |
 | 危险 | `--destructive` | `hsl(0 62.8% 30.6%)` | 删除/错误 |
 | 边框 | `--border` | `hsl(240 3.7% 15.9%)` | 分割线/边框 |
+| 侧边栏 | `--sidebar` | `hsl(240 10% 5.9%)` | 侧边栏背景 |
 
-### 功能色 (自定义扩展)
+### 亮色主题
+
+| 用途 | CSS 变量 | 值 |
+|------|----------|------|
+| 背景 | `--background` | `hsl(0 0% 100%)` |
+| 前景 | `--foreground` | `hsl(240 10% 3.9%)` |
+| 卡片 | `--card` | `hsl(0 0% 100%)` |
+| 主色 | `--primary` | `hsl(240 5.9% 10%)` |
+| 次要 | `--secondary` | `hsl(240 4.8% 95.9%)` |
+| 柔和 | `--muted` | `hsl(240 4.8% 95.9%)` |
+| 强调 | `--accent` | `hsl(240 4.8% 95.9%)` |
+| 危险 | `--destructive` | `hsl(0 84.2% 60.2%)` |
+| 边框 | `--border` | `hsl(240 5.9% 90%)` |
+| 侧边栏 | `--sidebar` | `hsl(240 4.8% 95.9%)` |
+
+### 功能色 (两套主题共用语义)
 
 ```css
 --success: hsl(142 76% 36%);    /* 成功状态 */
@@ -103,31 +127,77 @@ animate-spin (加载图标)
 
 | 断点 | Tailwind | 宽度 | 布局策略 |
 |------|----------|------|----------|
-| Mobile | 默认 | < 640px | 单列，展开菜单 |
-| Tablet | `sm:` | ≥ 640px | 双列 |
-| Desktop | `md:` | ≥ 768px | 侧边栏 + 主内容 |
-| Wide | `lg:` | ≥ 1024px | 完整布局 |
-| Ultra | `xl:` | ≥ 1280px | 限制最大宽度 |
+| Mobile | 默认 | < 768px | 侧边栏隐藏，汉堡菜单 |
+| Tablet | `md:` | ≥ 768px | 侧边栏收起，主内容全宽 |
+| Desktop | `lg:` | ≥ 1024px | 侧边栏展开 + 主内容 |
+| Wide | `xl:` | ≥ 1280px | 支持列表/详情分栏 |
+| Ultra | `2xl:` | ≥ 1536px | 限制最大宽度 |
 
-## 常用组件模式
+## Linear 风格布局规范
 
-### 页面容器
+### 侧边栏 (Sidebar)
+
+- **收起宽度**: `w-16` (64px) — 只显示图标
+- **展开宽度**: `w-60` (240px) — 图标 + 文字
+- **背景**: 使用 `--sidebar` 变量，略深于主背景
+- **结构**: Logo → 主导航(图标+文字) → 分隔线 → 管理入口 → 底部(用户头像+名字)
+- **当前项高亮**: `bg-accent text-accent-foreground rounded-md`
+
+### 列表/详情分栏
+
+在 `xl:` 以上断点，列表页可分为左侧列表 + 右侧 Slide-over 详情面板：
 
 ```tsx
-<div className="container mx-auto py-6 px-4 md:px-6 lg:px-8 max-w-7xl">
-```
-
-### 页面标题区域
-
-```tsx
-<div className="flex items-center justify-between mb-6">
-  <div>
-    <h1 className="text-2xl font-bold tracking-tight">页面标题</h1>
-    <p className="text-sm text-muted-foreground">页面描述文字</p>
+<div className="flex h-full">
+  <div className="flex-1 border-r border-border overflow-auto">
+    {/* 列表区域 */}
   </div>
-  <Button>操作按钮</Button>
+  <SlidePanel open={selected !== null} onClose={() => setSelected(null)}>
+    {/* 详情/编辑 */}
+  </SlidePanel>
 </div>
 ```
+
+### 页面标题区
+
+每个页面顶部统一标题区：
+
+```tsx
+<div className="flex items-center justify-between border-b border-border px-6 py-4">
+  <div>
+    <h1 className="text-lg font-semibold tracking-tight">页面标题</h1>
+    <p className="text-sm text-muted-foreground">页面描述</p>
+  </div>
+  <div className="flex items-center gap-2">
+    {/* 操作按钮 */}
+  </div>
+</div>
+```
+
+## 交互模式
+
+### 弹框优先原则
+
+| 操作 | 交互方式 | shadcn 组件 |
+|------|---------|------------|
+| 新建/编辑 | 抽屉 (从右侧滑出) | `Sheet` |
+| 查看详情 | Slide-over 面板 | 自定义 `SlidePanel` |
+| 确认/删除 | 弹框 | `AlertDialog` |
+| 筛选 | 弹出面板 | `Popover` |
+| 行操作 | 下拉菜单 | `DropdownMenu` |
+| 设置/配置 | 抽屉 | `Sheet` |
+
+### 状态反馈
+
+| 场景 | 方式 |
+|------|------|
+| 操作成功 | Toast 通知 (sonner) |
+| 操作失败 | Toast 错误提示 |
+| 加载中 | 骨架屏 (Skeleton) |
+| 空数据 | EmptyState 组件 |
+| AI 生成中 | 流式文字 + 进度指示 |
+
+## 常用组件模式
 
 ### 卡片
 
@@ -152,10 +222,17 @@ animate-spin (加载图标)
 </div>
 ```
 
+### 数据表格
+
+使用 shadcn/ui `DataTable` 模式，配合列定义和分页。
+
 ## 规则
 
-1. **暗色主题为主**: 所有样式优先考虑暗色，亮色主题通过 `.dark` class 自动切换
+1. **暗色默认**: 暗色为默认主题，亮色通过 `next-themes` 切换
 2. **只用 Tailwind**: 禁止内联 style、禁止 CSS modules、禁止自定义 CSS 类
 3. **shadcn/ui 优先**: 有现成组件直接用，避免从零实现
 4. **间距一致**: 同层级元素间距保持一致，使用 gap 而非 margin
 5. **无固定宽高**: 组件尺寸由内容和容器决定，使用 min/max 约束
+6. **弹框优先**: 创建/编辑/详情操作不跳转页面
+7. **品牌遵循**: 如有外部品牌设计文档，颜色/字体/图标以该文档为准
+8. **颜色变量**: 颜色必须使用 CSS 变量（不硬编码 hsl 值），确保主题切换生效

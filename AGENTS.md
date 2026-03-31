@@ -11,18 +11,28 @@
 - **Runtime**: Node.js 20+
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript (strict mode)
-- **Database**: PostgreSQL + Prisma ORM
-- **UI**: Tailwind CSS + shadcn/ui
-- **State**: Zustand
-- **Validation**: Zod
+- **Database**: PostgreSQL 16 + Prisma 6 ORM
+- **Cache/Queue**: Redis 7 + BullMQ 5
+- **Auth**: Auth.js (NextAuth) 5 — Credentials Provider
+- **AI**: Vercel AI SDK 4 (多模型网关)
+- **UI**: Tailwind CSS 4 + shadcn/ui (Linear 风格暗色主题)
+- **State**: Zustand 5
+- **Validation**: Zod 3
+- **Cron**: node-cron 3
 - **Package Manager**: pnpm
+- **Deploy**: 自托管 VPS (Docker)
 
 ## Architecture
 
 采用分层架构，详见 `docs/architecture/OVERVIEW.md`。
 
 - **后端**: Route Handler → Service → Repository (Prisma)
-- **前端**: Page → Layout → Feature Components → UI Components
+- **AI 网关**: AiGateway Service → Vercel AI SDK → 多模型 Provider
+- **任务队列**: BullMQ (AI 任务 + 爬虫任务) → SSE 推送前端
+- **爬虫**: CrawlerService 统一封装外部 REST API + 自动重试
+- **前端**: Page → Layout (Linear 风格) → Feature Components → UI Components
+- **交互**: 弹框/抽屉/Slide-over 优先，减少页面跳转
+- **数据隔离**: Repository 层 organizationId 过滤
 - **共享**: types/ 定义前后端共享类型，由 Zod schema 生成
 
 ## Code Style
@@ -50,9 +60,13 @@ pnpm db:migrate       # Prisma 迁移
 
 - API 路由统一返回 `{ success: boolean, data?: T, error?: string }` 格式
 - 错误处理使用自定义 AppError 类，包含 code + message
-- 环境变量通过 `src/lib/env.ts` 统一管理，使用 Zod 验证
+- 环境变量通过 `src/lib/env.ts` 统一管理，使用 Zod 验证，代码中禁止直接 process.env
 - 数据库操作必须通过 Service 层，禁止在 Route Handler 中直接调用 Prisma
 - 前端组件禁止直接 fetch，统一通过 `src/lib/api-client.ts`
+- AI 调用统一走 AiGateway Service，禁止直接调用 AI SDK
+- 爬虫调用统一走 CrawlerService，禁止直接 fetch 爬虫 API
+- 所有 Repository 列表查询必须接受 organizationId 进行数据隔离
+- 需要认证的 API 必须先 `auth()` 获取 session
 
 ## Role System
 
