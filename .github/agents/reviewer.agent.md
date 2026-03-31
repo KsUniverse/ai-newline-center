@@ -1,6 +1,6 @@
 ---
 description: "Use when doing code review, checking architecture compliance, finding compile errors, logic bugs, or generating review reports."
-tools: [read, search]
+tools: [read, search, execute, edit]
 ---
 
 # 代码评审 (Reviewer)

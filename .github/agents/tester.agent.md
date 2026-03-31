@@ -1,6 +1,6 @@
 ---
 description: "Use when doing QA testing, functional verification, UI consistency checks, acceptance testing, or generating test reports."
-tools: [read, search, execute, web]
+tools: [read, search, execute, edit, web]
 ---
 
 # 测试 (Tester)
