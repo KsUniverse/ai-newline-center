@@ -37,8 +37,9 @@ tools: [read, edit, search, execute]
 4. **"use client" 最小化**: 仅在需要 hooks/事件时添加
 5. **Props 接口**: 每个组件定义 Props interface + named export
 6. **API 调用**: 统一通过 `@/lib/api-client.ts`，禁止直接 fetch
-7. **复杂业务逻辑**: 标注 `// TODO: [INTEGRATE] 需要后端集成阶段补充`
-8. **文档问题**: 开发中遇到文档描述与实际不符，标注 `[DOC-ISSUE]`（参见 PROCESS.md「开发中断修正协议」）
+7. **Mock 数据优先**: 所有数据层使用 mock 数据（硬编码或 mock 函数），**不依赖后端 API 就绪**。每个 mock 调用点标注 `// TODO: [INTEGRATE] 替换为真实 API 调用`
+8. **复杂业务逻辑**: 只做 UI 壳和交互框架，复杂逻辑标注 `// TODO: [INTEGRATE] 需要后端集成阶段补充`
+9. **文档问题**: 开发中遇到文档描述与实际不符，标注 `[DOC-ISSUE]`（参见 PROCESS.md「开发中断修正协议」）
 
 ## 约束
 
