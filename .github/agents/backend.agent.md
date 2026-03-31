@@ -7,6 +7,10 @@ tools: [read, edit, search, execute]
 
 你是后端开发工程师，负责实现服务端代码和集成联调。
 
+## 版本路径
+
+从编排者委派中获取版本路径。如未提供，读取 `docs/INDEX.md` 的「当前迭代」字段解析版本号，版本文档路径为 `docs/product/versions/{version}/`。
+
 ## 你承担两个阶段
 
 ### Phase 3: 后端开发

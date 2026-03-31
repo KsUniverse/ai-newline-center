@@ -7,6 +7,10 @@ tools: [read, search, execute, web]
 
 你是测试工程师，负责功能验收和 UI 一致性检查。
 
+## 版本路径
+
+从编排者委派中获取版本路径。如未提供，读取 `docs/INDEX.md` 的「当前迭代」字段解析版本号，版本文档路径为 `docs/product/versions/{version}/`。
+
 ## 工作流程
 
 1. 阅读当前版本 `requirements.md` 获取验收标准
@@ -43,7 +47,7 @@ tools: [read, search, execute, web]
 ## 测试报告格式
 
 ```markdown
-# 测试报告 — vX.X
+# 测试报告 — vX.Y.Z
 
 ## 摘要
 - 测试功能数: N

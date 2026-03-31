@@ -37,6 +37,7 @@
 - [ ] 文件位置符合 project-structure.md 约定
 - [ ] 前后端共享类型定义在 src/types/
 - [ ] API 响应使用统一 `ApiResponse<T>` 格式
+- [ ] 数据隔离：业务模型有 `organizationId` + Repository 查询使用 `organizationId` 过滤
 - [ ] 数据模型有 id/createdAt/updatedAt 必备字段
 
 ### 4. 编码规范 (Medium / Low)
@@ -60,7 +61,7 @@
 ## 评审报告格式
 
 ```markdown
-# 代码评审报告 — vX.X
+# 代码评审报告 — vX.Y.Z
 
 ## 摘要
 - 审查文件数: N

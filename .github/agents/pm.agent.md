@@ -34,7 +34,7 @@ tools: [read, search, edit, web]
 在 `docs/product/versions/vX.Y.Z/requirements.md` 中输出：
 
 ```markdown
-# vX.X 需求文档
+# vX.Y.Z 需求文档
 
 ## 摘要
 - 版本目标: (一句话)

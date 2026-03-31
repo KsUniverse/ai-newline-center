@@ -39,7 +39,7 @@
 |------|------|----------|
 | [PRD.md](product/PRD.md) | 完整产品需求规格书 | **必读** — 产品经理 / 架构师 |
 | [ROADMAP.md](product/ROADMAP.md) | 版本路线图 | 产品经理 / 架构师 |
-| versions/vX.X/ | 各版本需求和任务 | 当前迭代角色 |
+| versions/vX.Y.Z/ | 各版本需求和任务 | 当前迭代角色 |
 
 ### ⚙ 流程文档 (docs/workflow/)
 

@@ -5,37 +5,13 @@ applyTo: "prisma/**"
 
 # Prisma / 数据库指令
 
-## Schema 约定
+> 完整规范参见 `docs/architecture/database.md`
 
-- Model 名: PascalCase 单数 (`User`, `ProjectTask`)
-- Field 名: camelCase (`createdAt`, `userId`)
-- Table 映射: snake_case 复数 (`@@map("users")`)
-- Enum: PascalCase 名, UPPER_SNAKE_CASE 值
+## 关键规则速查
 
-## 必备字段
-
-每个模型必须包含：
-
-```prisma
-id        String   @id @default(cuid())
-createdAt DateTime @default(now())
-updatedAt DateTime @updatedAt
-```
-
-软删除模型添加: `deletedAt DateTime?`
-
-## 关系
-
-- 显式定义外键 `@relation(fields: [xxxId], references: [id])`
-- 级联删除需显式配置，默认不级联
-
-## 迁移流程
-
-1. 修改 schema.prisma
-2. `pnpm db:migrate --name <描述>`
-3. `pnpm db:generate`
-4. **禁止手动修改已提交的迁移文件**
-
-## 详细规范
-
-参见 `docs/architecture/database.md`
+1. **Model**: PascalCase 单数, **Table**: snake_case 复数 `@@map("xxx")`
+2. **必备字段**: `id String @id @default(cuid())` + `createdAt` + `updatedAt`
+3. **数据隔离**: 业务模型必须有 `organizationId` + `@@index([organizationId])`
+4. **软删除**: `deletedAt DateTime?`
+5. **关系**: 显式定义 `@relation(fields: [...], references: [...])`
+6. **迁移**: `pnpm db:migrate --name <描述>` → `pnpm db:generate`，禁止修改已提交迁移文件

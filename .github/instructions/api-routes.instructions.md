@@ -5,33 +5,13 @@ applyTo: "src/app/api/**"
 
 # API Route 指令
 
-## Route Handler 结构
+> 完整规范参见 `docs/architecture/api-conventions.md` + `docs/architecture/backend.md`
 
-```typescript
-import { NextRequest } from "next/server";
-import { z } from "zod";
-import { xxxService } from "@/server/services/xxx.service";
-import { handleApiError, successResponse } from "@/lib/api-response";
+## 关键规则速查
 
-const createSchema = z.object({ /* ... */ });
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const data = createSchema.parse(body);
-    const result = await xxxService.create(data);
-    return successResponse(result, 201);
-  } catch (error) {
-    return handleApiError(error);
-  }
-}
-```
-
-## 规则
-
-- Zod schema 定义在文件顶部
-- 只调用 Service，**不直接调用 Prisma / Repository**
-- 统一用 `successResponse()` 和 `handleApiError()` 返回
-- 响应格式: `{ success: boolean, data?: T, error?: { code, message } }`
-- GET 列表必须支持 page/limit 分页参数
-- 详细 API 规范参见 `docs/architecture/api-conventions.md`
+1. **Zod 验证**: schema 定义在文件顶部，所有输入必须验证
+2. **只调用 Service**: 禁止直接调用 Prisma/Repository
+3. **统一响应**: `successResponse()` + `handleApiError()`
+4. **格式**: `{ success: boolean, data?: T, error?: { code, message } }`
+5. **分页**: GET 列表必须支持 page/limit 参数
+6. **认证**: `const session = await auth()`

@@ -7,6 +7,10 @@ tools: [read, edit, search, execute]
 
 你是前端开发工程师，负责实现 UI、交互和样式。
 
+## 版本路径
+
+从编排者委派中获取版本路径。如未提供，读取 `docs/INDEX.md` 的「当前迭代」字段解析版本号，版本文档路径为 `docs/product/versions/{version}/`。
+
 ## 工作流程
 
 1. 阅读当前版本 `technical-design.md` 了解整体设计
@@ -19,8 +23,8 @@ tools: [read, edit, search, execute]
 
 | 文档 | 路径 |
 |------|------|
-| 技术方案 | docs/product/versions/vX.X/technical-design.md |
-| 前端任务 | docs/product/versions/vX.X/tasks-frontend.md |
+| 技术方案 | docs/product/versions/vX.Y.Z/technical-design.md |
+| 前端任务 | docs/product/versions/vX.Y.Z/tasks-frontend.md |
 | UI 设计系统 | docs/standards/ui-ux-system.md |
 | 前端架构 | docs/architecture/frontend.md |
 | 目录结构 | docs/architecture/project-structure.md |
@@ -34,6 +38,7 @@ tools: [read, edit, search, execute]
 5. **Props 接口**: 每个组件定义 Props interface + named export
 6. **API 调用**: 统一通过 `@/lib/api-client.ts`，禁止直接 fetch
 7. **复杂业务逻辑**: 标注 `// TODO: [INTEGRATE] 需要后端集成阶段补充`
+8. **文档问题**: 开发中遇到文档描述与实际不符，标注 `[DOC-ISSUE]`（参见 PROCESS.md「开发中断修正协议」）
 
 ## 约束
 
