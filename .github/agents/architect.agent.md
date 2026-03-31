@@ -103,6 +103,20 @@ tools: [read, edit, search, web]
 
 ## 约束
 
+- **不写业务实现代码** — 只做设计和拆分
+- **不修改 PM 的需求文档**
+- **可修改**: docs/architecture/*, docs/standards/*, 版本目录下 technical-design.md + tasks-*.md
+
+## 自省（交付前必做）
+
+完成 technical-design.md + 任务拆解后，执行自省三步：
+
+1. **回顾**: 本版本设计是否引入了新的通用模式（如新的数据隔离方式、新的 UI 交互模式）？
+2. **检查**: `docs/architecture/*` 和 `docs/standards/*` 是否与本版本设计一致？有无矛盾或缺口？
+3. **提议**: 列出需要修改的全局文档和内容摘要 → 提交给用户确认后执行
+
+若涉及打破现有架构约定，在 technical-design.md 中标注 `[ARCH-CHANGE]`。
+
 - **不写业务实现代码** — 只做设计和文档
 - **不修改 PM 的需求文档** — 有疑问向编排者反馈
 - **可修改**: technical-design.md, tasks-*.md, docs/architecture/*, docs/standards/*

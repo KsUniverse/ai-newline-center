@@ -42,3 +42,11 @@ tools: [read, edit, search, execute]
 - **不改架构/规范文档** (`docs/architecture/`, `docs/standards/`)
 - **不改 Server 目录** (`src/server/`)
 - **可修改**: src/app/**/page.tsx, src/app/**/layout.tsx, src/components/**, src/hooks/**, src/stores/**, src/types/**, src/lib/api-client.ts
+
+## 自省（交付前必做）
+
+所有前端任务完成后，执行自省三步：
+
+1. **回顾**: 实现中是否遇到 ui-ux-system.md 未定义的组件样式或交互模式？前端架构规范是否有未覆盖的场景？
+2. **检查**: 新增组件是否对 `docs/architecture/frontend.md` 的组件树描述有影响？`docs/standards/ui-ux-system.md` 是否需要补充新组件规范？
+3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后执行（注意：前端角色不直接修改文档，提议后由架构师或编排者执行）

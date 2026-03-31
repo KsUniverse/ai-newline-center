@@ -76,25 +76,82 @@
 
 所有角色引用版本文档时使用此路径。**禁止硬编码版本号**，必须动态解析。
 
-### 必读文档矩阵
+### 文档读取模式：入口 + 发现
 
-> 下表定义各阶段必须读取的文档。分「全局规范」和「版本文档」两类。
+> **不维护固定文件列表。** 每个角色有 1-2 个入口文档，通过文档内的引用链和目录浏览按需发现相关文档。
 > AGENTS.md 和 .instructions.md 由工具链**自动加载**，不在此列。
 
-| 阶段 | 全局规范（docs/ 下，每次必读） | 版本文档（versions/vX.Y.Z/ 下） |
-|------|------|------|
-| Phase 1 PM | product/PRD.md, product/ROADMAP.md | 已完成迭代的 requirements.md |
-| Phase 2 架构师 | architecture/OVERVIEW.md, architecture/backend.md, architecture/frontend.md, architecture/database.md, architecture/api-conventions.md, standards/ui-ux-system.md, standards/coding-standards.md | requirements.md |
-| Phase 3 后端 | architecture/backend.md, architecture/database.md, architecture/api-conventions.md, standards/coding-standards.md | technical-design.md, tasks-backend.md |
-| Phase 4 前端 | architecture/frontend.md, architecture/project-structure.md, standards/ui-ux-system.md, standards/coding-standards.md | technical-design.md, tasks-frontend.md |
-| Phase 5 集成 | architecture/api-conventions.md | technical-design.md |
-| Phase 6 评审 | standards/review-checklist.md, standards/coding-standards.md, standards/ui-ux-system.md | technical-design.md |
-| Phase 7 测试 | standards/ui-ux-system.md | requirements.md |
+| 角色 | 入口文档 | 发现策略 |
+|------|----------|----------|
+| 编排者 | `docs/INDEX.md` | INDEX → PROCESS.md → ROADMAP.md |
+| PM | `docs/product/PRD.md` | PRD → ROADMAP → 已完成迭代目录 |
+| 架构师 | 当前版本 `requirements.md` | → `docs/architecture/` 整目录 + `docs/standards/` 整目录 + 扫描 `src/` |
+| 后端 | 当前版本 `tasks-backend.md` | → 任务文件顶部 `## 必读文档` 节列出的文档（由架构师生成） |
+| 前端 | 当前版本 `tasks-frontend.md` | → 任务文件顶部 `## 必读文档` 节列出的文档（由架构师生成） |
+| 评审 | 当前版本 `technical-design.md` | → `docs/standards/` 整目录 + 变更文件关联的规范 |
+| 测试 | 当前版本 `requirements.md` | → `docs/standards/ui-ux-system.md` + 运行应用实际检查 |
+
+**原则**：宁可多读不可漏读。遇到文档交叉引用时跟进阅读。架构和规范目录下的文件不多，有疑问时浏览整个目录。
 
 ### Codex 角色特殊规则
 
 后端 (Phase 3) 和评审 (Phase 6) 由 Codex 执行，无法通过 `.agent.md` 引导读取。
-解决方式：**架构师在 tasks-backend.md 顶部必须包含 `## 必读文档` 节**，列出该阶段需读取文档的完整相对路径，使任务文件自包含。
+解决方式：**架构师在 tasks-backend.md 顶部必须包含 `## 必读文档` 节**，列出该阶段需读取的全局规范和版本文档的完整相对路径，使任务文件自包含。
+
+---
+
+## 自省机制
+
+> **每个角色在完成主要工作后、交付产出前，必须执行自省流程。** 自省确保文档体系随开发同步演进，不留缺口。
+
+### 自省三步
+
+```
+完成主要工作
+    ↓
+Step 1: 回顾 — 我的产出涉及了哪些技术决策、新增模式、或发现了哪些规范缺口？
+    ↓
+Step 2: 检查 — 以下文档是否需要新增或更新？
+    - 全局文档: docs/architecture/*, docs/standards/*
+    - 版本文档: 当前迭代目录下的文件
+    - 入口文档: docs/INDEX.md, docs/product/ROADMAP.md
+    ↓
+Step 3: 提议 — 列出需要修改的文档、修改内容摘要、修改原因
+    → 提交给用户确认 → 用户同意后执行修改
+```
+
+### 各角色自省重点
+
+| 角色 | 自省重点 |
+|------|----------|
+| PM | PRD.md 是否有模糊需求需要补充？ROADMAP 状态是否需更新？ |
+| 架构师 | 架构/规范文档是否与本版本设计矛盾？是否引入了新模式需要记录？ |
+| 后端 | 实现中是否发现架构文档缺失的模式？coding-standards 是否覆盖新场景？ |
+| 前端 | ui-ux-system 是否覆盖新组件样式？前端规范是否需要补充？ |
+| 评审 | review-checklist 是否覆盖本次发现的问题类型？架构文档是否有歧义？ |
+| 测试 | ui-ux-system 是否有需要细化的检查项？requirements 验收标准是否充分？ |
+| 编排者 | INDEX.md 状态是否最新？PROCESS.md 流程是否需要调整？ |
+
+### 自省产出格式
+
+```markdown
+## 自省报告
+
+### 需要更新的文档
+
+1. `docs/standards/coding-standards.md`
+   - **修改**: 新增 Redis 连接池使用规范
+   - **原因**: 本版本引入了 Redis，现有规范未覆盖
+
+2. `docs/architecture/backend.md`
+   - **修改**: 补充批量操作的事务处理模式
+   - **原因**: tasks-backend 中 F-002 涉及批量创建，实现中发现了通用模式
+
+### 无需更新
+确认以下文档与产出一致，无需修改: (列出已检查的文档)
+```
+
+**关键规则**: 自省发现的修改**必须经用户确认**后才能执行。角色不可自行修改超出职责范围的文档。
 
 ## 迭代流程 (7 阶段)
 
@@ -123,6 +180,7 @@ Phase 7: 测试验收
   6. 产出 `docs/product/versions/vX.Y.Z/requirements.md`
   7. 更新 ROADMAP.md 中对应迭代的状态
 - **检查点**: 用户确认需求文档无误
+- **自省**: 回顾 PRD.md 是否有需要补充的模糊需求；ROADMAP 状态是否已更新。提议修改 → 用户确认
 
 ### Phase 2: 技术设计
 
@@ -136,6 +194,7 @@ Phase 7: 测试验收
   5. 若需架构变更，标注 `[ARCH-CHANGE]` 并更新相关架构文档
   6. 产出 `technical-design.md`
 - **检查点**: 用户确认技术方案
+- **自省**: 检查 architecture/* 和 standards/* 是否与本版本设计矛盾；是否引入新模式需记录。提议修改 → 用户确认
 
 ### Phase 3: 后端开发
 
@@ -146,6 +205,7 @@ Phase 7: 测试验收
   2. 每完成一项在 tasks-backend.md 中标记 ✅
   3. 确保编译通过 + 类型安全
 - **检查点**: 用户确认后端开发完成
+- **自省**: 实现中是否发现架构文档缺失的模式或 coding-standards 未覆盖的场景。提议修改 → 用户确认
 
 ### Phase 4: 前端开发
 
@@ -157,6 +217,7 @@ Phase 7: 测试验收
   3. 复杂业务逻辑标注 `// TODO: [INTEGRATE]`
   4. 每完成一项在 tasks-frontend.md 中标记 ✅
 - **检查点**: 用户确认前端开发完成
+- **自省**: ui-ux-system 是否覆盖新组件样式；前端架构规范是否需要补充。提议修改 → 用户确认
 
 ### Phase 5: 集成联调
 
@@ -181,6 +242,7 @@ Phase 7: 测试验收
   5. 产出评审报告
   6. 开发角色根据报告修复问题
 - **检查点**: 评审通过（无 Critical/High 问题）
+- **自省**: review-checklist 是否覆盖本次发现的问题类型；架构文档是否有歧义需澄清。提议修改 → 用户确认
 
 ### Phase 7: 测试验收
 
@@ -192,20 +254,7 @@ Phase 7: 测试验收
   3. 检查响应式布局
   4. 产出测试报告
 - **检查点**: 测试通过
-
----
-
-## 全局文档回写机制
-
-版本迭代中可能发现全局文档需要更新的情况：
-
-| 触发阶段 | 场景 | 标记 | 处理方式 |
-|----------|------|------|----------|
-| Phase 2 架构师 | 本版本需打破现有架构约定 | `[ARCH-CHANGE]` | 架构师在 technical-design.md 标注，同步更新 architecture/*, standards/* |
-| Phase 6 评审 | 发现全局规范不完善、有歧义或缺失 | `[GLOBAL-UPDATE]` | 评审报告中标注，附修改建议和涉及的全局文档路径 |
-| Phase 7 测试 | 发现 UI/UX 规范缺失或不一致 | `[GLOBAL-UPDATE]` | 测试报告中标注，附修改建议和涉及的全局文档路径 |
-
-**Release 前处理**：编排者在 Release 前检查所有阶段产出中是否存在未处理的 `[GLOBAL-UPDATE]` 标记。若有，由架构师评估并更新全局文档，确认后再合入 main。
+- **自省**: ui-ux-system 检查项是否充分；requirements 验收标准是否需要细化。提议修改 → 用户确认
 
 ---
 
@@ -241,6 +290,20 @@ docs/product/versions/vX.Y.Z/
 ```
 
 前端任务文件替换为对应的前端规范路径（frontend.md, ui-ux-system.md 等）。
+
+### Codex 角色自省规则
+
+后端 (Phase 3) 和评审 (Phase 6) 由 Codex 执行，无法通过 `.agent.md` 引导自省。
+架构师在 `tasks-backend.md` 底部必须包含以下自省提示：
+
+```markdown
+## 自省（所有任务完成后执行）
+
+完成全部任务后，回顾开发过程：
+1. 实现中是否发现架构文档缺失的模式或 coding-standards 未覆盖的场景？
+2. 是否有值得记录到全局文档的通用经验？
+3. 若有，在任务文件末尾以 `## 自省报告` 写下发现和修改建议，等待用户确认后由架构师执行修改。
+```
 
 ### 文档格式要求
 
