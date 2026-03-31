@@ -69,6 +69,33 @@
 
 详见 [ROADMAP.md](../product/ROADMAP.md) 中的里程碑和迭代规划。
 
+## 版本路径解析
+
+编排者从 INDEX.md 的「当前迭代」字段获取版本号（如 v0.1.0），对应版本文档路径：
+`docs/product/versions/{version}/`
+
+所有角色引用版本文档时使用此路径。**禁止硬编码版本号**，必须动态解析。
+
+### 必读文档矩阵
+
+> 下表定义各阶段必须读取的文档。分「全局规范」和「版本文档」两类。
+> AGENTS.md 和 .instructions.md 由工具链**自动加载**，不在此列。
+
+| 阶段 | 全局规范（docs/ 下，每次必读） | 版本文档（versions/vX.Y.Z/ 下） |
+|------|------|------|
+| Phase 1 PM | product/PRD.md, product/ROADMAP.md | 已完成迭代的 requirements.md |
+| Phase 2 架构师 | architecture/OVERVIEW.md, architecture/backend.md, architecture/frontend.md, architecture/database.md, architecture/api-conventions.md, standards/ui-ux-system.md, standards/coding-standards.md | requirements.md |
+| Phase 3 后端 | architecture/backend.md, architecture/database.md, architecture/api-conventions.md, standards/coding-standards.md | technical-design.md, tasks-backend.md |
+| Phase 4 前端 | architecture/frontend.md, architecture/project-structure.md, standards/ui-ux-system.md, standards/coding-standards.md | technical-design.md, tasks-frontend.md |
+| Phase 5 集成 | architecture/api-conventions.md | technical-design.md |
+| Phase 6 评审 | standards/review-checklist.md, standards/coding-standards.md, standards/ui-ux-system.md | technical-design.md |
+| Phase 7 测试 | standards/ui-ux-system.md | requirements.md |
+
+### Codex 角色特殊规则
+
+后端 (Phase 3) 和评审 (Phase 6) 由 Codex 执行，无法通过 `.agent.md` 引导读取。
+解决方式：**架构师在 tasks-backend.md 顶部必须包含 `## 必读文档` 节**，列出该阶段需读取文档的完整相对路径，使任务文件自包含。
+
 ## 迭代流程 (7 阶段)
 
 ```
@@ -168,6 +195,20 @@ Phase 7: 测试验收
 
 ---
 
+## 全局文档回写机制
+
+版本迭代中可能发现全局文档需要更新的情况：
+
+| 触发阶段 | 场景 | 标记 | 处理方式 |
+|----------|------|------|----------|
+| Phase 2 架构师 | 本版本需打破现有架构约定 | `[ARCH-CHANGE]` | 架构师在 technical-design.md 标注，同步更新 architecture/*, standards/* |
+| Phase 6 评审 | 发现全局规范不完善、有歧义或缺失 | `[GLOBAL-UPDATE]` | 评审报告中标注，附修改建议和涉及的全局文档路径 |
+| Phase 7 测试 | 发现 UI/UX 规范缺失或不一致 | `[GLOBAL-UPDATE]` | 测试报告中标注，附修改建议和涉及的全局文档路径 |
+
+**Release 前处理**：编排者在 Release 前检查所有阶段产出中是否存在未处理的 `[GLOBAL-UPDATE]` 标记。若有，由架构师评估并更新全局文档，确认后再合入 main。
+
+---
+
 ## 文档产出规范
 
 ### 版本目录结构
@@ -178,10 +219,28 @@ Phase 7: 测试验收
 docs/product/versions/vX.Y.Z/
 ├── requirements.md        # PM 产出 (引用 PRD 功能点 + 本次补充)
 ├── technical-design.md    # 架构师产出
-├── tasks-backend.md       # 架构师产出 → 后端执行
+├── tasks-backend.md       # 架构师产出 → 后端执行 (含必读文档节)
 ├── tasks-frontend.md      # 架构师产出 → 前端执行
 └── changelog.md           # Release 后编排者更新
 ```
+
+### 任务文件必读文档节
+
+架构师产出的 `tasks-backend.md` 和 `tasks-frontend.md` **必须**在顶部包含必读文档节：
+
+```markdown
+## 必读文档
+
+> 开始开发前必须阅读以下文档：
+
+- `docs/product/versions/vX.Y.Z/technical-design.md` — 本版本技术设计
+- `docs/architecture/backend.md` — 后端分层规范
+- `docs/architecture/database.md` — 数据库设计规范
+- `docs/architecture/api-conventions.md` — API 设计规范
+- `docs/standards/coding-standards.md` — 编码规范
+```
+
+前端任务文件替换为对应的前端规范路径（frontend.md, ui-ux-system.md 等）。
 
 ### 文档格式要求
 

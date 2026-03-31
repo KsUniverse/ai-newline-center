@@ -11,10 +11,20 @@ tools: [read, edit, search, web]
 
 ### 1. 理解需求与现有架构
 
-- 阅读当前迭代 `requirements.md`（路径: `docs/product/versions/vX.Y.Z/requirements.md`）
-- 阅读 `docs/architecture/OVERVIEW.md` + 相关架构文档
-- 阅读 `docs/standards/coding-standards.md`
-- 扫描现有代码结构 (`src/` 目录)
+阅读当前迭代 `requirements.md`（路径从 INDEX.md 的"当前迭代"字段解析），然后阅读以下全局规范：
+
+**架构文档（全部阅读）**：
+- `docs/architecture/OVERVIEW.md` — 技术架构摘要
+- `docs/architecture/backend.md` — 后端分层规范
+- `docs/architecture/frontend.md` — 前端组件体系
+- `docs/architecture/database.md` — 数据库设计规范
+- `docs/architecture/api-conventions.md` — API 设计规范
+
+**规范文档**：
+- `docs/standards/ui-ux-system.md` — UI/UX 设计系统（设计组件树和交互模式时必须参考）
+- `docs/standards/coding-standards.md` — 编码规范
+
+**代码扫描**：扫描 `src/` 目录了解现有实现
 
 ### 2. 设计技术方案
 
@@ -48,10 +58,20 @@ tools: [read, edit, search, web]
 
 ### 3. 拆分开发任务
 
-产出 `tasks-backend.md` 和 `tasks-frontend.md`：
+产出 `tasks-backend.md` 和 `tasks-frontend.md`。**每个任务文件顶部必须包含 `## 必读文档` 节**（见 PROCESS.md 规范），列出该角色需要阅读的全局规范和版本文档的完整相对路径。
 
 ```markdown
 # vX.X 后端任务清单
+
+## 必读文档
+
+> 开始开发前必须阅读以下文档：
+
+- `docs/product/versions/vX.Y.Z/technical-design.md` — 本版本技术设计
+- `docs/architecture/backend.md` — 后端分层规范
+- `docs/architecture/database.md` — 数据库设计规范
+- `docs/architecture/api-conventions.md` — API 设计规范
+- `docs/standards/coding-standards.md` — 编码规范
 
 ## 摘要
 - 任务总数: N
