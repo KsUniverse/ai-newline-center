@@ -116,8 +116,3 @@ tools: [read, edit, search, web]
 3. **提议**: 列出需要修改的全局文档和内容摘要 → 提交给用户确认后执行
 
 若涉及打破现有架构约定，在 technical-design.md 中标注 `[ARCH-CHANGE]`。
-
-- **不写业务实现代码** — 只做设计和文档
-- **不修改 PM 的需求文档** — 有疑问向编排者反馈
-- **可修改**: technical-design.md, tasks-*.md, docs/architecture/*, docs/standards/*
-- 若需打破现有架构约定，**必须标注 `[ARCH-CHANGE]`** 并给出充分理由
