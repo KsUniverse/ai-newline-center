@@ -160,19 +160,44 @@ animate-spin (加载图标)
 
 ### 页面标题区
 
-每个页面顶部统一标题区：
+每个页面顶部统一标题区，推荐使用毛玻璃效果吸顶：
 
 ```tsx
-<div className="flex items-center justify-between border-b border-border px-6 py-4">
+<div className="sticky top-0 z-10 backdrop-blur-md bg-background/80 border-b border-border/60 px-6 py-4 flex items-center justify-between">
   <div>
     <h1 className="text-lg font-semibold tracking-tight">页面标题</h1>
-    <p className="text-sm text-muted-foreground">页面描述</p>
+    <p className="text-[13px] text-muted-foreground mt-1">页面描述</p>
   </div>
   <div className="flex items-center gap-2">
     {/* 操作按钮 */}
   </div>
 </div>
 ```
+
+## Linear 美学强约束与特征 (v0.1.1+ 必须遵循)
+
+在后续的 UI/UX 开发中，必须严格执行以下 **Linear 级极简美学** 的细化设定：
+
+1. **色彩与对比度极大克制**:
+   - 背景色拒绝纯黑，暗色模式底色使用带微蓝色的深灰黑（`hsl(240 7% 8%)` 及类似）。
+   - 图标不使用强烈的反差色，通常带有不透明度（如 `text-muted-foreground` 或 `opacity-70`），仅在悬停、激活或提示性反馈时恢复全对比。
+   - 边框应比原生 shadcn 更轻浅，常用带透明度的边框（如 `border-border/60`、`border-border/40`）来隔离内容。
+
+2. **紧凑排版与精致字体参数**:
+   - 数据密集型列表、侧边栏导航文字应缩小字号，高频使用 `text-[13px]` 替代标准文本，且配合紧凑行高（leading）。
+   - 主体内容和卡片内边缘（Padding）使用舒适的呼吸感，但单条数据（列表行）保持高度克制与紧凑（例如调整原有的高 padding 到极简尺寸）。
+
+3. **操作隐藏与上下文渐进式展示 (Hover Actions)**:
+   - 列表行或表格上的附加操作按钮（如“更多”按钮 `...`、快捷编辑等）**默认完全隐藏**。
+   - 必须通过容器级别的交互来触发显示：增加父级 `group`，子级动作按钮应用 `opacity-0 group-hover:opacity-100 transition-opacity`。保持非焦点时的绝对干净。
+
+4. **发光小圆点取代色块 Badge (Minimalist Indicators)**:
+   - 抛弃大面积纯色填充或亮色背景的组件级实心 Badge（如状态标签 `bg-green-100 text-green-800`）。
+   - 改由 **彩色小圆点 + 纯文本** 表示状态（例如用 `<div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />` 加上随后的 `text-muted-foreground` 文本）。
+
+5. **空间纵深感与磨砂玻璃 (Depth & Glassmorphism)**:
+   - 悬浮在滚动内容上方的全屏元素（顶栏 Header、固定面板）必须具备空间透出感。
+   - 配置半透明背景叠加毛玻璃滤镜：例 `bg-background/80 backdrop-blur-md`。
 
 ## 交互模式
 
