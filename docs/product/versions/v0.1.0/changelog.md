@@ -40,3 +40,5 @@
 - **[Bug]** 主题切换按钮 Moon 图标缺少 `relative` 父容器
 - **[Refactor]** `api-client.ts` 加入 `BASE_URL = "/api"`，调用方只传资源路径
 - **[Refactor]** 侧边栏使用 `status === "authenticated"` 防止加载中闪烁
+- **[BUG-001]** 缺少 `.env.local` 导致 middleware ZodError 崩溃，所有路由 404；提供 `.env.local` 模板
+- **[BUG-002]** Tailwind CSS v4 样式完全失效；安装并配置 `@tailwindcss/postcss` 插件；修复暗色模式 `--card` 与 `--background` 颜色相同导致登录卡片不可见

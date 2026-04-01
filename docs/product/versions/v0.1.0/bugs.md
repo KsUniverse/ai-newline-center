@@ -5,7 +5,7 @@
 ## BUG-001: 缺少 .env.local 导致 middleware 崩溃 + /dashboard 404
 
 - **严重度**: Critical
-- **状态**: In Fix
+- **状态**: ✅ Closed
 - **分支**: bug/BUG-001-missing-env-dashboard-404
 - **发现时机**: 用户本地运行 `npm run dev`
 - **描述**: 项目启动后访问 `/dashboard` 返回 404，同时控制台出现 ZodError，诉称 `DATABASE_URL`、`NEXTAUTH_URL`、`NEXTAUTH_SECRET` 未定义。
@@ -22,7 +22,7 @@
 ## BUG-002: Tailwind CSS 样式完全失效
 
 - **严重度**: Critical
-- **状态**: In Fix
+- **状态**: ✅ Closed
 - **分支**: bug/BUG-002-missing-tailwind-styles
 - **发现时机**: 用户验收
 - **描述**: 页面呈现完全无样式的白板 HTML，登录组件和全局样式完全未能按照预期的 Tailwind 效果加载。
