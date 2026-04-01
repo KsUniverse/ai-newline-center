@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { userRepository } from "@/server/repositories/user.repository";
 import { userService } from "@/server/services/user.service";
 
 const credentialsSchema = z.object({
@@ -76,11 +77,20 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       const parsedToken = sessionTokenSchema.safeParse(token);
 
       if (session.user && parsedToken.success) {
+        const dbUser = await userRepository.findById(parsedToken.data.id);
+
+        if (!dbUser || dbUser.status === "DISABLED") {
+          return {
+            ...session,
+            user: undefined,
+          };
+        }
+
         session.user.id = parsedToken.data.id;
-        session.user.name = parsedToken.data.name ?? session.user.name;
+        session.user.name = dbUser.name;
         session.user.account = parsedToken.data.account;
-        session.user.role = parsedToken.data.role;
-        session.user.organizationId = parsedToken.data.organizationId;
+        session.user.role = dbUser.role;
+        session.user.organizationId = dbUser.organizationId;
       }
 
       return session;

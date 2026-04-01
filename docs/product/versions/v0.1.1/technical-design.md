@@ -85,7 +85,7 @@ const createUserSchema = z.object({
   password: z.string().min(6).max(100),
   name: z.string().min(1).max(50),
   role: z.enum(["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"]),
-  organizationId: z.string().cuid(),
+  organizationId: z.string().min(1), // 注意: seed 集团 ID 为固定字符串，不使用 cuid() 约束
 });
 
 const updateUserSchema = z.object({

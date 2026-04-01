@@ -11,6 +11,7 @@ model Organization {
   id        String           @id @default(cuid())
   name      String
   type      OrganizationType
+  status    OrganizationStatus @default(ACTIVE)
   parentId  String?
   parent    Organization?    @relation("OrgTree", fields: [parentId], references: [id])
   children  Organization[]   @relation("OrgTree")
@@ -41,6 +42,11 @@ model User {
 enum OrganizationType {
   GROUP
   BRANCH
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  DISABLED
 }
 
 enum UserRole {
