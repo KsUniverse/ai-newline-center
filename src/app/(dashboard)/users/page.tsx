@@ -149,23 +149,23 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">用户管理</h1>
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">用户管理</h1>
+          <p className="text-[13px] text-muted-foreground/80">
             {isSuperAdmin ? "管理所有用户账号" : "管理本公司用户账号"}
           </p>
         </div>
-        <Button onClick={handleCreate} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
+        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-[13px] px-3 shadow-sm">
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建用户
         </Button>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border bg-card">
+      <div className="w-full">
         <UserList
           users={filteredUsers}
           onEdit={handleEdit}
