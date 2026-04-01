@@ -58,7 +58,10 @@ export function LoginForm() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl">
+      {/* Brand accent top bar */}
+      <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+      <div className="p-8">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
@@ -119,6 +122,7 @@ export function LoginForm() {
           </Button>
         </form>
       </Form>
+      </div>
     </div>
   );
 }

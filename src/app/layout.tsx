@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Outfit, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/shared/providers";
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-sans",
 });
@@ -29,7 +29,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className={`${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>
           {children}
           <Toaster />

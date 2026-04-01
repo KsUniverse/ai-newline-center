@@ -151,7 +151,7 @@ export default function UsersPage() {
   return (
     <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="animate-in-up flex items-center justify-between">
         <div className="space-y-1.5">
           <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">用户管理</h1>
           <p className="text-sm text-muted-foreground/80">
@@ -165,7 +165,7 @@ export default function UsersPage() {
       </div>
 
       {/* Table */}
-      <div className="w-full">
+      <div className="animate-in-up-d1 w-full">
         <UserList
           users={filteredUsers}
           onEdit={handleEdit}

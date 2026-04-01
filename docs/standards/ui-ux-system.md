@@ -31,7 +31,7 @@
 | 前景 | `--foreground` | `hsl(0 0% 95%)` | 主要文字（略低于纯白，减少刺眼感） |
 | 卡片 | `--card` | `hsl(240 7% 10%)` | 卡片/浮层背景（比背景亮 +2-3%） |
 | 弹出层 | `--popover` | `hsl(240 7% 10%)` | 下拉/弹出框背景（与 card 统一，非背景色） |
-| 主色 | `--primary` | `hsl(0 0% 98%)` | 主要按钮/链接 |
+| 主色 | `--primary` | `hsl(173 80% 37%)` | 品牌色电光青（按钮/焦点/高亮）— 区别于 emerald 状态指示器 |
 | 次要 | `--secondary` | `hsl(240 5% 15%)` | 次要按钮 |
 | 柔和 | `--muted` | `hsl(240 5% 15%)` | 辅助背景/禁用区域 |
 | 强调 | `--accent` | `hsl(240 6% 18%)` | 悬停状态（比 muted 略亮，形成层次） |
@@ -46,7 +46,7 @@
 | 背景 | `--background` | `hsl(0 0% 99%)` |
 | 前景 | `--foreground` | `hsl(240 10% 10%)` |
 | 卡片 | `--card` | `hsl(0 0% 100%)` |
-| 主色 | `--primary` | `hsl(240 5.9% 10%)` |
+| 主色 | `--primary` | `hsl(173 80% 26%)` | 深电光青，深色背景可读 |
 | 次要 | `--secondary` | `hsl(240 4.8% 95.9%)` |
 | 柔和 | `--muted` | `hsl(240 5% 94%)` |
 | 强调 | `--accent` | `hsl(240 5% 92%)` |
@@ -64,8 +64,16 @@
 
 ## 字体
 
+### 字体选型原则 (DISTILLED_AESTHETICS)
+
+> 前端美学核心要求：避免通用 AI 生成外观，选择**独特、有设计感**的字体，拒绝 Inter、Roboto、Arial、Space Grotesk 等泛滥字体。
+
+- **UI 正文字体**：`"Outfit"` — 几何人文主义无衬线，字形独特（A/G/Q 等字母有辨识度），现代感强，非主流 SaaS 选择
+- **代码/等宽字体**：`"JetBrains Mono"` — 开发者工具标配，字符可读性极佳
+- 中文字符自动 fallback 到系统字体（PingFang SC / Microsoft YaHei）
+
 ```css
---font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+--font-sans: "Outfit", ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
 --font-mono: "JetBrains Mono", ui-monospace, monospace;
 ```
 
@@ -120,21 +128,72 @@ Token 在 `globals.css` 的 `@theme inline` 块中定义；若需调整尺寸，
 | 浮起 | `border border-border shadow-sm` |
 | 弹出 | `border border-border shadow-lg` |
 
-## 动效
+## 背景与氛围 (Background & Atmosphere) (DISTILLED_AESTHETICS)
+
+> 避免纯色背景，通过 CSS 分层营造**深度感和氛围感**，而非依赖纯色填充。
+
+### 点阵网格纹理
+
+可在主内容背景上叠加极淡的点阵纹理，增加深度：
 
 ```css
-/* 统一过渡 */
-transition-all duration-200 ease-in-out
-
-/* 悬停效果 */
-hover:bg-accent
-
-/* 加载动画 */
-animate-pulse (骨架屏)
-animate-spin (加载图标)
+/* .bg-dot-grid — 在 globals.css utilities 层注册 */
+background-image: radial-gradient(circle, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
+background-size: 20px 20px;
 ```
 
-**原则**: 动效时长不超过 300ms，优先使用 CSS transition，避免大面积动画。
+### 登录页大气渐变背景
+
+```tsx
+{/* Auth Layout 背景层 */}
+<div className="pointer-events-none absolute inset-0">
+  {/* 品牌色发光光晕（顶部中心） */}
+  <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,hsl(173_80%_37%_/_0.12),transparent)]" />
+  {/* 蓝色辅助氛围（右下角） */}
+  <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_80%_100%,hsl(217_91%_60%/_0.06),transparent)]" />
+  {/* 点阵纹理 */}
+  <div className="absolute inset-0 bg-dot-grid" />
+</div>
+```
+
+### 品牌 Logo 标记
+
+Logo 方块使用 `bg-primary text-primary-foreground`，搭配 `shadow-primary/20` 发光阴影：
+
+```tsx
+<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20">
+  A
+</div>
+```
+
+## 动效
+
+### 动效总体原则 (DISTILLED_AESTHETICS)
+
+> 避免散乱的 micro-interaction，聚焦**高冲击时刻**：一次精心设计的页面加载交错渐显远胜于遍布各处的小动效。
+
+```css
+/* 页面入场 — 统一使用以下 keyframe */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 使用语义 class 而非 Tailwind 任意值 */
+.animate-in-up      { animation: fade-up 0.35s ease-out both; }
+.animate-in-up-d1   { animation: fade-up 0.35s ease-out 0.06s both; }
+.animate-in-up-d2   { animation: fade-up 0.35s ease-out 0.12s both; }
+.animate-in-up-d3   { animation: fade-up 0.35s ease-out 0.18s both; }
+.animate-in-up-d4   { animation: fade-up 0.35s ease-out 0.24s both; }
+```
+
+**使用规范**：
+- 每个 Dashboard 页面内容区根块加 `animate-in-up`
+- 页面内 2~4 个独立区域使用 `animate-in-up-d1` ~ `animate-in-up-d4` 交错
+- 列表行不做逐行动画（性能问题）
+- Dialog / Sheet 沿用 shadcn 内置动效，不额外添加
+
+
 
 ## 响应式断点
 
