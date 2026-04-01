@@ -71,14 +71,22 @@
 
 ## 字号规范
 
-| 层级 | Tailwind Class | 场景 |
-|------|---------------|------|
-| H1 | `text-3xl font-bold` | 页面标题 |
-| H2 | `text-2xl font-semibold` | 区域标题 |
-| H3 | `text-xl font-semibold` | 卡片标题 |
-| H4 | `text-lg font-medium` | 小节标题 |
-| Body | `text-sm` | 正文 (默认 14px) |
-| Caption | `text-xs text-muted-foreground` | 辅助说明 |
+所有字号必须使用下列**语义 token 类名**，严禁硬编码 `text-[Npx]` 任意值。
+Token 在 `globals.css` 的 `@theme inline` 块中定义；若需调整尺寸，只改该文件即可全局生效。
+
+| Token Class | 实际尺寸 | 场景 |
+|-------------|---------|------|
+| `text-2xs` | 11px | 状态圆点旁边的角色标签、Badge 内文字 |
+| `text-xs` | 12px | 等宽标识符（账号、ID、代码），搭配 `font-mono` |
+| `text-sm` | 13px | **默认 UI 文字**：表格单元格、筛选标签、下拉项、帮助文本 |
+| `text-base` | 14px | 正文内容 |
+| `text-lg` | 16px | 区域小节标题 |
+| `text-xl` | 18px | 页面主标题（配合 `font-semibold tracking-tight`） |
+| `text-2xl` | 22px | 大数字/指标展示 |
+| `text-3xl` | 26px | 强调标题 |
+
+> **禁止事项**：不使用 `text-[13px]`、`text-[12px]`、`text-[11px]` 等任意值。
+> 如需新尺寸，先在 `globals.css` `@theme inline` 中注册 token，再使用对应类名。
 
 ## 间距系统
 
@@ -165,13 +173,13 @@ animate-spin (加载图标)
 
 ### 页面标题区
 
-每个页面顶部统一标题区，推荐使用毛玻璃效果吸顶：
+每个页面顶部统一标题区（非 AppHeader，而是页面内容区的本地标题）：
 
 ```tsx
-<div className="sticky top-0 z-10 backdrop-blur-md bg-background/80 border-b border-border/60 px-6 py-4 flex items-center justify-between">
-  <div>
-    <h1 className="text-lg font-semibold tracking-tight">页面标题</h1>
-    <p className="text-[13px] text-muted-foreground mt-1">页面描述</p>
+<div className="flex items-center justify-between mb-6">
+  <div className="space-y-1.5">
+    <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">页面标题</h1>
+    <p className="text-sm text-muted-foreground/80 mt-1">页面描述</p>
   </div>
   <div className="flex items-center gap-2">
     {/* 操作按钮 */}
@@ -246,14 +254,22 @@ animate-spin (加载图标)
 
 ### 弹框优先原则
 
-| 操作 | 交互方式 | shadcn 组件 |
-|------|---------|------------|
-| 新建/编辑 | 抽屉 (从右侧滑出) | `Sheet` |
-| 查看详情 | Slide-over 面板 | 自定义 `SlidePanel` |
-| 确认/删除 | 弹框 | `AlertDialog` |
-| 筛选 | 弹出面板 | `Popover` |
-| 行操作 | 下拉菜单 | `DropdownMenu` |
-| 设置/配置 | 抽屉 | `Sheet` |
+**首选 Dialog**，仅当内容明显过多（需要大量滚动）时才升级到 Drawer（Sheet）。
+
+| 操作 | 交互方式 | shadcn 组件 | 升级条件 |
+|------|---------|------------|---------|
+| 新建/编辑（≤ 6 个字段） | **居中弹框** | `Dialog` | — |
+| 新建/编辑（> 6 个字段或含富文本） | 抽屉（右侧滑出） | `Sheet` | 内容确实过多 |
+| 查看详情 | 居中弹框 | `Dialog` | > 1000 字时用 `Sheet` |
+| 确认/删除 | 弹框 | `AlertDialog` | — |
+| 筛选 | 弹出面板 | `Popover` | — |
+| 行操作 | 下拉菜单 | `DropdownMenu` | — |
+| 设置/配置 | 抽屉 | `Sheet` | — |
+
+**Dialog 动效标准**（Linear 风格）：
+- Overlay：`bg-black/50`（非纯黑）
+- Content：`duration-150`，`zoom-in-95` 进入，`zoom-out-95` 退出，从 `top-[52%]` 进出
+- 背景：`bg-card border border-border/60 shadow-xl`（与背景有可见区分）
 
 ### 状态反馈
 
@@ -362,10 +378,11 @@ animate-spin (加载图标)
 3. **shadcn/ui 优先**: 有现成组件直接用，避免从零实现
 4. **间距一致**: 同层级元素间距保持一致，使用 gap 而非 margin
 5. **无固定宽高**: 组件尺寸由内容和容器决定，使用 min/max 约束
-6. **弹框优先**: 创建/编辑/详情操作不跳转页面
+6. **弹框优先**: ≤ 6 个字段的新建/编辑优先用 `Dialog`，内容过多再考虑 `Sheet`
 7. **品牌遵循**: 如有外部品牌设计文档，颜色/字体/图标以该文档为准
 8. **颜色变量**: 颜色必须使用 CSS 变量（不硬编码 hsl 值），确保主题切换生效
-9. **卡片可见性**: `--card` 在暗色模式下必须与 `--background` 有可见区别（推荐 `--card` 比 `--background` 亮度至少 +3%）
+9. **卡片可见性**: `--card` 在暗色模式下必须与 `--background` 有可见区别（推荐 `--card` 比 `--background` 亮度至少 +2%）
+10. **字号 Token**: 必须使用 `text-2xs / text-xs / text-sm / text-base` 等已注册的 token 类名，**严禁** `text-[Npx]` 任意值
 
 ## 标准组件实现
 

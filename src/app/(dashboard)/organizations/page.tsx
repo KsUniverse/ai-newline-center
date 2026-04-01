@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import type { OrganizationDTO } from "@/types/organization";
 import { mockOrganizations } from "@/components/features/organizations/__mocks__/organizations";
 import { OrganizationList } from "@/components/features/organizations/organization-list";
-import { OrganizationDrawer } from "@/components/features/organizations/organization-drawer";
+import { OrganizationDialog } from "@/components/features/organizations/organization-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
 
@@ -112,11 +112,11 @@ export default function OrganizationsPage() {
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
           <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">组织管理</h1>
-          <p className="text-[13px] text-muted-foreground/80">
+          <p className="text-sm text-muted-foreground/80">
             管理集团旗下分公司
           </p>
         </div>
-        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-[13px] px-3 shadow-sm">
+        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建分公司
         </Button>
@@ -131,8 +131,8 @@ export default function OrganizationsPage() {
         />
       </div>
 
-      {/* Drawer */}
-      <OrganizationDrawer
+      {/* Dialog */}
+      <OrganizationDialog
         mode={drawerMode}
         defaultValues={selectedOrg ? { name: selectedOrg.name } : undefined}
         open={drawerOpen}

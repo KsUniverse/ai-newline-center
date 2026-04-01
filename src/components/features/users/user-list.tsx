@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table";
 
 const ROLE_LABELS: Record<UserDTO["role"], string> = {
-  SUPER_ADMIN: "超级管理员",
+  SUPER_ADMIN: "超级管理�?,
   BRANCH_MANAGER: "分公司负责人",
   EMPLOYEE: "员工",
 };
@@ -67,7 +67,7 @@ export function UserList({
   if (loading) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        加载中...
+        加载�?..
       </div>
     );
   }
@@ -76,18 +76,18 @@ export function UserList({
     <div className="flex flex-col gap-0 rounded-lg border border-border/60 bg-background shadow-xs overflow-hidden">
       {showOrgFilter && organizations && (
         <div className="flex items-center gap-3 border-b border-border/60 px-5 py-3 bg-muted/10">
-          <span className="text-[13px] text-muted-foreground/80">按分公司筛选：</span>
+          <span className="text-sm text-muted-foreground/80">按分公司筛选：</span>
           <Select
             value={selectedOrgId ?? "all"}
             onValueChange={(v) => onOrgFilterChange?.(v === "all" ? "" : v)}
           >
-            <SelectTrigger className="h-8 w-56 text-[13px] border-border/60 shadow-xs">
+            <SelectTrigger className="h-8 w-56 text-sm border-border/60 shadow-xs">
               <SelectValue placeholder="全部" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-[13px]">全部</SelectItem>
+              <SelectItem value="all" className="text-sm">全部</SelectItem>
               {organizations.map((org) => (
-                <SelectItem key={org.id} value={org.id} className="text-[13px]">
+                <SelectItem key={org.id} value={org.id} className="text-sm">
                   {org.name}
                 </SelectItem>
               ))}
@@ -95,14 +95,14 @@ export function UserList({
           </Select>
         </div>
       )}
-      <Table className="text-[13px] border-b-0">
+      <Table className="text-sm border-b-0">
         <TableHeader className={cn(!showOrgFilter && "bg-muted/30")}>
           <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
             <TableHead className="font-semibold text-foreground/70 pl-5">姓名</TableHead>
             <TableHead className="font-semibold text-foreground/70">账号</TableHead>
             <TableHead className="w-36 font-semibold text-foreground/70">角色</TableHead>
             <TableHead className="w-40 font-semibold text-foreground/70">所属分公司</TableHead>
-            <TableHead className="w-24 font-semibold text-foreground/70">状态</TableHead>
+            <TableHead className="w-24 font-semibold text-foreground/70">状�?/TableHead>
             <TableHead className="w-36 font-semibold text-foreground/70">创建时间</TableHead>
             <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
           </TableRow>
@@ -118,9 +118,9 @@ export function UserList({
           {users.map((user) => (
             <TableRow key={user.id} className="border-border/60 hover:bg-muted/30 transition-colors group">
               <TableCell className="font-medium pl-5">{user.name}</TableCell>
-              <TableCell className="text-muted-foreground/80 font-mono text-[12px]">{user.account}</TableCell>
+              <TableCell className="text-muted-foreground/80 font-mono text-xs">{user.account}</TableCell>
               <TableCell>
-                <div className="inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">
+                <div className="inline-flex items-center rounded-sm px-2 py-0.5 text-2xs font-medium bg-muted text-muted-foreground">
                   {ROLE_LABELS[user.role]}
                 </div>
               </TableCell>
@@ -134,7 +134,7 @@ export function UserList({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-muted-foreground">已禁用</span>
+                    <span className="text-muted-foreground">已禁�?/span>
                   </div>
                 )}
               </TableCell>
@@ -148,13 +148,13 @@ export function UserList({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem onClick={() => onEdit(user)} className="text-[13px] py-1.5 cursor-pointer">
+                    <DropdownMenuItem onClick={() => onEdit(user)} className="text-sm py-1.5 cursor-pointer">
                       <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
                       编辑
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(user)}
-                      className={cn("text-[13px] py-1.5 cursor-pointer", user.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                      className={cn("text-sm py-1.5 cursor-pointer", user.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
                     >
                       {user.status === "ACTIVE" ? (
                         <>

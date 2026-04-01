@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 const NAV_ITEMS = [
   {
     icon: LayoutDashboard,
-    label: "仪表盘",
+    label: "仪表�?,
     href: "/dashboard",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
@@ -115,7 +115,7 @@ export function AppSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex h-8 items-center gap-3 rounded-md px-3 text-[13px] transition-colors",
+                  "flex h-8 items-center gap-3 rounded-md px-3 text-sm transition-colors",
                   isActive
                     ? "bg-accent/50 text-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
@@ -155,7 +155,7 @@ export function AppSidebar() {
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                退出登录
+                退出登�?
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

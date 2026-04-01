@@ -11,7 +11,7 @@ import type { UserDTO } from "@/types/user-management";
 import { mockUsers } from "@/components/features/users/__mocks__/users";
 import { mockOrganizations } from "@/components/features/organizations/__mocks__/organizations";
 import { UserList } from "@/components/features/users/user-list";
-import { UserDrawer, type CreateUserData, type UpdateUserData } from "@/components/features/users/user-drawer";
+import { UserDialog, type CreateUserData, type UpdateUserData } from "@/components/features/users/user-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
 
@@ -154,11 +154,11 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
           <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">用户管理</h1>
-          <p className="text-[13px] text-muted-foreground/80">
+          <p className="text-sm text-muted-foreground/80">
             {isSuperAdmin ? "管理所有用户账号" : "管理本公司用户账号"}
           </p>
         </div>
-        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-[13px] px-3 shadow-sm">
+        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建用户
         </Button>
@@ -177,8 +177,8 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Drawer */}
-      <UserDrawer
+      {/* Dialog */}
+      <UserDialog
         mode={drawerMode}
         defaultValues={selectedUser ?? undefined}
         open={drawerOpen}

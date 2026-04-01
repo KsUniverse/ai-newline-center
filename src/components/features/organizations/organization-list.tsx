@@ -45,19 +45,19 @@ export function OrganizationList({
   if (loading) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        加载中...
+        加载�?..
       </div>
     );
   }
 
   return (
     <div className="rounded-lg border border-border/60 bg-background shadow-xs overflow-hidden">
-      <Table className="text-[13px] border-b-0">
+      <Table className="text-sm border-b-0">
         <TableHeader className="bg-muted/30">
           <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
             <TableHead className="font-semibold text-foreground/70 pl-5">公司名称</TableHead>
-            <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
-            <TableHead className="w-28 font-semibold text-foreground/70">状态</TableHead>
+            <TableHead className="w-24 text-right font-semibold text-foreground/70">用户�?/TableHead>
+            <TableHead className="w-28 font-semibold text-foreground/70">状�?/TableHead>
             <TableHead className="w-40 font-semibold text-foreground/70">创建时间</TableHead>
             <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
           </TableRow>
@@ -66,7 +66,7 @@ export function OrganizationList({
           {organizations.length === 0 && (
             <TableRow className="border-b-0">
               <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                暂无分公司数据
+                暂无分公司数�?
               </TableCell>
             </TableRow>
           )}
@@ -85,7 +85,7 @@ export function OrganizationList({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-muted-foreground">已禁用</span>
+                    <span className="text-muted-foreground">已禁�?/span>
                   </div>
                 )}
               </TableCell>
@@ -99,13 +99,13 @@ export function OrganizationList({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem onClick={() => onEdit(org)} className="text-[13px] py-1.5 cursor-pointer">
+                    <DropdownMenuItem onClick={() => onEdit(org)} className="text-sm py-1.5 cursor-pointer">
                       <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
                       编辑
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(org)}
-                      className={cn("text-[13px] py-1.5 cursor-pointer", org.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                      className={cn("text-sm py-1.5 cursor-pointer", org.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
                     >
                       {org.status === "ACTIVE" ? (
                         <>
