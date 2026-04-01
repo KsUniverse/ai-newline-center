@@ -6,6 +6,7 @@ import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Users,
+  Building2,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -36,9 +37,15 @@ const NAV_ITEMS = [
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
   {
+    icon: Building2,
+    label: "组织管理",
+    href: "/organizations",
+    roles: ["SUPER_ADMIN"],
+  },
+  {
     icon: Users,
-    label: "管理后台",
-    href: "/dashboard/admin/users",
+    label: "用户管理",
+    href: "/users",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER"],
   },
 ] as const;
