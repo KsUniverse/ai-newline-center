@@ -23,33 +23,36 @@
 
 ### 暗色主题 (默认)
 
+> ⚠️ 下表为 **实际生效值**（已从原始 shadcn 默认值调整为 Linear 微蓝深灰黑色调）。修改 `globals.css` 时必须以此为准。
+
 | 用途 | CSS 变量 | 值 | 场景 |
 |------|----------|------|------|
-| 背景 | `--background` | `hsl(240 10% 3.9%)` | 页面背景 |
-| 前景 | `--foreground` | `hsl(0 0% 98%)` | 主要文字 |
-| 卡片 | `--card` | `hsl(240 10% 7%)` | 卡片背景（略亮于背景，确保可见） |
+| 背景 | `--background` | `hsl(240 7% 8%)` | 页面背景（非纯黑，带微蓝色调） |
+| 前景 | `--foreground` | `hsl(0 0% 95%)` | 主要文字（略低于纯白，减少刺眼感） |
+| 卡片 | `--card` | `hsl(240 7% 10%)` | 卡片/浮层背景（比背景亮 +2-3%） |
+| 弹出层 | `--popover` | `hsl(240 7% 10%)` | 下拉/弹出框背景（与 card 统一，非背景色） |
 | 主色 | `--primary` | `hsl(0 0% 98%)` | 主要按钮/链接 |
-| 次要 | `--secondary` | `hsl(240 3.7% 15.9%)` | 次要按钮 |
-| 柔和 | `--muted` | `hsl(240 3.7% 15.9%)` | 辅助文字/禁用 |
-| 强调 | `--accent` | `hsl(240 3.7% 15.9%)` | 悬停状态 |
-| 危险 | `--destructive` | `hsl(0 62.8% 30.6%)` | 删除/错误 |
-| 边框 | `--border` | `hsl(240 3.7% 15.9%)` | 分割线/边框 |
-| 侧边栏 | `--sidebar` | `hsl(240 10% 5.9%)` | 侧边栏背景 |
+| 次要 | `--secondary` | `hsl(240 5% 15%)` | 次要按钮 |
+| 柔和 | `--muted` | `hsl(240 5% 15%)` | 辅助背景/禁用区域 |
+| 强调 | `--accent` | `hsl(240 6% 18%)` | 悬停状态（比 muted 略亮，形成层次） |
+| 危险 | `--destructive` | `hsl(0 62.8% 40%)` | 删除/错误（比原版更亮，暗背景下可读） |
+| 边框 | `--border` | `hsl(240 6% 16%)` | 分割线/边框 |
+| 侧边栏 | `--sidebar` | `hsl(240 7% 8%)` | 与背景同色（Linear 风格：侧边栏不单独突出） |
 
 ### 亮色主题
 
 | 用途 | CSS 变量 | 值 |
 |------|----------|------|
-| 背景 | `--background` | `hsl(0 0% 100%)` |
-| 前景 | `--foreground` | `hsl(240 10% 3.9%)` |
+| 背景 | `--background` | `hsl(0 0% 99%)` |
+| 前景 | `--foreground` | `hsl(240 10% 10%)` |
 | 卡片 | `--card` | `hsl(0 0% 100%)` |
 | 主色 | `--primary` | `hsl(240 5.9% 10%)` |
 | 次要 | `--secondary` | `hsl(240 4.8% 95.9%)` |
-| 柔和 | `--muted` | `hsl(240 4.8% 95.9%)` |
-| 强调 | `--accent` | `hsl(240 4.8% 95.9%)` |
+| 柔和 | `--muted` | `hsl(240 5% 94%)` |
+| 强调 | `--accent` | `hsl(240 5% 92%)` |
 | 危险 | `--destructive` | `hsl(0 84.2% 60.2%)` |
-| 边框 | `--border` | `hsl(240 5.9% 90%)` |
-| 侧边栏 | `--sidebar` | `hsl(240 4.8% 95.9%)` |
+| 边框 | `--border` | `hsl(240 6% 90%)` |
+| 侧边栏 | `--sidebar` | `hsl(0 0% 98%)` |
 
 ### 功能色 (两套主题共用语义)
 
@@ -89,6 +92,8 @@
 | 页面边距 | 24-48px | `px-6` ~ `px-12` |
 
 ## 圆角
+
+> `--radius` 基准值为 `0.4rem`（已从 shadcn 默认 `0.5rem` 收紧，整体更精致）。
 
 | 用途 | Tailwind | 值 |
 |------|----------|----|
@@ -178,27 +183,65 @@ animate-spin (加载图标)
 
 在后续的 UI/UX 开发中，必须严格执行以下 **Linear 级极简美学** 的细化设定：
 
-1. **色彩与对比度极大克制**:
-   - 背景色拒绝纯黑，暗色模式底色使用带微蓝色的深灰黑（`hsl(240 7% 8%)` 及类似）。
-   - 图标不使用强烈的反差色，通常带有不透明度（如 `text-muted-foreground` 或 `opacity-70`），仅在悬停、激活或提示性反馈时恢复全对比。
-   - 边框应比原生 shadcn 更轻浅，常用带透明度的边框（如 `border-border/60`、`border-border/40`）来隔离内容。
+### 1. 色彩与对比度极大克制
 
-2. **紧凑排版与精致字体参数**:
-   - 数据密集型列表、侧边栏导航文字应缩小字号，高频使用 `text-[13px]` 替代标准文本，且配合紧凑行高（leading）。
-   - 主体内容和卡片内边缘（Padding）使用舒适的呼吸感，但单条数据（列表行）保持高度克制与紧凑（例如调整原有的高 padding 到极简尺寸）。
+- 背景色拒绝纯黑，暗色模式底色使用带微蓝色的深灰黑（`hsl(240 7% 8%)`）。
+- 图标不使用强烈的反差色，通常带有不透明度（如 `text-muted-foreground` 或 `opacity-70`），仅在悬停、激活或提示性反馈时恢复全对比。
+- 边框应比原生 shadcn 更轻浅，常用带透明度的边框隔离内容：
+  - 主要分割线：`border-border/60`
+  - 顶栏 / 次要分割：`border-border/40`
 
-3. **操作隐藏与上下文渐进式展示 (Hover Actions)**:
-   - 列表行或表格上的附加操作按钮（如“更多”按钮 `...`、快捷编辑等）**默认完全隐藏**。
-   - 必须通过容器级别的交互来触发显示：增加父级 `group`，子级动作按钮应用 `opacity-0 group-hover:opacity-100 transition-opacity`。保持非焦点时的绝对干净。
+### 2. 紧凑排版与精致字体参数
 
-4. **发光小圆点取代色块 Badge (Minimalist Indicators)**:
-   - 抛弃大面积纯色填充或亮色背景的组件级实心 Badge（如状态标签 `bg-green-100 text-green-800`）。
-   - 改由 **彩色小圆点 + 纯文本** 表示状态（例如用 `<div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />` 加上随后的 `text-muted-foreground` 文本）。
+- 数据密集型列表、侧边栏导航文字应缩小字号：
+  - 通用辅助文字 / 筛选标签 / 表头 / 下拉项：`text-[13px]`
+  - 技术类标识符（账号、ID）：`text-[12px] font-mono`
+  - 极小角标 / 标签内文字：`text-[11px]`
+- 时间 / 数字类单元格加强可读性：`tracking-tight tabular-nums`
+- 页面主标题：`text-xl font-semibold tracking-tight leading-none text-foreground/90`
+- 页面副标题：`text-[13px] text-muted-foreground/80 mt-1`
 
-5. **空间纵深感与磨砂玻璃 (Depth & Glassmorphism)**:
-   - 悬浮在滚动内容上方的全屏元素（顶栏 Header、固定面板）必须具备空间透出感。
-   - 配置半透明背景叠加毛玻璃滤镜：例 `bg-background/80 backdrop-blur-md`。
+### 3. 操作隐藏与上下文渐进式展示 (Hover Actions)
 
+- 列表行 / 表格上的附加操作按钮（如"更多"按钮 `...`）**默认完全隐藏**，绝对不能占用视觉权重。
+- 父级行元素加 `group`，操作按钮应用：
+  ```
+  opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100
+  ```
+- 操作按钮固定尺寸：`h-7 w-7`（比标准 `h-8 w-8` 更小）；下拉菜单宽度 `w-36`。
+- 菜单项规格：`text-[13px] py-1.5 cursor-pointer`；图标：`h-3.5 w-3.5 text-muted-foreground`。
+
+### 4. 发光小圆点取代色块 Badge (Minimalist Indicators)
+
+- 抛弃大面积背景填充的实心 Badge（如 `bg-green-100 text-green-800`）。
+- 用 **彩色小圆点 + `text-muted-foreground` 文本** 表示启用 / 禁用状态：
+  - 正常/启用：`h-1.5 w-1.5 rounded-full bg-emerald-500`
+  - 已禁用：`h-1.5 w-1.5 rounded-full bg-muted-foreground/40`
+- 角色 / 类型标签（非状态）使用**中性无色**方案，不做彩色区分：
+  ```
+  inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground
+  ```
+
+### 5. 空间纵深感与磨砂玻璃 (Depth & Glassmorphism)
+
+- 悬浮在滚动内容上方的固定元素（顶栏 Header）必须具备空间透出感。
+- 使用渐进增强写法（兼容不支持 backdrop-filter 的环境）：
+  ```
+  bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
+  ```
+- 禁止使用 `backdrop-blur-md` 单独写法，必须配合 `supports-[backdrop-filter]` 条件包裹。
+
+### 6. 统一页面容器与内容限宽
+
+- 每个 Dashboard 页面内容区必须限宽并居中：
+  ```
+  flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full
+  ```
+- 新建 / 主操作按钮统一规格（不使用默认 `size="sm"` 的高度）：
+  ```
+  h-8 rounded-md text-[13px] px-3 shadow-sm
+  ```
+  图标缩小为 `h-3.5 w-3.5`，间距 `mr-1.5`。
 ## 交互模式
 
 ### 弹框优先原则
@@ -249,7 +292,68 @@ animate-spin (加载图标)
 
 ### 数据表格
 
-使用 shadcn/ui `DataTable` 模式，配合列定义和分页。
+使用以下标准外壳结构，**不要用 `Card` 包裹**，直接自定义容器：
+
+```tsx
+{/* 外层容器 */}
+<div className="rounded-lg border border-border/60 bg-background shadow-xs overflow-hidden">
+  <Table className="text-[13px] border-b-0">
+    <TableHeader className="bg-muted/30">
+      {/* hover:bg-transparent 防止表头出现悬停高亮；*:h-10 统一行高 */}
+      <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
+        <TableHead className="font-semibold text-foreground/70 pl-5">名称</TableHead>
+        <TableHead className="font-semibold text-foreground/70">状态</TableHead>
+        <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {items.map((item) => (
+        <TableRow key={item.id} className="border-border/60 hover:bg-muted/30 transition-colors group">
+          {/* 第一列固定左内边距 */}
+          <TableCell className="font-medium pl-5">{item.name}</TableCell>
+          {/* 技术类 ID / 账号 — 等宽字体 */}
+          <TableCell className="text-muted-foreground/80 font-mono text-[12px]">{item.account}</TableCell>
+          {/* 状态指示：小圆点 + 文字 */}
+          <TableCell>
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="text-muted-foreground">正常</span>
+            </div>
+          </TableCell>
+          {/* 时间列：等宽数字 */}
+          <TableCell className="text-muted-foreground tracking-tight tabular-nums">
+            {formatDate(item.createdAt)}
+          </TableCell>
+          {/* 操作列：默认隐藏，hover 显示，最后一列右内边距 */}
+          <TableCell className="text-right pr-5">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100 -mr-1"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem className="text-[13px] py-1.5 cursor-pointer">
+                  <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                  编辑
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</div>
+```
+
+**关键规则**：
+- 最后一个空 `TableRow`（空状态行）设 `border-b-0` 防止底部多余边线
+- 筛选区域（位于表格顶部）：`bg-muted/10 border-b border-border/60 px-5 py-3`
 
 ## 规则
 
@@ -276,3 +380,23 @@ animate-spin (加载图标)
 ```
 
 **关键**: `Moon` 使用 `absolute` 定位，父 `Button` 必须有 `relative` 类，否则图标会脱离按钮范围。
+
+### AppHeader（顶部导航栏）
+
+```tsx
+<header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+  {title ? (
+    <h2 className="text-sm font-medium tracking-tight">{title}</h2>
+  ) : (
+    <div /> {/* 占位，保持 space-between 对齐 */}
+  )}
+  <div className="flex items-center gap-2">
+    {/* 主题切换等右侧操作，图标按钮规格 */}
+    <Button variant="ghost" size="icon" className="relative h-8 w-8 text-muted-foreground hover:text-foreground">
+      {/* ... */}
+    </Button>
+  </div>
+</header>
+```
+
+**关键**：`shrink-0` 防止 flex 布局下顶栏被压缩；`supports-[backdrop-filter]` 作为磨砂玻璃的渐进增强条件。
