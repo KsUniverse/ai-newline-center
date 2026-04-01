@@ -13,12 +13,16 @@ export function AppHeader({ title }: AppHeaderProps) {
   const { theme, setTheme } = useTheme();
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border px-6">
-      {title && <h2 className="text-sm font-semibold">{title}</h2>}
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {title ? (
+        <h2 className="text-sm font-medium tracking-tight">{title}</h2>
+      ) : (
+        <div /> /* For space-between layout */
+      )}
       <Button
         variant="ghost"
         size="icon"
-        className="relative"
+        className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         aria-label="切换主题"
       >
