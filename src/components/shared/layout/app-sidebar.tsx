@@ -72,19 +72,19 @@ export function AppSidebar() {
         )}
       >
         {/* Logo */}
-        <div className="flex h-14 items-center border-b border-border px-3">
+        <div className="flex h-14 items-center px-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-foreground text-background text-[10px] font-bold shadow-sm">
               A
             </div>
             {!collapsed && (
-              <span className="truncate text-sm font-semibold">AI Newline</span>
+              <span className="truncate text-sm font-medium tracking-tight">AI Newline</span>
             )}
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 p-2">
+        <nav className="flex-1 space-y-0.5 p-2 px-3">
           {visibleNavItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
@@ -115,13 +115,13 @@ export function AppSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                  "flex h-8 items-center gap-3 rounded-md px-3 text-[13px] transition-colors",
                   isActive
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    ? "bg-accent/50 text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className="h-4 w-4 shrink-0 opacity-70" />
                 <span className="truncate">{item.label}</span>
               </Link>
             );
@@ -129,7 +129,7 @@ export function AppSidebar() {
         </nav>
 
         {/* Bottom: User + Toggle */}
-        <div className="border-t border-border p-2 space-y-1">
+        <div className="border-t border-border p-3 space-y-1.5">
           {/* User avatar */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
