@@ -54,9 +54,12 @@
 
 - [ ] 使用 shadcn/ui 组件，无自制基础组件
 - [ ] 颜色使用 CSS 变量（不硬编码色值）
+- [ ] `--card` 背景与 `--background` 有可见区别（暗色模式下卡片不能隐形）
+- [ ] ThemeToggle 类 Sun/Moon 绝对定位图标的父容器有 `relative` class
 - [ ] 间距符合 4px 倍数体系
 - [ ] 字号层级正确 (参照 ui-ux-system.md)
 - [ ] 响应式布局正常
+- [ ] 路由注册验证：`router.push()` 的目标路径在路由表中存在（可通过 `pnpm build` 后检查 routes-manifest.json）
 
 ## 评审报告格式
 

@@ -27,7 +27,7 @@
 |------|----------|------|------|
 | 背景 | `--background` | `hsl(240 10% 3.9%)` | 页面背景 |
 | 前景 | `--foreground` | `hsl(0 0% 98%)` | 主要文字 |
-| 卡片 | `--card` | `hsl(240 10% 3.9%)` | 卡片背景 |
+| 卡片 | `--card` | `hsl(240 10% 7%)` | 卡片背景（略亮于背景，确保可见） |
 | 主色 | `--primary` | `hsl(0 0% 98%)` | 主要按钮/链接 |
 | 次要 | `--secondary` | `hsl(240 3.7% 15.9%)` | 次要按钮 |
 | 柔和 | `--muted` | `hsl(240 3.7% 15.9%)` | 辅助文字/禁用 |
@@ -236,3 +236,18 @@ animate-spin (加载图标)
 6. **弹框优先**: 创建/编辑/详情操作不跳转页面
 7. **品牌遵循**: 如有外部品牌设计文档，颜色/字体/图标以该文档为准
 8. **颜色变量**: 颜色必须使用 CSS 变量（不硬编码 hsl 值），确保主题切换生效
+9. **卡片可见性**: `--card` 在暗色模式下必须与 `--background` 有可见区别（推荐 `--card` 比 `--background` 亮度至少 +3%）
+
+## 标准组件实现
+
+### ThemeToggle（主题切换按钮）
+
+```tsx
+// 必须有 relative 容器，Sun/Moon 通过 dark: 类切换
+<Button variant="ghost" size="icon" className="relative" onClick={...}>
+  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+</Button>
+```
+
+**关键**: `Moon` 使用 `absolute` 定位，父 `Button` 必须有 `relative` 类，否则图标会脱离按钮范围。
