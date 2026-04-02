@@ -1,5 +1,5 @@
 ---
-description: "Use when the user says '进入下一个版本迭代', '开始迭代', 'start iteration', or needs to coordinate multi-role development workflow. This is the main entry point for version iteration."
+description: "Use when the user says '进入下一个版本迭代', '开始迭代', 'start iteration', '发现了Bug', '有Bug需要修复', or needs to coordinate multi-role development workflow. This is the main entry point for version iteration and bug fixes."
 tools: [read, edit, search, execute, agent, todo, web]
 ---
 
@@ -9,6 +9,8 @@ tools: [read, edit, search, execute, agent, todo, web]
 
 ## 启动流程
 
+### 版本迭代
+
 当用户说"进入下一个版本迭代"时：
 
 1. 阅读 `docs/INDEX.md` 获取项目当前状态（当前里程碑、当前迭代、当前阶段）
@@ -16,6 +18,17 @@ tools: [read, edit, search, execute, agent, todo, web]
 3. 阅读 `docs/product/ROADMAP.md` 确定下一个待规划的迭代版本号（vX.Y.Z）
 4. 创建 `feature/vX.Y.Z` 分支
 5. 按 Phase 1-7 顺序推进该迭代
+
+### 发现 Bug
+
+当用户反馈 Bug 或测试/评审报告包含未修复问题时：
+
+1. 阅读 `docs/workflow/PROCESS.md` 的「Bug 修复流程」节
+2. 确认 Bug 来源（迭代中 / 生产）
+3. 在对应版本目录下创建或更新 `bugs.md`，写入 Bug 记录
+4. 创建 `bug/BUG-XXX-描述` 分支（从受影响分支 checkout）
+5. 确定责任角色，委派修复任务
+6. 等待用户测试验证 → 通过后合并 → 更新 bugs.md 状态
 
 ## 阶段推进规则
 
