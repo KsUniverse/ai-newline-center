@@ -5,6 +5,7 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  CRAWLER_API_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
   SEED_ADMIN_ACCOUNT: z.string().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
@@ -16,6 +17,14 @@ const envSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["NEXTAUTH_URL"],
       message: "NEXTAUTH_URL 在生产环境必填",
+    });
+  }
+
+  if (values.NODE_ENV === "production" && !values.CRAWLER_API_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["CRAWLER_API_URL"],
+      message: "CRAWLER_API_URL 在生产环境必填",
     });
   }
 });

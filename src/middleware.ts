@@ -8,6 +8,7 @@ export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const token = await getToken({
     req: request,
+    // NOTE: Edge Runtime 不支持 Node.js 模块，无法使用 env.ts，此处为已知例外
     secret: process.env.NEXTAUTH_SECRET,
   });
   const redirectPath = getAuthRedirectPath(pathname, Boolean(token));
@@ -20,5 +21,5 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/dashboard/:path*", "/organizations/:path*", "/users/:path*"],
+  matcher: ["/login", "/dashboard/:path*", "/organizations/:path*", "/users/:path*", "/accounts/:path*"],
 };

@@ -16,6 +16,7 @@ model Organization {
   parent    Organization?    @relation("OrgTree", fields: [parentId], references: [id])
   children  Organization[]   @relation("OrgTree")
   users     User[]
+  douyinAccounts DouyinAccount[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -31,6 +32,7 @@ model User {
   role           UserRole     @default(EMPLOYEE)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  douyinAccounts DouyinAccount[]
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -58,4 +60,53 @@ enum UserRole {
 enum UserStatus {
   ACTIVE
   DISABLED
+}
+
+enum DouyinAccountType {
+  MY_ACCOUNT
+  BENCHMARK_ACCOUNT
+}
+
+model DouyinAccount {
+  id             String            @id @default(cuid())
+  profileUrl     String            @unique
+  nickname       String
+  avatar         String
+  bio            String?
+  followersCount Int               @default(0)
+  videosCount    Int               @default(0)
+  type           DouyinAccountType @default(MY_ACCOUNT)
+  userId         String
+  user           User              @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  videos         DouyinVideo[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("douyin_accounts")
+}
+
+model DouyinVideo {
+  id           String        @id @default(cuid())
+  videoId      String        @unique
+  accountId    String
+  account      DouyinAccount @relation(fields: [accountId], references: [id])
+  title        String
+  coverUrl     String?
+  videoUrl     String?
+  publishedAt  DateTime?
+  playCount    Int           @default(0)
+  likeCount    Int           @default(0)
+  commentCount Int           @default(0)
+  shareCount   Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@index([accountId])
+  @@map("douyin_videos")
 }

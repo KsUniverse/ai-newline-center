@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Building2,
+  MonitorPlay,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -34,6 +35,12 @@ const NAV_ITEMS = [
     icon: LayoutDashboard,
     label: "仪表盘",
     href: "/dashboard",
+    roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
+  },
+  {
+    icon: MonitorPlay,
+    label: "我的账号",
+    href: "/accounts",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
   {
