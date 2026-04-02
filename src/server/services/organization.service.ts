@@ -1,15 +1,17 @@
+import type { Organization } from "@prisma/client";
 import { OrganizationStatus, OrganizationType, UserStatus } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import type { BranchWithUserCount, OrganizationWithUserCount } from "@/server/repositories/organization.repository";
 import { organizationRepository } from "@/server/repositories/organization.repository";
 
 class OrganizationService {
-  async listBranches() {
+  async listBranches(): Promise<BranchWithUserCount[]> {
     return organizationRepository.findAllBranches();
   }
 
-  async getBranchById(id: string) {
+  async getBranchById(id: string): Promise<OrganizationWithUserCount> {
     const organization = await organizationRepository.findById(id);
 
     if (!organization) {
@@ -23,7 +25,7 @@ class OrganizationService {
     return organization;
   }
 
-  async createBranch(name: string) {
+  async createBranch(name: string): Promise<Organization> {
     const duplicated = await organizationRepository.findByName(name);
     if (duplicated) {
       throw new AppError("CONFLICT", "分公司名称已存在", 409);
@@ -40,7 +42,7 @@ class OrganizationService {
     });
   }
 
-  async updateBranch(id: string, name: string) {
+  async updateBranch(id: string, name: string): Promise<Organization> {
     const organization = await this.getBranchById(id);
     const duplicated = await organizationRepository.findByName(name, organization.id);
 
@@ -51,7 +53,7 @@ class OrganizationService {
     return organizationRepository.update(id, { name });
   }
 
-  async setStatus(id: string, status: OrganizationStatus) {
+  async setStatus(id: string, status: OrganizationStatus): Promise<{ org: Organization; affectedUserCount: number }> {
     const organization = await this.getBranchById(id);
 
     if (status === OrganizationStatus.ACTIVE) {

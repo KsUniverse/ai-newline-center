@@ -4,7 +4,6 @@ import { MoreHorizontal, Pencil, Ban, RotateCcw } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -30,7 +29,7 @@ import {
 } from "@/components/ui/table";
 
 const ROLE_LABELS: Record<UserDTO["role"], string> = {
-  SUPER_ADMIN: "超级管理�?,
+  SUPER_ADMIN: "超级管理员",
   BRANCH_MANAGER: "分公司负责人",
   EMPLOYEE: "员工",
 };
@@ -44,6 +43,7 @@ interface UserListProps {
   onOrgFilterChange?: (orgId: string) => void;
   selectedOrgId?: string;
   loading?: boolean;
+  currentUserId?: string;
 }
 
 function formatDate(iso: string) {
@@ -63,11 +63,12 @@ export function UserList({
   onOrgFilterChange,
   selectedOrgId,
   loading,
+  currentUserId,
 }: UserListProps) {
   if (loading) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        加载�?..
+        加载中...
       </div>
     );
   }
@@ -102,7 +103,7 @@ export function UserList({
             <TableHead className="font-semibold text-foreground/70">账号</TableHead>
             <TableHead className="w-36 font-semibold text-foreground/70">角色</TableHead>
             <TableHead className="w-40 font-semibold text-foreground/70">所属分公司</TableHead>
-            <TableHead className="w-24 font-semibold text-foreground/70">状�?/TableHead>
+            <TableHead className="w-24 font-semibold text-foreground/70">状态</TableHead>
             <TableHead className="w-36 font-semibold text-foreground/70">创建时间</TableHead>
             <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
           </TableRow>
@@ -134,7 +135,7 @@ export function UserList({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-muted-foreground">已禁�?/span>
+                    <span className="text-muted-foreground">已禁用</span>
                   </div>
                 )}
               </TableCell>
@@ -154,7 +155,8 @@ export function UserList({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(user)}
-                      className={cn("text-sm py-1.5 cursor-pointer", user.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                      disabled={user.id === currentUserId}
+                      className={cn("text-sm py-1.5 cursor-pointer", user.status === "ACTIVE" && user.id !== currentUserId ? "text-destructive focus:text-destructive" : "")}
                     >
                       {user.status === "ACTIVE" ? (
                         <>

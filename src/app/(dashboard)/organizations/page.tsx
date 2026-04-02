@@ -7,22 +7,24 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import type { OrganizationDTO } from "@/types/organization";
-import { mockOrganizations } from "@/components/features/organizations/__mocks__/organizations";
 import { OrganizationList } from "@/components/features/organizations/organization-list";
 import { OrganizationDialog } from "@/components/features/organizations/organization-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { managementClient } from "@/lib/management-client";
 
 export default function OrganizationsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const currentUser = session?.user;
 
-  const [organizations, setOrganizations] = useState<OrganizationDTO[]>(mockOrganizations);
+  const [organizations, setOrganizations] = useState<OrganizationDTO[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [selectedOrg, setSelectedOrg] = useState<OrganizationDTO | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingStatusOrg, setPendingStatusOrg] = useState<OrganizationDTO | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Client-side permission guard
@@ -33,6 +35,26 @@ export default function OrganizationsPage() {
       router.replace("/dashboard");
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || currentUser?.role !== "SUPER_ADMIN") {
+      return;
+    }
+
+    async function loadOrganizations() {
+      try {
+        setLoading(true);
+        const result = await managementClient.listOrganizations();
+        setOrganizations(result);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "组织列表加载失败");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadOrganizations();
+  }, [currentUser?.role, status]);
 
   if (status === "loading" || (status === "authenticated" && session?.user?.role !== "SUPER_ADMIN")) {
     return null;
@@ -55,49 +77,61 @@ export default function OrganizationsPage() {
     setConfirmOpen(true);
   }
 
-  function handleDrawerSubmit(data: { name: string }) {
-    setSubmitting(true);
-    // Mock: simulate async
-    setTimeout(() => {
-      if (drawerMode === "create") {
-        const newOrg: OrganizationDTO = {
-          id: `org_branch_${Date.now()}`,
-          name: data.name,
-          type: "BRANCH",
-          status: "ACTIVE",
-          parentId: "seed_default_group",
-          createdAt: new Date().toISOString(),
-          _count: { users: 0 },
-        };
-        setOrganizations((prev) => [...prev, newOrg]);
-        toast.success("分公司创建成功");
-      } else if (selectedOrg) {
-        setOrganizations((prev) =>
-          prev.map((o) => (o.id === selectedOrg.id ? { ...o, name: data.name } : o)),
-        );
-        toast.success("分公司信息已更新");
-      }
-      setDrawerOpen(false);
-      setSubmitting(false);
-    }, 500);
+  async function refreshOrganizations() {
+    const result = await managementClient.listOrganizations();
+    setOrganizations(result);
   }
 
-  function handleConfirmStatus() {
+  async function handleDrawerSubmit(data: { name: string }) {
+    try {
+      setSubmitting(true);
+
+      if (drawerMode === "create") {
+        await managementClient.createOrganization({ name: data.name });
+        toast.success("分公司创建成功");
+      } else if (selectedOrg) {
+        await managementClient.updateOrganization(selectedOrg.id, { name: data.name });
+        toast.success("分公司信息已更新");
+      }
+
+      await refreshOrganizations();
+      setDrawerOpen(false);
+      setSelectedOrg(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "组织信息提交失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleConfirmStatus() {
     if (!pendingStatusOrg) return;
-    setSubmitting(true);
-    setTimeout(() => {
+
+    try {
+      setSubmitting(true);
+
       const nextStatus = pendingStatusOrg.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-      setOrganizations((prev) =>
-        prev.map((o) =>
-          o.id === pendingStatusOrg.id ? { ...o, status: nextStatus } : o,
-        ),
-      );
-      const label = nextStatus === "DISABLED" ? "已禁用" : "已启用";
-      toast.success(`「${pendingStatusOrg.name}」${label}`);
+      const result = await managementClient.setOrganizationStatus(pendingStatusOrg.id, {
+        status: nextStatus,
+      });
+
+      await refreshOrganizations();
+
+      if (nextStatus === "DISABLED") {
+        toast.success(
+          `「${pendingStatusOrg.name}」已禁用，${result.affectedUserCount} 个用户账号已同步禁用`,
+        );
+      } else {
+        toast.success(`「${pendingStatusOrg.name}」已启用`);
+      }
+
       setConfirmOpen(false);
       setPendingStatusOrg(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "组织状态更新失败");
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   }
 
   const userCount = pendingStatusOrg?._count?.users ?? 0;
@@ -128,6 +162,7 @@ export default function OrganizationsPage() {
           organizations={organizations}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
+          loading={loading}
         />
       </div>
 
