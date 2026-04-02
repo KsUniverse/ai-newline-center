@@ -9,6 +9,13 @@ describe("middleware auth routing", () => {
     expect(isDashboardRoute("/login")).toBe(false);
   });
 
+  it("identifies organizations and users routes as protected", () => {
+    expect(isDashboardRoute("/organizations")).toBe(true);
+    expect(isDashboardRoute("/organizations/123")).toBe(true);
+    expect(isDashboardRoute("/users")).toBe(true);
+    expect(isDashboardRoute("/users/abc")).toBe(true);
+  });
+
   it("redirects authenticated users away from login", () => {
     expect(getAuthRedirectPath("/login", true)).toBe("/dashboard");
   });
@@ -16,6 +23,8 @@ describe("middleware auth routing", () => {
   it("redirects unauthenticated users to login for dashboard routes", () => {
     expect(getAuthRedirectPath("/dashboard", false)).toBe("/login");
     expect(getAuthRedirectPath("/dashboard/users", false)).toBe("/login");
+    expect(getAuthRedirectPath("/organizations", false)).toBe("/login");
+    expect(getAuthRedirectPath("/users", false)).toBe("/login");
   });
 
   it("does not redirect safe routes", () => {

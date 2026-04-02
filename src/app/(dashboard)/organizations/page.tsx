@@ -7,22 +7,23 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import type { OrganizationDTO } from "@/types/organization";
-import { mockOrganizations } from "@/components/features/organizations/__mocks__/organizations";
 import { OrganizationList } from "@/components/features/organizations/organization-list";
 import { OrganizationDialog } from "@/components/features/organizations/organization-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { apiClient, ApiError } from "@/lib/api-client";
 
 export default function OrganizationsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [organizations, setOrganizations] = useState<OrganizationDTO[]>(mockOrganizations);
+  const [organizations, setOrganizations] = useState<OrganizationDTO[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [selectedOrg, setSelectedOrg] = useState<OrganizationDTO | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingStatusOrg, setPendingStatusOrg] = useState<OrganizationDTO | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Client-side permission guard
@@ -33,6 +34,43 @@ export default function OrganizationsPage() {
       router.replace("/dashboard");
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || session?.user?.role !== "SUPER_ADMIN") {
+      if (status !== "loading") {
+        setLoading(false);
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadOrganizations() {
+      try {
+        setLoading(true);
+        const result = await apiClient.get<OrganizationDTO[]>("/organizations");
+        if (!cancelled) {
+          setOrganizations(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof ApiError ? error.message : "加载组织数据失败，请稍后重试";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadOrganizations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session]);
 
   if (status === "loading" || (status === "authenticated" && session?.user?.role !== "SUPER_ADMIN")) {
     return null;
@@ -55,49 +93,54 @@ export default function OrganizationsPage() {
     setConfirmOpen(true);
   }
 
-  function handleDrawerSubmit(data: { name: string }) {
-    setSubmitting(true);
-    // Mock: simulate async
-    setTimeout(() => {
+  async function handleDrawerSubmit(data: { name: string }) {
+    try {
+      setSubmitting(true);
       if (drawerMode === "create") {
-        const newOrg: OrganizationDTO = {
-          id: `org_branch_${Date.now()}`,
-          name: data.name,
-          type: "BRANCH",
-          status: "ACTIVE",
-          parentId: "seed_default_group",
-          createdAt: new Date().toISOString(),
-          _count: { users: 0 },
-        };
+        const newOrg = await apiClient.post<OrganizationDTO>("/organizations", data);
         setOrganizations((prev) => [...prev, newOrg]);
         toast.success("分公司创建成功");
       } else if (selectedOrg) {
-        setOrganizations((prev) =>
-          prev.map((o) => (o.id === selectedOrg.id ? { ...o, name: data.name } : o)),
+        const updatedOrg = await apiClient.put<OrganizationDTO>(
+          `/organizations/${selectedOrg.id}`,
+          data,
         );
+        setOrganizations((prev) => prev.map((o) => (o.id === selectedOrg.id ? updatedOrg : o)));
         toast.success("分公司信息已更新");
       }
       setDrawerOpen(false);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "提交失败，请稍后重试";
+      toast.error(message);
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   }
 
-  function handleConfirmStatus() {
+  async function handleConfirmStatus() {
     if (!pendingStatusOrg) return;
-    setSubmitting(true);
-    setTimeout(() => {
+    try {
+      setSubmitting(true);
       const nextStatus = pendingStatusOrg.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
+      const result = await apiClient.patch<{
+        org: OrganizationDTO;
+        affectedUserCount: number;
+      }>(`/organizations/${pendingStatusOrg.id}/status`, {
+        status: nextStatus,
+      });
       setOrganizations((prev) =>
-        prev.map((o) =>
-          o.id === pendingStatusOrg.id ? { ...o, status: nextStatus } : o,
-        ),
+        prev.map((o) => (o.id === pendingStatusOrg.id ? result.org : o)),
       );
       const label = nextStatus === "DISABLED" ? "已禁用" : "已启用";
       toast.success(`「${pendingStatusOrg.name}」${label}`);
       setConfirmOpen(false);
       setPendingStatusOrg(null);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "状态更新失败，请稍后重试";
+      toast.error(message);
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   }
 
   const userCount = pendingStatusOrg?._count?.users ?? 0;
@@ -128,6 +171,7 @@ export default function OrganizationsPage() {
           organizations={organizations}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
+          loading={loading}
         />
       </div>
 

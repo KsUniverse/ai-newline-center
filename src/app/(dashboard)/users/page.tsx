@@ -8,24 +8,32 @@ import { toast } from "sonner";
 
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
-import { mockUsers } from "@/components/features/users/__mocks__/users";
-import { mockOrganizations } from "@/components/features/organizations/__mocks__/organizations";
 import { UserList } from "@/components/features/users/user-list";
 import { UserDialog, type CreateUserData, type UpdateUserData } from "@/components/features/users/user-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { apiClient, ApiError } from "@/lib/api-client";
+
+interface UsersResponse {
+  items: UserDTO[];
+  total: number;
+  page: number;
+  limit: number;
+}
 
 export default function UsersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const [users, setUsers] = useState<UserDTO[]>(mockUsers);
+  const [users, setUsers] = useState<UserDTO[]>([]);
+  const [organizations, setOrganizations] = useState<Pick<OrganizationDTO, "id" | "name">[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<UserDTO | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingStatusUser, setPendingStatusUser] = useState<UserDTO | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState("");
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const callerRole = session?.user?.role ?? "EMPLOYEE";
@@ -46,9 +54,9 @@ export default function UsersPage() {
   const drawerOrgs: Pick<OrganizationDTO, "id" | "name">[] = useMemo(
     () =>
       isSuperAdmin
-        ? mockOrganizations
-        : mockOrganizations.filter((o) => o.id === session?.user?.organizationId),
-    [isSuperAdmin, session?.user?.organizationId],
+        ? organizations
+        : organizations.filter((o) => o.id === session?.user?.organizationId),
+    [isSuperAdmin, organizations, session?.user?.organizationId],
   );
 
   const redirected = useRef(false);
@@ -63,6 +71,87 @@ export default function UsersPage() {
       router.replace("/dashboard");
     }
   }, [status, session, router]);
+
+  useEffect(() => {
+    if (
+      status !== "authenticated" ||
+      (session?.user?.role !== "SUPER_ADMIN" && session?.user?.role !== "BRANCH_MANAGER")
+    ) {
+      if (status !== "loading") {
+        setLoading(false);
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadUsers() {
+      try {
+        setLoading(true);
+        const query = new URLSearchParams({
+          page: "1",
+          limit: "20",
+          ...(isSuperAdmin && selectedOrgId ? { organizationId: selectedOrgId } : {}),
+        });
+        const result = await apiClient.get<UsersResponse>(`/users?${query.toString()}`);
+        if (!cancelled) {
+          setUsers(result.items);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof ApiError ? error.message : "加载用户数据失败，请稍后重试";
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadUsers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, selectedOrgId, session?.user?.role, status]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    let cancelled = false;
+
+    async function loadOrganizations() {
+      try {
+        if (isSuperAdmin) {
+          const result = await apiClient.get<OrganizationDTO[]>("/organizations");
+          if (!cancelled) {
+            setOrganizations(result.map((org) => ({ id: org.id, name: org.name })));
+          }
+        } else if (session?.user?.organizationId) {
+          const result = await apiClient.get<OrganizationDTO>(
+            `/organizations/${session.user.organizationId}`,
+          );
+          if (!cancelled) {
+            setOrganizations([{ id: result.id, name: result.name }]);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof ApiError ? error.message : "加载组织数据失败，请稍后重试";
+          toast.error(message);
+        }
+      }
+    }
+
+    void loadOrganizations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuperAdmin, session?.user?.organizationId, status]);
 
   if (
     status === "loading" ||
@@ -94,58 +183,46 @@ export default function UsersPage() {
     setConfirmOpen(true);
   }
 
-  function handleDrawerSubmit(data: CreateUserData | UpdateUserData) {
-    setSubmitting(true);
-    setTimeout(() => {
+  async function handleDrawerSubmit(data: CreateUserData | UpdateUserData) {
+    try {
+      setSubmitting(true);
       if (drawerMode === "create") {
-        const createData = data as CreateUserData;
-        const org =
-          mockOrganizations.find((o) => o.id === createData.organizationId) ??
-          { id: createData.organizationId, name: createData.organizationId };
-        const newUser: UserDTO = {
-          id: `user_${Date.now()}`,
-          account: createData.account,
-          name: createData.name,
-          role: createData.role,
-          status: "ACTIVE",
-          organizationId: createData.organizationId,
-          organization: { id: org.id, name: org.name },
-          createdAt: new Date().toISOString(),
-        };
-        setUsers((prev) => [...prev, newUser]);
+        const newUser = await apiClient.post<UserDTO>("/users", data);
+        setUsers((prev) => [newUser, ...prev]);
         toast.success("用户创建成功");
       } else if (selectedUser) {
-        const updateData = data as UpdateUserData;
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === selectedUser.id
-              ? { ...u, name: updateData.name, role: updateData.role }
-              : u,
-          ),
-        );
+        const updatedUser = await apiClient.put<UserDTO>(`/users/${selectedUser.id}`, data);
+        setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)));
         toast.success("用户信息已更新");
       }
       setDrawerOpen(false);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "提交失败，请稍后重试";
+      toast.error(message);
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   }
 
-  function handleConfirmStatus() {
+  async function handleConfirmStatus() {
     if (!pendingStatusUser) return;
-    setSubmitting(true);
-    setTimeout(() => {
+    try {
+      setSubmitting(true);
       const nextStatus = pendingStatusUser.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === pendingStatusUser.id ? { ...u, status: nextStatus } : u,
-        ),
-      );
+      const updatedUser = await apiClient.patch<UserDTO>(`/users/${pendingStatusUser.id}/status`, {
+        status: nextStatus,
+      });
+      setUsers((prev) => prev.map((u) => (u.id === pendingStatusUser.id ? updatedUser : u)));
       const label = nextStatus === "DISABLED" ? "已禁用" : "已启用";
       toast.success(`「${pendingStatusUser.name}」${label}`);
       setConfirmOpen(false);
       setPendingStatusUser(null);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "状态更新失败，请稍后重试";
+      toast.error(message);
+    } finally {
       setSubmitting(false);
-    }, 500);
+    }
   }
 
   return (
@@ -170,10 +247,11 @@ export default function UsersPage() {
           users={filteredUsers}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
-          organizations={isSuperAdmin ? mockOrganizations : undefined}
+          organizations={isSuperAdmin ? organizations : undefined}
           showOrgFilter={isSuperAdmin}
           selectedOrgId={selectedOrgId}
           onOrgFilterChange={setSelectedOrgId}
+          loading={loading}
         />
       </div>
 

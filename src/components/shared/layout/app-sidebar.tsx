@@ -155,7 +155,7 @@ export function AppSidebar() {
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                退出登�?
+                退出登录
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

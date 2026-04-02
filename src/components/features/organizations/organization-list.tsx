@@ -3,7 +3,6 @@
 import { MoreHorizontal, Pencil, Ban, RotateCcw } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -45,7 +44,7 @@ export function OrganizationList({
   if (loading) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        加载�?..
+        加载中...
       </div>
     );
   }
@@ -56,8 +55,8 @@ export function OrganizationList({
         <TableHeader className="bg-muted/30">
           <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
             <TableHead className="font-semibold text-foreground/70 pl-5">公司名称</TableHead>
-            <TableHead className="w-24 text-right font-semibold text-foreground/70">用户�?/TableHead>
-            <TableHead className="w-28 font-semibold text-foreground/70">状�?/TableHead>
+            <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
+            <TableHead className="w-28 font-semibold text-foreground/70">状态</TableHead>
             <TableHead className="w-40 font-semibold text-foreground/70">创建时间</TableHead>
             <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
           </TableRow>
@@ -66,7 +65,7 @@ export function OrganizationList({
           {organizations.length === 0 && (
             <TableRow className="border-b-0">
               <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                暂无分公司数�?
+                暂无分公司数据
               </TableCell>
             </TableRow>
           )}
@@ -85,7 +84,7 @@ export function OrganizationList({
                 ) : (
                   <div className="flex items-center gap-1.5">
                     <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-muted-foreground">已禁�?/span>
+                    <span className="text-muted-foreground">已禁用</span>
                   </div>
                 )}
               </TableCell>

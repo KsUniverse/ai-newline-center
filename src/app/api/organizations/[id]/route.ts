@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { requireRole } from "@/lib/auth-guard";
 import { handleApiError, successResponse } from "@/lib/api-response";
 import { organizationService } from "@/server/services/organization.service";
+import { AppError } from "@/lib/errors";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -18,9 +19,15 @@ interface RouteContext {
 export async function GET(_: Request, context: RouteContext) {
   try {
     const session = await auth();
-    requireRole(session, UserRole.SUPER_ADMIN);
+    requireRole(session, UserRole.SUPER_ADMIN, UserRole.BRANCH_MANAGER);
 
     const { id } = await context.params;
+
+    // BRANCH_MANAGER can only access their own organization
+    if (session.user.role === UserRole.BRANCH_MANAGER && session.user.organizationId !== id) {
+      throw new AppError("FORBIDDEN", "无操作权限", 403);
+    }
+
     const organization = await organizationService.getBranchById(id);
 
     return successResponse(organization);
