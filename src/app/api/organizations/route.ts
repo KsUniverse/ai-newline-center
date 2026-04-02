@@ -1,9 +1,10 @@
+import { UserRole } from "@prisma/client";
+import { z } from "zod";
+
 import { auth } from "@/lib/auth";
 import { requireRole } from "@/lib/auth-guard";
 import { handleApiError, successResponse } from "@/lib/api-response";
 import { organizationService } from "@/server/services/organization.service";
-import { UserRole } from "@prisma/client";
-import { z } from "zod";
 
 const createOrganizationSchema = z.object({
   name: z.string().min(1, "组织名称不能为空").max(100, "组织名称不能超过 100 个字符"),

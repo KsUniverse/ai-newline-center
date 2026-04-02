@@ -98,7 +98,7 @@ class UserService {
     return this.sanitizeUser(user);
   }
 
-  async createUser(caller: SessionUser, data: CreateUserData) {
+  async createUser(caller: SessionUser, data: CreateUserData): Promise<SafeUser> {
     if (caller.role === UserRole.BRANCH_MANAGER) {
       if (data.role !== UserRole.EMPLOYEE || data.organizationId !== caller.organizationId) {
         throw new AppError("FORBIDDEN", "无操作权限", 403);
@@ -128,7 +128,7 @@ class UserService {
     return this.sanitizeUser(userWithOrganization);
   }
 
-  async updateUser(caller: SessionUser, id: string, data: UpdateUserData) {
+  async updateUser(caller: SessionUser, id: string, data: UpdateUserData): Promise<SafeUser> {
     const user = await userRepository.findById(id);
 
     if (!user) {
@@ -153,7 +153,7 @@ class UserService {
     return this.sanitizeUser(updatedUser);
   }
 
-  async setUserStatus(caller: SessionUser, id: string, status: UserStatus) {
+  async setUserStatus(caller: SessionUser, id: string, status: UserStatus): Promise<SafeUser> {
     if (caller.id === id && status === UserStatus.DISABLED) {
       throw new AppError("FORBIDDEN", "不能禁用当前登录账号", 403);
     }

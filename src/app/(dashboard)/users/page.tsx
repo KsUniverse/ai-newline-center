@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Plus } from "lucide-react";
@@ -12,18 +12,12 @@ import { UserList } from "@/components/features/users/user-list";
 import { UserDialog, type CreateUserData, type UpdateUserData } from "@/components/features/users/user-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { apiClient, ApiError } from "@/lib/api-client";
-
-interface UsersResponse {
-  items: UserDTO[];
-  total: number;
-  page: number;
-  limit: number;
-}
+import { managementClient } from "@/lib/management-client";
 
 export default function UsersPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const currentUser = session?.user;
 
   const [users, setUsers] = useState<UserDTO[]>([]);
   const [organizations, setOrganizations] = useState<Pick<OrganizationDTO, "id" | "name">[]>([]);
@@ -36,28 +30,8 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const callerRole = session?.user?.role ?? "EMPLOYEE";
+  const callerRole = currentUser?.role ?? "EMPLOYEE";
   const isSuperAdmin = callerRole === "SUPER_ADMIN";
-
-  // Filter users by org for BRANCH_MANAGER; for SUPER_ADMIN apply the selectedOrgId filter
-  const filteredUsers = useMemo(() => {
-    if (!isSuperAdmin) {
-      return users.filter((u) => u.organizationId === session?.user?.organizationId);
-    }
-    if (selectedOrgId) {
-      return users.filter((u) => u.organizationId === selectedOrgId);
-    }
-    return users;
-  }, [users, isSuperAdmin, selectedOrgId, session?.user?.organizationId]);
-
-  // Available orgs for drawer (SUPER_ADMIN: all branches; BRANCH_MANAGER: own org only)
-  const drawerOrgs: Pick<OrganizationDTO, "id" | "name">[] = useMemo(
-    () =>
-      isSuperAdmin
-        ? organizations
-        : organizations.filter((o) => o.id === session?.user?.organizationId),
-    [isSuperAdmin, organizations, session?.user?.organizationId],
-  );
 
   const redirected = useRef(false);
   useEffect(() => {
@@ -72,86 +46,64 @@ export default function UsersPage() {
     }
   }, [status, session, router]);
 
+  async function refreshUsers(organizationId?: string) {
+    const result = await managementClient.listUsers({
+      page: 1,
+      limit: 20,
+      organizationId,
+    });
+
+    setUsers(result.items);
+  }
+
   useEffect(() => {
     if (
       status !== "authenticated" ||
-      (session?.user?.role !== "SUPER_ADMIN" && session?.user?.role !== "BRANCH_MANAGER")
+      (currentUser?.role !== "SUPER_ADMIN" && currentUser?.role !== "BRANCH_MANAGER")
     ) {
-      if (status !== "loading") {
-        setLoading(false);
-      }
       return;
     }
 
-    let cancelled = false;
-
-    async function loadUsers() {
+    async function loadInitialData() {
       try {
         setLoading(true);
-        const query = new URLSearchParams({
-          page: "1",
-          limit: "20",
-          ...(isSuperAdmin && selectedOrgId ? { organizationId: selectedOrgId } : {}),
-        });
-        const result = await apiClient.get<UsersResponse>(`/users?${query.toString()}`);
-        if (!cancelled) {
-          setUsers(result.items);
+
+        if (currentUser?.role === "SUPER_ADMIN") {
+          const [userResult, orgResult] = await Promise.all([
+            managementClient.listUsers({
+              page: 1,
+              limit: 20,
+              organizationId: selectedOrgId || undefined,
+            }),
+            managementClient.listOrganizations(),
+          ]);
+
+          setUsers(userResult.items);
+          setOrganizations(orgResult.map((org) => ({ id: org.id, name: org.name })));
+          return;
         }
+
+        const [userResult, self] = await Promise.all([
+          managementClient.listUsers({ page: 1, limit: 20 }),
+          managementClient.getUser(currentUser?.id ?? ""),
+        ]);
+
+        setUsers(userResult.items);
+        setOrganizations([
+          {
+            id: self.organization.id,
+            name: self.organization.name,
+          },
+        ]);
       } catch (error) {
-        if (!cancelled) {
-          const message =
-            error instanceof ApiError ? error.message : "加载用户数据失败，请稍后重试";
-          toast.error(message);
-        }
+        toast.error(error instanceof Error ? error.message : "用户列表加载失败");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    void loadUsers();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isSuperAdmin, selectedOrgId, session?.user?.role, status]);
-
-  useEffect(() => {
-    if (status !== "authenticated") return;
-
-    let cancelled = false;
-
-    async function loadOrganizations() {
-      try {
-        if (isSuperAdmin) {
-          const result = await apiClient.get<OrganizationDTO[]>("/organizations");
-          if (!cancelled) {
-            setOrganizations(result.map((org) => ({ id: org.id, name: org.name })));
-          }
-        } else if (session?.user?.organizationId) {
-          const result = await apiClient.get<OrganizationDTO>(
-            `/organizations/${session.user.organizationId}`,
-          );
-          if (!cancelled) {
-            setOrganizations([{ id: result.id, name: result.name }]);
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const message =
-            error instanceof ApiError ? error.message : "加载组织数据失败，请稍后重试";
-          toast.error(message);
-        }
-      }
-    }
-
-    void loadOrganizations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isSuperAdmin, session?.user?.organizationId, status]);
+    void loadInitialData();
+  }, [currentUser?.id, currentUser?.role, selectedOrgId, status]);
 
   if (
     status === "loading" ||
@@ -186,19 +138,20 @@ export default function UsersPage() {
   async function handleDrawerSubmit(data: CreateUserData | UpdateUserData) {
     try {
       setSubmitting(true);
+
       if (drawerMode === "create") {
-        const newUser = await apiClient.post<UserDTO>("/users", data);
-        setUsers((prev) => [newUser, ...prev]);
+        await managementClient.createUser(data as CreateUserData);
         toast.success("用户创建成功");
       } else if (selectedUser) {
-        const updatedUser = await apiClient.put<UserDTO>(`/users/${selectedUser.id}`, data);
-        setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)));
+        await managementClient.updateUser(selectedUser.id, data as UpdateUserData);
         toast.success("用户信息已更新");
       }
+
+      await refreshUsers(isSuperAdmin ? selectedOrgId || undefined : undefined);
       setDrawerOpen(false);
+      setSelectedUser(null);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "提交失败，请稍后重试";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "用户信息提交失败");
     } finally {
       setSubmitting(false);
     }
@@ -206,20 +159,21 @@ export default function UsersPage() {
 
   async function handleConfirmStatus() {
     if (!pendingStatusUser) return;
+
     try {
       setSubmitting(true);
       const nextStatus = pendingStatusUser.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-      const updatedUser = await apiClient.patch<UserDTO>(`/users/${pendingStatusUser.id}/status`, {
+
+      await managementClient.setUserStatus(pendingStatusUser.id, {
         status: nextStatus,
       });
-      setUsers((prev) => prev.map((u) => (u.id === pendingStatusUser.id ? updatedUser : u)));
-      const label = nextStatus === "DISABLED" ? "已禁用" : "已启用";
-      toast.success(`「${pendingStatusUser.name}」${label}`);
+
+      await refreshUsers(isSuperAdmin ? selectedOrgId || undefined : undefined);
+      toast.success(`「${pendingStatusUser.name}」${nextStatus === "DISABLED" ? "已禁用" : "已启用"}`);
       setConfirmOpen(false);
       setPendingStatusUser(null);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "状态更新失败，请稍后重试";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "用户状态更新失败");
     } finally {
       setSubmitting(false);
     }
@@ -244,7 +198,7 @@ export default function UsersPage() {
       {/* Table */}
       <div className="animate-in-up-d1 w-full">
         <UserList
-          users={filteredUsers}
+          users={users}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
           organizations={isSuperAdmin ? organizations : undefined}
@@ -252,6 +206,7 @@ export default function UsersPage() {
           selectedOrgId={selectedOrgId}
           onOrgFilterChange={setSelectedOrgId}
           loading={loading}
+          currentUserId={currentUser?.id}
         />
       </div>
 
@@ -263,7 +218,7 @@ export default function UsersPage() {
         onOpenChange={setDrawerOpen}
         onSubmit={handleDrawerSubmit}
         loading={submitting}
-        organizations={drawerOrgs}
+        organizations={organizations}
         callerRole={callerRole as "SUPER_ADMIN" | "BRANCH_MANAGER" | "EMPLOYEE"}
       />
 

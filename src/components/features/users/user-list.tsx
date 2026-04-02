@@ -43,6 +43,7 @@ interface UserListProps {
   onOrgFilterChange?: (orgId: string) => void;
   selectedOrgId?: string;
   loading?: boolean;
+  currentUserId?: string;
 }
 
 function formatDate(iso: string) {
@@ -62,6 +63,7 @@ export function UserList({
   onOrgFilterChange,
   selectedOrgId,
   loading,
+  currentUserId,
 }: UserListProps) {
   if (loading) {
     return (
@@ -153,7 +155,8 @@ export function UserList({
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onToggleStatus(user)}
-                      className={cn("text-sm py-1.5 cursor-pointer", user.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                      disabled={user.id === currentUserId}
+                      className={cn("text-sm py-1.5 cursor-pointer", user.status === "ACTIVE" && user.id !== currentUserId ? "text-destructive focus:text-destructive" : "")}
                     >
                       {user.status === "ACTIVE" ? (
                         <>

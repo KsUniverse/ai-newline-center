@@ -11,11 +11,12 @@ import { OrganizationList } from "@/components/features/organizations/organizati
 import { OrganizationDialog } from "@/components/features/organizations/organization-dialog";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { apiClient, ApiError } from "@/lib/api-client";
+import { managementClient } from "@/lib/management-client";
 
 export default function OrganizationsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const currentUser = session?.user;
 
   const [organizations, setOrganizations] = useState<OrganizationDTO[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -36,41 +37,24 @@ export default function OrganizationsPage() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (status !== "authenticated" || session?.user?.role !== "SUPER_ADMIN") {
-      if (status !== "loading") {
-        setLoading(false);
-      }
+    if (status !== "authenticated" || currentUser?.role !== "SUPER_ADMIN") {
       return;
     }
-
-    let cancelled = false;
 
     async function loadOrganizations() {
       try {
         setLoading(true);
-        const result = await apiClient.get<OrganizationDTO[]>("/organizations");
-        if (!cancelled) {
-          setOrganizations(result);
-        }
+        const result = await managementClient.listOrganizations();
+        setOrganizations(result);
       } catch (error) {
-        if (!cancelled) {
-          const message =
-            error instanceof ApiError ? error.message : "加载组织数据失败，请稍后重试";
-          toast.error(message);
-        }
+        toast.error(error instanceof Error ? error.message : "组织列表加载失败");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
     void loadOrganizations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [status, session]);
+  }, [currentUser?.role, status]);
 
   if (status === "loading" || (status === "authenticated" && session?.user?.role !== "SUPER_ADMIN")) {
     return null;
@@ -93,25 +77,28 @@ export default function OrganizationsPage() {
     setConfirmOpen(true);
   }
 
+  async function refreshOrganizations() {
+    const result = await managementClient.listOrganizations();
+    setOrganizations(result);
+  }
+
   async function handleDrawerSubmit(data: { name: string }) {
     try {
       setSubmitting(true);
+
       if (drawerMode === "create") {
-        const newOrg = await apiClient.post<OrganizationDTO>("/organizations", data);
-        setOrganizations((prev) => [...prev, newOrg]);
+        await managementClient.createOrganization({ name: data.name });
         toast.success("分公司创建成功");
       } else if (selectedOrg) {
-        const updatedOrg = await apiClient.put<OrganizationDTO>(
-          `/organizations/${selectedOrg.id}`,
-          data,
-        );
-        setOrganizations((prev) => prev.map((o) => (o.id === selectedOrg.id ? updatedOrg : o)));
+        await managementClient.updateOrganization(selectedOrg.id, { name: data.name });
         toast.success("分公司信息已更新");
       }
+
+      await refreshOrganizations();
       setDrawerOpen(false);
+      setSelectedOrg(null);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "提交失败，请稍后重试";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "组织信息提交失败");
     } finally {
       setSubmitting(false);
     }
@@ -119,25 +106,29 @@ export default function OrganizationsPage() {
 
   async function handleConfirmStatus() {
     if (!pendingStatusOrg) return;
+
     try {
       setSubmitting(true);
+
       const nextStatus = pendingStatusOrg.status === "ACTIVE" ? "DISABLED" : "ACTIVE";
-      const result = await apiClient.patch<{
-        org: OrganizationDTO;
-        affectedUserCount: number;
-      }>(`/organizations/${pendingStatusOrg.id}/status`, {
+      const result = await managementClient.setOrganizationStatus(pendingStatusOrg.id, {
         status: nextStatus,
       });
-      setOrganizations((prev) =>
-        prev.map((o) => (o.id === pendingStatusOrg.id ? result.org : o)),
-      );
-      const label = nextStatus === "DISABLED" ? "已禁用" : "已启用";
-      toast.success(`「${pendingStatusOrg.name}」${label}`);
+
+      await refreshOrganizations();
+
+      if (nextStatus === "DISABLED") {
+        toast.success(
+          `「${pendingStatusOrg.name}」已禁用，${result.affectedUserCount} 个用户账号已同步禁用`,
+        );
+      } else {
+        toast.success(`「${pendingStatusOrg.name}」已启用`);
+      }
+
       setConfirmOpen(false);
       setPendingStatusOrg(null);
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : "状态更新失败，请稍后重试";
-      toast.error(message);
+      toast.error(error instanceof Error ? error.message : "组织状态更新失败");
     } finally {
       setSubmitting(false);
     }
