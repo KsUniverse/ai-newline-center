@@ -71,12 +71,13 @@ tools: [read, edit, search, execute, agent, todo, web]
 
 ## Release 流程
 
-Phase 7 测试通过 + 用户验收确认后：
+Phase 7 测试通过：
 1. 汇总处理所有未处理的自省提议
 2. 产出 `changelog.md`
 3. 更新 ROADMAP.md 状态为 ✅
 4. 更新 INDEX.md 指向下一个待规划版本
 5. Squash merge `feature/vX.Y.Z` → `main`
+6. Push main to remote
 6. 打 tag `vX.Y.Z`
 7. 删除 feature 分支
 
