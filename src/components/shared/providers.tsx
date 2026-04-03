@@ -13,7 +13,7 @@ export function Providers({ children }: ProvidersProps) {
     <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      enableSystem
+      enableSystem={false}
       disableTransitionOnChange
     >
       <SessionProvider>{children}</SessionProvider>

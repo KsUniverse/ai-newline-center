@@ -6,6 +6,8 @@ export { AccountSyncSection } from "./account-sync-section";
 export { AccountEmptyState } from "./account-empty-state";
 export { AccountRow } from "./account-row";
 export { AccountRowCard } from "./account-row-card";
+export { AccountsPageView } from "./accounts-page";
+export { AccountDetailPageView } from "./account-detail-page";
 export { VideoList } from "./video-list";
 export { VideoDetailDialog } from "./video-detail-dialog";
 export { VideoGrid } from "./video-grid";
