@@ -519,3 +519,20 @@ export function startScheduler(): void {
 3. **调用 Service 批量方法**: cron 任务只调用 Service 层的批量方法（如 `runXxxBatchSync()`），不直接操作 Repository 或 Prisma
 4. **容错继续**: 批量方法内部逐条处理，单条失败记录日志后跳过，不中断整个批次
 5. **环境变量覆盖**: cron 表达式优先从 `env.*_CRON` 读取，提供默认值作为兜底
+
+### 防重入规范
+
+**防重入规范**：每个定时任务若执行时间可能超过触发间隔，必须在 `startScheduler()` 内为该任务声明独立的 `let xRunning = false` flag。任务开始前检查 flag，若为 true 则跳过本次执行；任务结束时（包括异常）在 `finally` 块中将 flag 重置为 false。
+
+```typescript
+let accountSyncRunning = false;
+cron.schedule(accountSyncCron, async () => {
+  if (accountSyncRunning) return;
+  accountSyncRunning = true;
+  try {
+    await syncService.runAccountInfoBatchSync();
+  } finally {
+    accountSyncRunning = false;
+  }
+});
+```
