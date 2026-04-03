@@ -161,6 +161,7 @@ class DouyinAccountRepository {
 - 业务语义方法仍保留，例如 `findManyBenchmarks()`、`findAllMyAccountsForCollection()`
 - Service 依赖“语义方法”，不直接拼装 Prisma where 条件
 - `include` 片段如 `user: { select: { id, name } }` 可抽成常量复用，避免多处漂移
+- 同领域归档筛选优先统一为 `archiveFilter` 语义，历史兼容路由也应委托同一套 Service / Repository 逻辑
 
 ## 统一响应格式
 
@@ -232,6 +233,7 @@ export class AppError extends Error {
 8. AI 调用统一走 AiGateway，禁止直接调用 AI SDK
 9. 爬虫调用统一走 CrawlerService，禁止直接 fetch 爬虫 API
 10. 当同一模型服务多个业务类型时，优先抽取 Repository 共享查询构建函数，避免复制近似查询
+11. 代理类或适配类接口（如图片代理、同步代理）也必须遵循三层职责，Route Handler 不直接调用外部资源
 
 ---
 
@@ -543,14 +545,24 @@ export function startScheduler(): void {
 
   // 账号基础信息同步（默认每 6 小时，可通过环境变量覆盖）
   const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "0 */6 * * *";
+  let accountSyncRunning = false;
   cron.schedule(accountSyncCron, () => {
-    void syncService.runAccountInfoBatchSync();
+    if (accountSyncRunning) return;
+    accountSyncRunning = true;
+    void syncService.runAccountInfoBatchSync().finally(() => {
+      accountSyncRunning = false;
+    });
   });
 
   // 视频增量同步（默认每 1 小时，可通过环境变量覆盖）
   const videoSyncCron = env.VIDEO_SYNC_CRON ?? "0 * * * *";
+  let videoSyncRunning = false;
   cron.schedule(videoSyncCron, () => {
-    void syncService.runVideoBatchSync();
+    if (videoSyncRunning) return;
+    videoSyncRunning = true;
+    void syncService.runVideoBatchSync().finally(() => {
+      videoSyncRunning = false;
+    });
   });
 }
 ```
@@ -565,7 +577,7 @@ export function startScheduler(): void {
 
 ### 防重入规范
 
-**防重入规范**：每个定时任务若执行时间可能超过触发间隔，必须在 `startScheduler()` 内为该任务声明独立的 `let xRunning = false` flag。任务开始前检查 flag，若为 true 则跳过本次执行；任务结束时（包括异常）在 `finally` 块中将 flag 重置为 false。
+**防重入规范**：每个定时任务若执行时间可能超过触发间隔，必须在 `startScheduler()` 内为该任务声明独立的 `let xRunning = false` flag。当前项目中的账号同步、视频同步、视频快照采集、收藏同步都应各自持有独立 flag。任务开始前检查 flag，若为 true 则跳过本次执行；任务结束时（包括异常）在 `finally` 块中将 flag 重置为 false。
 
 ```typescript
 let accountSyncRunning = false;

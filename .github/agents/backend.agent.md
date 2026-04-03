@@ -57,13 +57,14 @@ tools: [read, edit, search, execute]
 8. **环境变量**: 使用 `env.XXX`，禁止直接 `process.env`
 9. **抽象优先**: 出现第二处近似查询或映射逻辑时，优先提炼共享函数，不复制扩展
 10. **语义方法保留**: 抽共享逻辑后，上层继续调用业务语义方法，不直接拼 Prisma 条件替代 Repository
+11. **筛选语义统一**: 同领域归档/活跃/全部等近似语义，优先统一到主资源接口与共享参数（如 `archiveFilter`）
+12. **Route 继续瘦身**: 图片代理、同步代理、外部资源转发等逻辑优先下沉到 Service，Route Handler 只保留入口职责
 
 详细规范参见 `docs/architecture/backend.md` 和 `docs/architecture/api-conventions.md`。
 
 ## 约束
 
 - **不修改前端组件** (`src/components/**`) — 除 Phase 5 集成时替换 mock 和补充业务逻辑
-- **不修改架构/规范文档** (`docs/architecture/`, `docs/standards/`)
 - **不修改 Prompt 模板或 AI 配置逻辑** — 除非 tasks 中明确要求
 - **可修改**: `src/app/api/**`, `src/server/**`, `prisma/**`, `src/lib/**`, `src/types/**`
 - Phase 5 额外可修改: `src/app/**/page.tsx`, `src/components/features/**`（仅替换 mock 和补逻辑）
@@ -74,4 +75,4 @@ tools: [read, edit, search, execute]
 
 1. **回顾**: 实现中是否沉淀出可复用抽象？是否出现复制式实现苗头？API 契约在联调中是否发现偏差？
 2. **检查**: `docs/architecture/backend.md`、`docs/architecture/api-conventions.md`、`docs/standards/coding-standards.md`、`docs/architecture/project-structure.md` 是否需要补充？
-3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后由架构师执行
+3. **同步**: 若用户已明确要求更新文档，则直接同步修改相关文档；否则先提议需要修改的文档和内容摘要

@@ -50,9 +50,12 @@ ai-newline-center/
 │   │   │   ├── organizations/         # 组织管理
 │   │   │   ├── users/                 # 用户管理
 │   │   │   ├── accounts/              # 我的账号
+│   │   │   │   ├── accounts-page.tsx  # 账号列表页主视图
+│   │   │   │   └── account-detail-page.tsx # 账号详情页主视图
 │   │   │   ├── benchmarks/            # 对标账号
 │   │   └── shared/                    # 跨功能通用组件
 │   │       ├── layout/                # 布局 (AppLayout, Sidebar, Header)
+│   │       │   └── dashboard-page-shell.tsx # Dashboard 页面标题与容器壳
 │   │       └── common/                # 通用 (SlidePanel, EmptyState, Loading)
 │   ├── lib/                           # 工具库
 │   │   ├── api-client.ts              # API 请求封装
@@ -73,6 +76,7 @@ ai-newline-center/
 │   │   │   ├── benchmark-account.service.ts # 对标账号
 │   │   │   ├── crawler.service.ts     # 爬虫封装
 │   │   │   ├── douyin-account.service.ts # 我的账号
+│   │   │   ├── image-proxy.service.ts # 图片代理封装
 │   │   │   ├── organization.service.ts # 组织管理
 │   │   │   ├── storage.service.ts     # 文件存储
 │   │   │   ├── sync.service.ts        # 定时同步
@@ -136,4 +140,5 @@ ai-newline-center/
 
 - **同领域聚合**：同一业务域的 Route、Service、Repository、Types 命名尽量一致
 - **共享抽象优先**：同领域多视图若只差过滤条件或少量行为，应优先在 Repository / Service 内复用共享逻辑
+- **页面入口收敛**：`src/app/**/page.tsx` 仅做入口，页面级状态和行为下沉到 `src/components/features/**/[feature]-page.tsx`
 - **文档跟实现同步**：目录结构调整后，必须同步更新本文件，避免 Agent 或 Copilot 依据过期路径生成代码

@@ -17,3 +17,5 @@ applyTo: "src/app/api/**"
 6. **认证**: `const session = await auth()`
 7. **同领域接口一致性**: 分页、筛选参数和 DTO 语义优先复用统一命名，不随意引入近似参数名
 8. **只做入口层**: 不在 Route Handler 里拼业务条件或 Prisma 查询，复杂筛选语义交给 Service / Repository
+9. **归档筛选优先**: 同领域优先使用 `archiveFilter` 承载归档语义，避免复制 `/archived` 风格的近似实现
+10. **外部资源访问下沉**: Route Handler 不直接 `fetch` 外部资源，代理类接口也必须委托 Service

@@ -89,7 +89,7 @@
 
 同一业务域下的列表接口必须优先保持筛选语义一致，例如：
 - 统一使用 `page/limit/search/sort/order`
-- 归档语义优先使用 `archiveFilter` 或清晰拆分为 `/archived`
+- 归档语义优先使用 `archiveFilter`；如因历史原因保留 `/archived`，也必须委托同一套 Service / Repository 语义
 - 类型筛选统一使用 `type`
 - 状态筛选统一使用 `status`
 

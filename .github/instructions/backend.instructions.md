@@ -20,6 +20,8 @@ applyTo: ["src/app/api/**", "src/server/**"]
 9. **抽象优先**: 出现第二处近似查询 / 映射逻辑时，优先提炼共享 `where/include/helper/mapper`
 10. **避免复制式实现**: 若只是 `type`、权限、归档、文案差异，禁止复制一整套近似 Service / Repository
 11. **语义方法优先**: 上层调用业务语义方法，不直接拼底层 Prisma 条件替代 Repository
+12. **归档语义统一**: 同领域归档筛选优先统一使用 `archiveFilter`
+13. **代理接口也走 Service**: 图片代理、同步代理等接口同样遵守 Route → Service → Repository/Adapter 边界
 
 ## 禁止操作
 
