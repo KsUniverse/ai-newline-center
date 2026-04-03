@@ -64,6 +64,7 @@ import type { User } from "@/types/user";
 - **单一功能**: 一个函数做一件事
 - **参数数量**: 超过 3 个参数使用 options 对象
 - **早返回**: 优先使用 guard clause 减少嵌套
+- **抽象优先**: 出现第二处同构逻辑时，优先提炼共享 helper / mapper / query builder，禁止复制后轻微改名继续扩展
 
 ```typescript
 // ✅ Good
@@ -91,11 +92,24 @@ async function getUser(id: string) {
 - **不吞错误**: catch 必须处理或重新抛出
 - **不用 try-catch 包裹所有代码**: 只在需要特殊处理的地方 catch
 
+## 复用与抽象规范
+
+- **统一风格优先**: 版本文档与既有实现风格冲突时，优先向全局统一模式收敛，再同步回写文档
+- **Repository 复用**: 同一 Prisma Model 服务多个业务类型时，优先抽取共享 `where/include/select/orderBy` 构建函数
+- **Service 复用**: 共用的外部数据映射、DTO 映射、权限判定，优先抽成私有方法或共享函数
+- **禁止复制式扩展**: 不允许为同一领域的近似分支各写一整套几乎相同的查询和处理逻辑
+- **语义方法保留**: 抽取共享逻辑后，仍要保留清晰的业务语义方法名，例如 `findManyBenchmarks()`
+
 ## 注释规范
 
 - **不加无意义注释**: 代码自解释
 - **关键决策加注释**: 解释 "为什么" 而非 "做什么"
 - **TODO 格式**: `// TODO: [TAG] 描述` (TAG: INTEGRATE / OPTIMIZE / FIXME)
+
+## 文档同步规范
+
+- 当实现中沉淀出稳定通用模式时，必须评估是否需要同步到 `docs/architecture/*` 或 `docs/standards/*`
+- 当目录、命名、分层模式发生稳定变化后，需同步更新对应文档，避免 Agent 或 Copilot 继续依据旧文档生成代码
 
 ## Git 规范
 

@@ -16,6 +16,10 @@ applyTo: ["src/app/**/page.tsx", "src/app/**/layout.tsx", "src/components/**", "
 5. **shadcn/ui**: 有现成组件优先使用，不自造
 6. **API 调用**: 统一通过 `@/lib/api-client.ts`，禁止直接 fetch
 7. **[INTEGRATE] 标注**: 复杂业务逻辑标注 `// TODO: [INTEGRATE]`
+8. **统一风格优先**: 同领域页面优先复用既有列表页、详情页、空状态、分页和添加流程的视觉与交互模式
+9. **避免复制式实现**: 若差异只在文案、接口、Badge、权限展示，优先抽共享组件或 props 配置，不直接复制整页/整组件
+10. **页面入口收敛**: `src/app/**/page.tsx` 只做入口，页面级状态和交互下沉到 `src/components/features/**/[feature]-page.tsx`
+11. **页面壳复用**: Dashboard 页面优先复用 `src/components/shared/layout/dashboard-page-shell.tsx`
 
 ## 美学约束 (DISTILLED_AESTHETICS)
 

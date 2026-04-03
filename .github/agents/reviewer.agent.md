@@ -44,6 +44,8 @@ tools: [read, search, execute, edit]
 - 组件层级正确（ui → shared → features）
 - 文件位置符合 `project-structure.md`
 - 数据隔离（organizationId 过滤）
+- 同领域近似逻辑没有复制扩散，优先复用共享查询构建、映射或组件骨架
+- 共享抽象与业务语义边界清晰，上层没有直接拼底层条件绕开语义方法
 
 ### 4. 编码规范 (Medium / Low)
 
@@ -93,6 +95,6 @@ tools: [read, search, execute, edit]
 
 评审报告完成后，执行自省三步：
 
-1. **回顾**: 本次评审是否发现了 `review-checklist.md` 未覆盖的问题类型？架构文档是否有歧义导致开发者理解偏差？
-2. **检查**: `docs/standards/review-checklist.md` 是否需要新增检查项？`docs/standards/coding-standards.md` 是否需要澄清？
+1. **回顾**: 本次评审是否发现了复制式实现、风格漂移、文档落后于实现等问题？`review-checklist.md` 是否未覆盖？
+2. **检查**: `docs/standards/review-checklist.md`、`docs/standards/coding-standards.md`、`docs/architecture/project-structure.md` 是否需要澄清或补充？
 3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后由架构师或编排者执行

@@ -7,6 +7,8 @@ export function cn(...inputs: ClassValue[]): string {
 
 export function proxyImageUrl(originalUrl: string): string {
   if (!originalUrl) return "";
+  if (originalUrl.startsWith("/")) return originalUrl;
+  if (originalUrl.startsWith("storage/")) return `/${originalUrl}`;
   return `/api/proxy/image?url=${encodeURIComponent(originalUrl)}`;
 }
 

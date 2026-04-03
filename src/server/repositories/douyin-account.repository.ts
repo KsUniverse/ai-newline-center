@@ -1,37 +1,136 @@
-import type {
-  DouyinAccount,
-  Prisma,
-  PrismaClient,
+import {
+  DouyinAccountType,
+  type DouyinAccount,
+  type Prisma,
+  type PrismaClient,
 } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
+type ArchiveFilter = "active" | "archived" | "all";
+
+const userInclude = {
+  user: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} satisfies Prisma.DouyinAccountInclude;
 
 export type DouyinAccountWithUser = Prisma.DouyinAccountGetPayload<{
-  include: {
-    user: {
-      select: {
-        id: true;
-        name: true;
-      };
-    };
-  };
+  include: typeof userInclude;
 }>;
 
+export type DouyinBenchmarkWithUser = DouyinAccountWithUser;
+
 export interface FindManyDouyinAccountsParams {
+  type?: DouyinAccountType;
   userId?: string;
   organizationId?: string;
   page: number;
   limit: number;
+  archiveFilter?: ArchiveFilter;
 }
 
+export interface FindManyBenchmarksParams {
+  organizationId?: string;
+  page: number;
+  limit: number;
+  archiveFilter?: ArchiveFilter;
+}
+
+interface BuildAccountWhereParams {
+  id?: string;
+  profileUrl?: string;
+  secUserId?: string;
+  type?: DouyinAccountType;
+  userId?: string;
+  organizationId?: string;
+  requireSecUserId?: boolean;
+  archiveFilter?: ArchiveFilter;
+}
+
+interface CreateDouyinAccountRecord {
+  profileUrl: string;
+  secUserId: string;
+  nickname: string;
+  avatar: string;
+  bio?: string | null;
+  signature?: string | null;
+  followersCount: number;
+  followingCount: number;
+  likesCount: number;
+  videosCount: number;
+  douyinNumber?: string | null;
+  ipLocation?: string | null;
+  age?: number | null;
+  province?: string | null;
+  city?: string | null;
+  verificationLabel?: string | null;
+  verificationIconUrl?: string | null;
+  verificationType?: number | null;
+  userId: string;
+  organizationId: string;
+  type: DouyinAccountType;
+}
+
+type CreateBenchmarkRecord = Omit<CreateDouyinAccountRecord, "type">;
+
 class DouyinAccountRepository {
+  private buildWhere(params: BuildAccountWhereParams): Prisma.DouyinAccountWhereInput {
+    const {
+      id,
+      profileUrl,
+      secUserId,
+      type,
+      userId,
+      organizationId,
+      requireSecUserId,
+      archiveFilter = "active",
+    } = params;
+
+    return {
+      ...(id ? { id } : {}),
+      ...(profileUrl ? { profileUrl } : {}),
+      ...(secUserId ? { secUserId } : {}),
+      ...(type ? { type } : {}),
+      ...(userId ? { userId } : {}),
+      ...(organizationId ? { organizationId } : {}),
+      ...(requireSecUserId ? { secUserId: { not: null } } : {}),
+      ...this.buildArchiveWhere(archiveFilter),
+    };
+  }
+
+  private buildArchiveWhere(archiveFilter: ArchiveFilter): Prisma.DouyinAccountWhereInput {
+    switch (archiveFilter) {
+      case "archived":
+        return { deletedAt: { not: null } };
+      case "all":
+        return {};
+      case "active":
+      default:
+        return { deletedAt: null };
+    }
+  }
+
   async findAll(db: DatabaseClient = prisma): Promise<DouyinAccount[]> {
     return db.douyinAccount.findMany({
-      where: {
-        deletedAt: null,
+      where: this.buildWhere({ archiveFilter: "active" }),
+      orderBy: {
+        createdAt: "asc",
       },
+    });
+  }
+
+  async findAllMyAccountsForCollection(db: DatabaseClient = prisma): Promise<DouyinAccount[]> {
+    return db.douyinAccount.findMany({
+      where: this.buildWhere({
+        type: DouyinAccountType.MY_ACCOUNT,
+        requireSecUserId: true,
+        archiveFilter: "active",
+      }),
       orderBy: {
         createdAt: "asc",
       },
@@ -40,13 +139,26 @@ class DouyinAccountRepository {
 
   async findByProfileUrl(
     profileUrl: string,
+    includingDeleted = false,
     db: DatabaseClient = prisma,
   ): Promise<DouyinAccount | null> {
     return db.douyinAccount.findFirst({
-      where: {
+      where: this.buildWhere({
         profileUrl,
-        deletedAt: null,
-      },
+        archiveFilter: includingDeleted ? "all" : "active",
+      }),
+    });
+  }
+
+  async findBySecUserIdIncludingDeleted(
+    secUserId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount | null> {
+    return db.douyinAccount.findFirst({
+      where: this.buildWhere({
+        secUserId,
+        archiveFilter: "all",
+      }),
     });
   }
 
@@ -55,31 +167,39 @@ class DouyinAccountRepository {
     db: DatabaseClient = prisma,
   ): Promise<DouyinAccountWithUser | null> {
     return db.douyinAccount.findFirst({
-      where: {
+      where: this.buildWhere({
         id,
-        deletedAt: null,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+        archiveFilter: "active",
+      }),
+      include: userInclude,
+    });
+  }
+
+  async findBenchmarkById(
+    id: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinBenchmarkWithUser | null> {
+    return db.douyinAccount.findFirst({
+      where: this.buildWhere({
+        id,
+        type: DouyinAccountType.BENCHMARK_ACCOUNT,
+        archiveFilter: "all",
+      }),
+      include: userInclude,
     });
   }
 
   async findMany(
     params: FindManyDouyinAccountsParams,
     db: DatabaseClient = prisma,
-  ) {
-    const { userId, organizationId, page, limit } = params;
-    const where: Prisma.DouyinAccountWhereInput = {
-      deletedAt: null,
-      ...(userId ? { userId } : {}),
-      ...(organizationId ? { organizationId } : {}),
-    };
+  ): Promise<{ items: DouyinAccount[]; total: number; page: number; limit: number }> {
+    const { type = DouyinAccountType.MY_ACCOUNT, userId, organizationId, page, limit } = params;
+    const where = this.buildWhere({
+      type,
+      userId,
+      organizationId,
+      archiveFilter: params.archiveFilter ?? "active",
+    });
 
     const [items, total] = await Promise.all([
       db.douyinAccount.findMany({
@@ -96,12 +216,39 @@ class DouyinAccountRepository {
     return { items, total, page, limit };
   }
 
+  async findManyBenchmarks(
+    params: FindManyBenchmarksParams,
+    db: DatabaseClient = prisma,
+  ): Promise<{ items: DouyinBenchmarkWithUser[]; total: number; page: number; limit: number }> {
+    const { organizationId, archiveFilter = "active", page, limit } = params;
+    const where = this.buildWhere({
+      type: DouyinAccountType.BENCHMARK_ACCOUNT,
+      organizationId,
+      archiveFilter,
+    });
+
+    const [items, total] = await Promise.all([
+      db.douyinAccount.findMany({
+        where,
+        include: userInclude,
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      db.douyinAccount.count({ where }),
+    ]);
+
+    return { items, total, page, limit };
+  }
+
   async findIdsByUserId(userId: string, db: DatabaseClient = prisma): Promise<string[]> {
     const accounts = await db.douyinAccount.findMany({
-      where: {
+      where: this.buildWhere({
         userId,
-        deletedAt: null,
-      },
+        archiveFilter: "active",
+      }),
       select: {
         id: true,
       },
@@ -118,10 +265,10 @@ class DouyinAccountRepository {
     db: DatabaseClient = prisma,
   ): Promise<string[]> {
     const accounts = await db.douyinAccount.findMany({
-      where: {
+      where: this.buildWhere({
         organizationId,
-        deletedAt: null,
-      },
+        archiveFilter: "active",
+      }),
       select: {
         id: true,
       },
@@ -134,22 +281,35 @@ class DouyinAccountRepository {
   }
 
   async create(
-    data: {
-      profileUrl: string;
-      secUserId: string;
-      nickname: string;
-      avatar: string;
-      bio?: string | null;
-      followersCount: number;
-      videosCount: number;
-      userId: string;
-      organizationId: string;
-      type: "MY_ACCOUNT";
-    },
+    data: CreateDouyinAccountRecord,
     db: DatabaseClient = prisma,
   ): Promise<DouyinAccount> {
     return db.douyinAccount.create({
       data,
+    });
+  }
+
+  async createBenchmark(
+    data: CreateBenchmarkRecord,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return this.create(
+      {
+        ...data,
+        type: DouyinAccountType.BENCHMARK_ACCOUNT,
+      },
+      db,
+    );
+  }
+
+  async archiveBenchmark(id: string, db: DatabaseClient = prisma): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
     });
   }
 
@@ -174,8 +334,19 @@ class DouyinAccountRepository {
       nickname: string;
       avatar: string;
       bio: string | null;
+      signature: string | null;
       followersCount: number;
+      followingCount: number;
+      likesCount: number;
       videosCount: number;
+      douyinNumber: string | null;
+      ipLocation: string | null;
+      age: number | null;
+      province: string | null;
+      city: string | null;
+      verificationLabel: string | null;
+      verificationIconUrl: string | null;
+      verificationType: number | null;
       lastSyncedAt: Date;
     },
     db: DatabaseClient = prisma,

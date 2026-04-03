@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { AccountPreview, DouyinAccountDTO } from "@/types/douyin-account";
+import { toCreateDouyinAccountPayload } from "@/components/features/accounts/account-payload";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { proxyImageUrl, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -90,14 +91,10 @@ export function AccountAddDrawer({ open, onOpenChange, onSuccess }: AccountAddDr
     setStep("SUBMITTING");
 
     try {
-      await apiClient.post<DouyinAccountDTO>("/douyin-accounts", {
-        profileUrl: preview.profileUrl,
-        nickname: preview.nickname,
-        avatar: preview.avatar,
-        bio: preview.bio,
-        followersCount: preview.followersCount,
-        videosCount: preview.videosCount,
-      });
+      await apiClient.post<DouyinAccountDTO>(
+        "/douyin-accounts",
+        toCreateDouyinAccountPayload(preview),
+      );
       toast.success("账号添加成功");
       handleOpenChange(false);
       onSuccess();

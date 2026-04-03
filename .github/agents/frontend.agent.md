@@ -19,6 +19,14 @@ tools: [read, edit, search, execute]
 4. 阅读 `docs/architecture/frontend.md` 了解前端架构规范
 5. 逐项实现任务，**每完成一项必须执行视觉验收**后再标记 ✅
 
+### 进入实现前先做复用判断
+
+- 是否已有同领域页面骨架可复用（如列表页 / 详情页 / 空状态）？
+- 是否已有共享卡片、Drawer、分页、Header 结构可复用？
+- 差异是否仅在接口、文案、Badge、权限展示？
+
+若答案是“是”，优先抽共享组件或配置化差异；**禁止复制一份现有页面/组件后整体平移改名**。
+
 ### 每项任务的视觉验收要求（标记 ✅ 前必做）
 
 - **暗色模式**: 切换到暗色主题，确认组件可见（卡片背景 ≠ 页面背景）
@@ -42,7 +50,6 @@ tools: [read, edit, search, execute]
 1. **严格遵循 UI/UX 设计系统**: 色彩用 CSS 变量，间距用 4px 倍数，字号按层级。**`--card` 与 `--background` 在暗色模式下必须有可见区别**
 2. **暗/亮双模式验证**: 每个组件必须在两套主题下可见、对比度达标
 3. **只用 Tailwind**: 禁止内联 style、CSS modules、自定义 CSS 类
-3. **只用 Tailwind**: 禁止内联 style、CSS modules、自定义 CSS 类
 4. **shadcn/ui 优先**: 有现成组件直接用
 5. **"use client" 最小化**: 仅在需要 hooks/事件时添加
 6. **Props 接口**: 每个组件定义 Props interface + named export
@@ -50,12 +57,15 @@ tools: [read, edit, search, execute]
 8. **Mock 数据优先**: 所有数据层使用 mock 数据（硬编码或 mock 函数），**不依赖后端 API 就绪**。每个 mock 调用点标注 `// TODO: [INTEGRATE] 替换为真实 API 调用`
 9. **复杂业务逻辑**: 只做 UI 壳和交互框架，复杂逻辑标注 `// TODO: [INTEGRATE] 需要后端集成阶段补充`
 10. **文档问题**: 开发中遇到文档描述与实际不符，标注 `[DOC-ISSUE]`（参见 PROCESS.md「开发中断修正协议」）
+11. **统一风格优先**: 同领域页面的布局、分页、空状态、添加流程优先保持一致
+12. **复用优先**: 若差异只在文案、接口、Badge、权限展示，优先抽共享卡片、Drawer、列表骨架或 props 配置
+13. **页面入口收敛**: `src/app/**/page.tsx` 优先保持为薄入口，真实页面实现下沉到 `src/components/features/**/[feature]-page.tsx`
+14. **页面壳复用**: Dashboard 页面优先复用 `src/components/shared/layout/dashboard-page-shell.tsx`
 
 ## 约束
 
 - **不写 API 路由** (`src/app/api/`)
 - **不改 Prisma schema** (`prisma/`)
-- **不改架构/规范文档** (`docs/architecture/`, `docs/standards/`)
 - **不改 Server 目录** (`src/server/`)
 - **可修改**: src/app/**/page.tsx, src/app/**/layout.tsx, src/components/**, src/hooks/**, src/stores/**, src/types/**, src/lib/api-client.ts
 
@@ -63,6 +73,6 @@ tools: [read, edit, search, execute]
 
 所有前端任务完成后，执行自省三步：
 
-1. **回顾**: 实现中是否遇到 ui-ux-system.md 未定义的组件样式或交互模式？前端架构规范是否有未覆盖的场景？
-2. **检查**: 新增组件是否对 `docs/architecture/frontend.md` 的组件树描述有影响？`docs/standards/ui-ux-system.md` 是否需要补充新组件规范？
-3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后执行（注意：前端角色不直接修改文档，提议后由架构师或编排者执行）
+1. **回顾**: 实现中是否沉淀出新的共享 UI 模式？是否出现复制式页面/组件扩散？ui-ux-system.md 未定义哪些样式或交互？
+2. **检查**: 新增组件是否对 `docs/architecture/frontend.md`、`docs/architecture/project-structure.md` 的描述有影响？`docs/standards/ui-ux-system.md` 是否需要补充新组件规范？
+3. **同步**: 若用户已明确要求更新文档，则直接同步修改相关文档；否则先提议需要更新的文档和内容摘要

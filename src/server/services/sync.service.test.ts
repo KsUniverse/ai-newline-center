@@ -1,29 +1,39 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  createBenchmarkMock,
+  fetchCollectionVideosMock,
   fetchUserProfileMock,
   fetchVideoListMock,
   getSecUserIdMock,
   findAccountByIdMock,
   findAllAccountsMock,
+  findAllMyAccountsForCollectionMock,
   findAllActiveVideosMock,
+  findBySecUserIdIncludingDeletedMock,
   countByAccountIdMock,
   findByVideoIdMock,
   createSnapshotMock,
+  downloadAndStoreMock,
   updateAccountInfoMock,
   updateStatsMock,
   updateSecUserIdMock,
   upsertVideoMock,
 } = vi.hoisted(() => ({
+  createBenchmarkMock: vi.fn(),
+  fetchCollectionVideosMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
   fetchVideoListMock: vi.fn(),
   getSecUserIdMock: vi.fn(),
   findAccountByIdMock: vi.fn(),
   findAllAccountsMock: vi.fn(),
+  findAllMyAccountsForCollectionMock: vi.fn(),
   findAllActiveVideosMock: vi.fn(),
+  findBySecUserIdIncludingDeletedMock: vi.fn(),
   countByAccountIdMock: vi.fn(),
   findByVideoIdMock: vi.fn(),
   createSnapshotMock: vi.fn(),
+  downloadAndStoreMock: vi.fn(),
   updateAccountInfoMock: vi.fn(),
   updateStatsMock: vi.fn(),
   updateSecUserIdMock: vi.fn(),
@@ -32,6 +42,7 @@ const {
 
 vi.mock("@/server/services/crawler.service", () => ({
   crawlerService: {
+    fetchCollectionVideos: fetchCollectionVideosMock,
     fetchUserProfile: fetchUserProfileMock,
     fetchVideoList: fetchVideoListMock,
     getSecUserId: getSecUserIdMock,
@@ -41,8 +52,11 @@ vi.mock("@/server/services/crawler.service", () => ({
 
 vi.mock("@/server/repositories/douyin-account.repository", () => ({
   douyinAccountRepository: {
+    createBenchmark: createBenchmarkMock,
     findById: findAccountByIdMock,
     findAll: findAllAccountsMock,
+    findAllMyAccountsForCollection: findAllMyAccountsForCollectionMock,
+    findBySecUserIdIncludingDeleted: findBySecUserIdIncludingDeletedMock,
     updateAccountInfo: updateAccountInfoMock,
     updateSecUserId: updateSecUserIdMock,
   },
@@ -64,17 +78,28 @@ vi.mock("@/server/repositories/video-snapshot.repository", () => ({
   },
 }));
 
+vi.mock("@/server/services/storage.service", () => ({
+  storageService: {
+    downloadAndStore: downloadAndStoreMock,
+  },
+}));
+
 describe("syncService", () => {
   beforeEach(() => {
+    createBenchmarkMock.mockReset();
+    fetchCollectionVideosMock.mockReset();
     fetchUserProfileMock.mockReset();
     fetchVideoListMock.mockReset();
     getSecUserIdMock.mockReset();
     findAccountByIdMock.mockReset();
     findAllAccountsMock.mockReset();
+    findAllMyAccountsForCollectionMock.mockReset();
     findAllActiveVideosMock.mockReset();
+    findBySecUserIdIncludingDeletedMock.mockReset();
     countByAccountIdMock.mockReset();
     findByVideoIdMock.mockReset();
     createSnapshotMock.mockReset();
+    downloadAndStoreMock.mockReset();
     updateAccountInfoMock.mockReset();
     updateStatsMock.mockReset();
     updateSecUserIdMock.mockReset();
@@ -103,22 +128,41 @@ describe("syncService", () => {
       nickname: "测试账号",
       avatar: "https://cdn.example.com/avatar.jpg",
       bio: null,
+      signature: "简介",
       followersCount: 100,
+      followingCount: 20,
+      likesCount: 300,
       videosCount: 5,
+      douyinNumber: "49001906753",
+      ipLocation: "IP属地：湖北",
+      age: 36,
+      province: "湖北",
+      city: "武汉",
+      verificationLabel: "慧研智投科技有限公司一般证券从业人员",
+      verificationIconUrl: "https://lf3-static.bytednsdoc.com/yellow-v.png",
+      verificationType: 0,
     });
     countByAccountIdMock.mockResolvedValue(0);
+    downloadAndStoreMock
+      .mockResolvedValueOnce("/storage/covers/2026-04-03/cover.gif")
+      .mockResolvedValueOnce("/storage/videos/2026-04-03/video.mp4");
     fetchVideoListMock.mockResolvedValue({
       videos: [
         {
           awemeId: "video_1",
           title: "视频 1",
           coverUrl: null,
+          coverSourceUrl: "https://cdn.example.com/cover-a.gif",
           videoUrl: null,
+          videoSourceUrl: "https://cdn.example.com/video-a.mp4",
           publishedAt: "2026-04-03T00:00:00.000Z",
           playCount: 10,
           likeCount: 2,
           commentCount: 1,
           shareCount: 0,
+          collectCount: 4,
+          admireCount: 5,
+          recommendCount: 6,
         },
       ],
       hasMore: false,
@@ -133,6 +177,17 @@ describe("syncService", () => {
       "account_1",
       expect.objectContaining({
         nickname: "测试账号",
+        signature: "简介",
+        followingCount: 20,
+        likesCount: 300,
+        douyinNumber: "49001906753",
+        ipLocation: "IP属地：湖北",
+        age: 36,
+        province: "湖北",
+        city: "武汉",
+        verificationLabel: "慧研智投科技有限公司一般证券从业人员",
+        verificationIconUrl: "https://lf3-static.bytednsdoc.com/yellow-v.png",
+        verificationType: 0,
         lastSyncedAt: expect.any(Date),
       }),
     );
@@ -140,7 +195,16 @@ describe("syncService", () => {
       expect.objectContaining({
         accountId: "account_1",
         videoId: "video_1",
+        coverSourceUrl: "https://cdn.example.com/cover-a.gif",
+        coverStoragePath: "/storage/covers/2026-04-03/cover.gif",
+        coverUrl: "/storage/covers/2026-04-03/cover.gif",
+        videoSourceUrl: "https://cdn.example.com/video-a.mp4",
+        videoStoragePath: "/storage/videos/2026-04-03/video.mp4",
+        videoUrl: "/storage/videos/2026-04-03/video.mp4",
         publishedAt: expect.any(Date),
+        collectCount: 4,
+        admireCount: 5,
+        recommendCount: 6,
         tags: [],
       }),
     );
@@ -183,12 +247,17 @@ describe("syncService", () => {
           awemeId: "video_1",
           title: "旧视频",
           coverUrl: null,
+          coverSourceUrl: "https://cdn.example.com/cover.gif",
           videoUrl: null,
+          videoSourceUrl: "https://cdn.example.com/video.mp4",
           publishedAt: null,
           playCount: 5,
           likeCount: 1,
           commentCount: 0,
           shareCount: 0,
+          collectCount: 0,
+          admireCount: 0,
+          recommendCount: 0,
         },
       ],
       hasMore: true,
@@ -227,8 +296,19 @@ describe("syncService", () => {
         nickname: "账号二",
         avatar: "https://cdn.example.com/avatar-2.jpg",
         bio: null,
+        signature: null,
         followersCount: 20,
+        followingCount: 0,
+        likesCount: 0,
         videosCount: 3,
+        douyinNumber: null,
+        ipLocation: null,
+        age: null,
+        province: null,
+        city: null,
+        verificationLabel: null,
+        verificationIconUrl: null,
+        verificationType: null,
       });
     updateAccountInfoMock.mockResolvedValue({
       id: "account_2",
@@ -277,5 +357,156 @@ describe("syncService", () => {
       commentCount: 1,
       shareCount: 2,
     });
+  });
+
+  it("selects the first reachable cover and video source before storing resources", async () => {
+    findAccountByIdMock.mockResolvedValue({
+      id: "account_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      profileUrl: "https://www.douyin.com/user/tester",
+      secUserId: "sec_123",
+    });
+    updateAccountInfoMock.mockResolvedValue({
+      id: "account_1",
+      lastSyncedAt: new Date("2026-04-03T00:00:00.000Z"),
+    });
+    countByAccountIdMock.mockResolvedValue(0);
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "sec_123",
+      nickname: "测试账号",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 100,
+      followingCount: 10,
+      likesCount: 20,
+      videosCount: 1,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    });
+    fetchVideoListMock.mockResolvedValue({
+      videos: [
+        {
+          awemeId: "video_2",
+          title: "视频 2",
+          coverUrl: "storage/covers/cover-2.gif",
+          coverSourceUrl: "https://cdn.example.com/cover-ok.gif",
+          videoUrl: "storage/videos/video-2.mp4",
+          videoSourceUrl: "https://cdn.example.com/video-ok.mp4",
+          publishedAt: "2026-04-03T00:00:00.000Z",
+          playCount: 10,
+          likeCount: 2,
+          commentCount: 1,
+          shareCount: 0,
+          collectCount: 0,
+          admireCount: 0,
+          recommendCount: 0,
+        },
+      ],
+      hasMore: false,
+    });
+    downloadAndStoreMock
+      .mockResolvedValueOnce("/storage/covers/cover-2.gif")
+      .mockResolvedValueOnce("/storage/videos/video-2.mp4");
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await syncService.syncAccount("account_1", "user_1", "org_1");
+
+    expect(downloadAndStoreMock).toHaveBeenCalledWith(
+      "https://cdn.example.com/cover-ok.gif",
+      "covers",
+    );
+    expect(downloadAndStoreMock).toHaveBeenCalledWith(
+      "https://cdn.example.com/video-ok.mp4",
+      "videos",
+    );
+  });
+
+  it("creates benchmark accounts for recent collection authors and stops at the time window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-03T12:00:00.000Z"));
+
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+      },
+    ]);
+    fetchCollectionVideosMock.mockResolvedValue({
+      items: [
+        {
+          awemeId: "fav_1",
+          authorSecUserId: "author_recent",
+          collectedAt: new Date("2026-04-03T11:30:00.000Z"),
+        },
+        {
+          awemeId: "fav_2",
+          authorSecUserId: "author_old",
+          collectedAt: new Date("2026-04-03T10:30:00.000Z"),
+        },
+      ],
+      hasMore: false,
+      cursor: 0,
+    });
+    findBySecUserIdIncludingDeletedMock.mockResolvedValue(null);
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "author_recent",
+      nickname: "对标作者",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(fetchCollectionVideosMock).toHaveBeenCalledWith("sec_owner_1");
+    expect(createBenchmarkMock).toHaveBeenCalledWith({
+      profileUrl: "https://www.douyin.com/user/author_recent",
+      secUserId: "author_recent",
+      nickname: "对标作者",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+      userId: "user_1",
+      organizationId: "org_1",
+    });
+    expect(fetchUserProfileMock).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
   });
 });

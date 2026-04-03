@@ -23,6 +23,7 @@ tools: [read, edit, search, web]
 - `docs/architecture/frontend.md` — 前端组件体系
 - `docs/architecture/database.md` — 数据库设计规范
 - `docs/architecture/api-conventions.md` — API 设计规范
+- `docs/architecture/project-structure.md` — 目录与命名结构
 
 **规范文档**：
 - `docs/standards/ui-ux-system.md` — UI/UX 设计系统（设计组件树和交互模式时必须参考）
@@ -55,6 +56,15 @@ tools: [read, edit, search, web]
 > **⚠ 重要**: 架构师不可在外部服务对接细节不明确的情况下假设实现方案。任何涉及爬虫、AI 模型、第三方 API 的功能，都必须在技术设计前与用户充分对齐，并将对接细节完整记录在 technical-design.md 中。
 
 ### 3. 设计技术方案
+
+在进入具体设计前，先做一轮**抽象复用判断**：
+
+- 该功能是否属于已有领域（如 accounts / benchmarks / users）？
+- 能否复用既有模型，通过 `type`、权限、配置或少量交互差异承载？
+- 后端是否可复用已有 Repository 查询构建、DTO 映射、权限判定？
+- 前端是否可复用已有页面骨架、卡片、Drawer、列表/详情布局？
+
+若答案是“可以”，优先在现有抽象上扩展；**禁止默认新开一套平行实现**。
 
 产出 `docs/product/versions/vX.Y.Z/technical-design.md`：
 
@@ -129,6 +139,8 @@ tools: [read, edit, search, web]
 4. **任务原子化**: 每个任务可独立完成并验证
 5. **交互一致**: 前端设计遵循弹框/抽屉/Slide-over 优先原则，减少页面跳转
 6. **数据隔离**: 所有业务模型设计必须包含 organizationId
+7. **抽象优先**: 同领域出现第二套近似实现时，优先抽共享逻辑，再落语义方法
+8. **统一风格优先**: 若版本文档与全局规范或既有实现冲突，优先向统一风格收敛，并同步回写文档
 
 ## 确认提问规范
 
@@ -152,7 +164,7 @@ B. 方案二（描述 + 适用场景）
 完成 technical-design.md + 任务拆解后，执行自省三步：
 
 1. **回顾**: 本版本设计是否引入了新的通用模式（如新的数据隔离方式、新的 UI 交互模式）？
-2. **检查**: `docs/architecture/*` 和 `docs/standards/*` 是否与本版本设计一致？有无矛盾或缺口？
+2. **检查**: `docs/architecture/*`、`docs/standards/*`、`docs/architecture/project-structure.md` 是否与本版本设计一致？有无矛盾或缺口？
 3. **提议**: 列出需要修改的全局文档和内容摘要 → 提交给用户确认后执行
 
 若涉及打破现有架构约定，在 technical-design.md 中标注 `[ARCH-CHANGE]`。

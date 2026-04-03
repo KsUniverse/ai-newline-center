@@ -23,6 +23,9 @@
     --ring: 173 80% 26%;
     --sidebar: 0 0% 98%;
     --radius: 0.4rem;
+    --verification-badge-bg: hsl(36 62% 85%);
+    --verification-badge-text: hsl(43 70% 30%);
+    --verification-badge-icon-text: hsl(242 11% 98%);
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
     --info: 217 91% 60%;
@@ -49,6 +52,9 @@
     --input: 240 6% 16%;
     --ring: 173 80% 37%;
     --sidebar: 240 7% 8%;
+    --verification-badge-bg: hsl(36 62% 11%);
+    --verification-badge-text: hsl(43 87% 71%);
+    --verification-badge-icon-text: hsl(242 11% 13%);
   }
 }
 

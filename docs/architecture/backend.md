@@ -23,6 +23,7 @@ Service (src/server/services/)
 Repository (src/server/repositories/)
   ├── Prisma CRUD 操作
   ├── 查询构建 (organizationId 过滤)
+  ├── 同领域共享查询条件/Include 片段复用
   └── 数据转换
 ```
 
@@ -120,6 +121,48 @@ class UserRepository {
 export const userRepository = new UserRepository();
 ```
 
+## Repository 抽象复用模式
+
+当同一个 Prisma Model 通过 `type`、`deletedAt` 或不同可见范围承载多个业务视图时，
+Repository 层应优先抽取**共享查询构建函数**，而不是为每个业务视图复制一套近似查询。
+
+```typescript
+type ArchiveFilter = "active" | "archived" | "all";
+
+interface BuildAccountWhereParams {
+  type?: DouyinAccountType;
+  userId?: string;
+  organizationId?: string;
+  archiveFilter?: ArchiveFilter;
+}
+
+class DouyinAccountRepository {
+  private buildWhere(params: BuildAccountWhereParams): Prisma.DouyinAccountWhereInput {
+    const { type, userId, organizationId, archiveFilter = "active" } = params;
+
+    return {
+      ...(type ? { type } : {}),
+      ...(userId ? { userId } : {}),
+      ...(organizationId ? { organizationId } : {}),
+      ...(archiveFilter === "active" ? { deletedAt: null } : {}),
+      ...(archiveFilter === "archived" ? { deletedAt: { not: null } } : {}),
+    };
+  }
+}
+```
+
+**适用场景**：
+- 同一模型下有 `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` 这类 type 分支
+- 主列表 / 归档列表仅在 `deletedAt` 条件上不同
+- 查询主体一致，仅 include / 排序 / archiveFilter 略有差异
+
+**规则**：
+- 共享逻辑放在 Repository 私有 helper 中，不上浮到 Route Handler
+- 业务语义方法仍保留，例如 `findManyBenchmarks()`、`findAllMyAccountsForCollection()`
+- Service 依赖“语义方法”，不直接拼装 Prisma where 条件
+- `include` 片段如 `user: { select: { id, name } }` 可抽成常量复用，避免多处漂移
+- 同领域归档筛选优先统一为 `archiveFilter` 语义，历史兼容路由也应委托同一套 Service / Repository 逻辑
+
 ## 统一响应格式
 
 ```typescript
@@ -189,6 +232,8 @@ export class AppError extends Error {
 7. 所有列表查询必须传入 organizationId 进行数据隔离
 8. AI 调用统一走 AiGateway，禁止直接调用 AI SDK
 9. 爬虫调用统一走 CrawlerService，禁止直接 fetch 爬虫 API
+10. 当同一模型服务多个业务类型时，优先抽取 Repository 共享查询构建函数，避免复制近似查询
+11. 代理类或适配类接口（如图片代理、同步代理）也必须遵循三层职责，Route Handler 不直接调用外部资源
 
 ---
 
@@ -500,14 +545,24 @@ export function startScheduler(): void {
 
   // 账号基础信息同步（默认每 6 小时，可通过环境变量覆盖）
   const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "0 */6 * * *";
+  let accountSyncRunning = false;
   cron.schedule(accountSyncCron, () => {
-    void syncService.runAccountInfoBatchSync();
+    if (accountSyncRunning) return;
+    accountSyncRunning = true;
+    void syncService.runAccountInfoBatchSync().finally(() => {
+      accountSyncRunning = false;
+    });
   });
 
   // 视频增量同步（默认每 1 小时，可通过环境变量覆盖）
   const videoSyncCron = env.VIDEO_SYNC_CRON ?? "0 * * * *";
+  let videoSyncRunning = false;
   cron.schedule(videoSyncCron, () => {
-    void syncService.runVideoBatchSync();
+    if (videoSyncRunning) return;
+    videoSyncRunning = true;
+    void syncService.runVideoBatchSync().finally(() => {
+      videoSyncRunning = false;
+    });
   });
 }
 ```
@@ -519,3 +574,20 @@ export function startScheduler(): void {
 3. **调用 Service 批量方法**: cron 任务只调用 Service 层的批量方法（如 `runXxxBatchSync()`），不直接操作 Repository 或 Prisma
 4. **容错继续**: 批量方法内部逐条处理，单条失败记录日志后跳过，不中断整个批次
 5. **环境变量覆盖**: cron 表达式优先从 `env.*_CRON` 读取，提供默认值作为兜底
+
+### 防重入规范
+
+**防重入规范**：每个定时任务若执行时间可能超过触发间隔，必须在 `startScheduler()` 内为该任务声明独立的 `let xRunning = false` flag。当前项目中的账号同步、视频同步、视频快照采集、收藏同步都应各自持有独立 flag。任务开始前检查 flag，若为 true 则跳过本次执行；任务结束时（包括异常）在 `finally` 块中将 flag 重置为 false。
+
+```typescript
+let accountSyncRunning = false;
+cron.schedule(accountSyncCron, async () => {
+  if (accountSyncRunning) return;
+  accountSyncRunning = true;
+  try {
+    await syncService.runAccountInfoBatchSync();
+  } finally {
+    accountSyncRunning = false;
+  }
+});
+```

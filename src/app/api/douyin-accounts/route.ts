@@ -15,8 +15,19 @@ const createAccountSchema = z.object({
   nickname: z.string().min(1).max(200),
   avatar: z.string().url(),
   bio: z.string().max(500).nullable().optional(),
+  signature: z.string().max(500).nullable().optional(),
   followersCount: z.number().int().min(0),
+  followingCount: z.number().int().min(0),
+  likesCount: z.number().int().min(0),
   videosCount: z.number().int().min(0),
+  douyinNumber: z.string().max(100).nullable().optional(),
+  ipLocation: z.string().max(100).nullable().optional(),
+  age: z.number().int().min(0).nullable().optional(),
+  province: z.string().max(100).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  verificationLabel: z.string().max(200).nullable().optional(),
+  verificationIconUrl: z.string().url().nullable().optional(),
+  verificationType: z.number().int().nullable().optional(),
 });
 
 const listAccountsSchema = z.object({

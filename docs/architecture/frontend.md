@@ -118,6 +118,7 @@ src/components/
 │   │   ├── app-layout.tsx     # 主布局壳
 │   │   ├── app-sidebar.tsx    # 侧边栏
 │   │   └── app-header.tsx     # 顶部栏
+│   │   └── dashboard-page-shell.tsx # Dashboard 页面通用标题壳
 │   └── common/
 │       ├── slide-panel.tsx    # 右侧滑出面板
 │       ├── loading-spinner.tsx
@@ -126,6 +127,8 @@ src/components/
 │       └── confirm-dialog.tsx
 └── features/              # L3: 业务功能组件 (按功能模块组织)
     └── [feature-name]/
+        ├── [feature]-page.tsx         # 页面主视图（数据加载 + 页面内交互）
+        ├── [feature]-detail-page.tsx  # 详情页视图（如有）
         ├── [component].tsx
         └── index.ts       # barrel export
 ```
@@ -133,24 +136,41 @@ src/components/
 ## 页面结构
 
 ```typescript
-// src/app/(dashboard)/users/page.tsx — 列表页标准模式
-import { UserList } from "@/components/features/user";
+// src/app/(dashboard)/users/page.tsx — page 只做页面入口
+import { UsersPageView } from "@/components/features/users";
 
 export default function UsersPage() {
+  return <UsersPageView />;
+}
+```
+
+```typescript
+// src/components/shared/layout/dashboard-page-shell.tsx — 统一页面标题壳
+interface DashboardPageShellProps {
+  title: string;
+  description: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+export function DashboardPageShell({
+  title,
+  description,
+  actions,
+  children,
+}: DashboardPageShellProps) {
   return (
-    <div className="flex h-full flex-col">
-      {/* 页面标题区 */}
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div>
-          <h1 className="text-lg font-semibold">用户管理</h1>
-          <p className="text-sm text-muted-foreground">管理本组织下的所有用户</p>
+    <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
+      <div className="animate-in-up flex items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">
+            {title}
+          </h1>
+          <p className="text-sm text-muted-foreground/80">{description}</p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>新建用户</Button>
+        {actions}
       </div>
-      {/* 内容区 */}
-      <div className="flex-1 overflow-auto p-6">
-        <UserList />
-      </div>
+      {children}
     </div>
   );
 }
@@ -253,7 +273,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ## 规则
 
 1. **弹框优先**: 创建/编辑/详情操作用 Drawer/SlidePanel/Dialog，不跳转页面
-2. **组件职责**: page.tsx 只做布局编排，业务逻辑放在 features/ 组件中
+2. **组件职责**: `page.tsx` 只做页面入口和布局编排，页面级数据加载/状态放在 `components/features/**/[feature]-page.tsx`
 3. **"use client"**: 仅在需要 hooks/事件/浏览器 API 时添加，默认 Server Component
 4. **Props 接口**: 每个组件必须定义 Props 接口，使用 named export
 5. **样式**: 只用 Tailwind utility classes，禁止内联 style、禁止 CSS modules
@@ -261,3 +281,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 7. **状态**: 服务端数据用 Server Component 直接获取；客户端交互状态用 Zustand
 8. **导入**: 功能组件通过 barrel export (`index.ts`) 导出
 9. **品牌遵循**: 严格按照 `docs/standards/ui-ux-system.md` 中的设计规范实现
+10. **页面壳复用**: Dashboard 页面优先复用 `DashboardPageShell`，保持标题区、容器宽度和动作区一致

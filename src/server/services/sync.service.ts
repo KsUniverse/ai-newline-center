@@ -1,10 +1,11 @@
-import type { DouyinAccount } from "@prisma/client";
+import { Prisma, type DouyinAccount } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { crawlerService } from "@/server/services/crawler.service";
+import { storageService } from "@/server/services/storage.service";
 
 const INITIAL_SYNC_LIMIT = 10;
 const INCREMENTAL_BATCH_SIZE = 4;
@@ -61,6 +62,9 @@ class SyncService {
           likeCount: detail.likeCount,
           commentCount: detail.commentCount,
           shareCount: detail.shareCount,
+          collectCount: video.collectCount,
+          admireCount: video.admireCount,
+          recommendCount: video.recommendCount,
         });
       } catch (error) {
         console.error("Failed to collect video snapshot:", {
@@ -100,6 +104,94 @@ class SyncService {
     return { lastSyncedAt };
   }
 
+  async runCollectionSync(): Promise<void> {
+    try {
+      const accounts = await douyinAccountRepository.findAllMyAccountsForCollection();
+      const windowStart = new Date(Date.now() - 60 * 60 * 1000);
+
+      for (const account of accounts) {
+        try {
+          const result = await crawlerService.fetchCollectionVideos(account.secUserId as string);
+
+          for (const item of result.items) {
+            if (!item.collectedAt) {
+              continue;
+            }
+
+            if (item.collectedAt < windowStart) {
+              break;
+            }
+
+            if (!item.authorSecUserId) {
+              console.warn("Skipped collection item without author secUserId:", {
+                accountId: account.id,
+                awemeId: item.awemeId,
+              });
+              continue;
+            }
+
+            const existing = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
+              item.authorSecUserId,
+            );
+            if (existing) {
+              continue;
+            }
+
+            try {
+              const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
+
+              await douyinAccountRepository.createBenchmark({
+                profileUrl:
+                  profile.secUserId
+                    ? `https://www.douyin.com/user/${profile.secUserId}`
+                    : `https://www.douyin.com/user/${item.authorSecUserId}`,
+                secUserId: item.authorSecUserId,
+                nickname: profile.nickname,
+                avatar: profile.avatar,
+                bio: profile.bio,
+                signature: profile.signature,
+                followersCount: profile.followersCount,
+                followingCount: profile.followingCount,
+                likesCount: profile.likesCount,
+                videosCount: profile.videosCount,
+                douyinNumber: profile.douyinNumber,
+                ipLocation: profile.ipLocation,
+                age: profile.age,
+                province: profile.province,
+                city: profile.city,
+                verificationLabel: profile.verificationLabel,
+                verificationIconUrl: profile.verificationIconUrl,
+                verificationType: profile.verificationType,
+                userId: account.userId,
+                organizationId: account.organizationId,
+              });
+            } catch (error) {
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2002"
+              ) {
+                continue;
+              }
+
+              console.error("Failed to create benchmark from collection sync:", {
+                accountId: account.id,
+                authorSecUserId: item.authorSecUserId,
+                error,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Failed to sync collection videos:", {
+            accountId: account.id,
+            error,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to run collection sync:", { error });
+    }
+  }
+
   private async syncAccountInfo(account: DouyinAccount): Promise<Date> {
     const secUserId = await this.ensureSecUserId(account);
     const profile = await crawlerService.fetchUserProfile(secUserId);
@@ -107,8 +199,19 @@ class SyncService {
       nickname: profile.nickname,
       avatar: profile.avatar,
       bio: profile.bio,
+      signature: profile.signature,
       followersCount: profile.followersCount,
+      followingCount: profile.followingCount,
+      likesCount: profile.likesCount,
       videosCount: profile.videosCount,
+      douyinNumber: profile.douyinNumber,
+      ipLocation: profile.ipLocation,
+      age: profile.age,
+      province: profile.province,
+      city: profile.city,
+      verificationLabel: profile.verificationLabel,
+      verificationIconUrl: profile.verificationIconUrl,
+      verificationType: profile.verificationType,
       lastSyncedAt: new Date(),
     });
 
@@ -176,25 +279,44 @@ class SyncService {
       awemeId: string;
       title: string;
       coverUrl: string | null;
+      coverSourceUrl: string | null;
       videoUrl: string | null;
+      videoSourceUrl: string | null;
       publishedAt: string | null;
       playCount: number;
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      collectCount: number;
+      admireCount: number;
+      recommendCount: number;
     },
   ): Promise<void> {
+    const coverStoragePath = video.coverSourceUrl
+      ? await storageService.downloadAndStore(video.coverSourceUrl, "covers")
+      : null;
+    const videoStoragePath = video.videoSourceUrl
+      ? await storageService.downloadAndStore(video.videoSourceUrl, "videos")
+      : null;
+
     await douyinVideoRepository.upsertByVideoId({
       videoId: video.awemeId,
       accountId,
       title: video.title,
-      coverUrl: video.coverUrl,
-      videoUrl: video.videoUrl,
+      coverUrl: coverStoragePath,
+      coverSourceUrl: video.coverSourceUrl,
+      coverStoragePath,
+      videoUrl: videoStoragePath,
+      videoSourceUrl: video.videoSourceUrl,
+      videoStoragePath,
       publishedAt: video.publishedAt ? new Date(video.publishedAt) : null,
       playCount: video.playCount,
       likeCount: video.likeCount,
       commentCount: video.commentCount,
       shareCount: video.shareCount,
+      collectCount: video.collectCount,
+      admireCount: video.admireCount,
+      recommendCount: video.recommendCount,
       tags: [],
     });
   }

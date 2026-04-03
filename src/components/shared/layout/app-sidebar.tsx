@@ -8,6 +8,7 @@ import {
   Users,
   Building2,
   MonitorPlay,
+  Target,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -41,6 +42,12 @@ const NAV_ITEMS = [
     icon: MonitorPlay,
     label: "我的账号",
     href: "/accounts",
+    roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
+  },
+  {
+    icon: Target,
+    label: "对标账号",
+    href: "/benchmarks",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
   {
