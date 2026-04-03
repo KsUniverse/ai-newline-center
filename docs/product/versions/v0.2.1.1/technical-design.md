@@ -91,7 +91,7 @@ model DouyinVideo {
 
 重写 `src/server/services/crawler.service.ts`，替换 mock 实现为真实爬虫 API 调用。
 
-**爬虫服务**: `env.CRAWLER_API_URL`（开发默认 `http://localhost:8011`）
+**爬虫服务**: `env.CRAWLER_API_URL`（开发默认 `http://47.96.227.116:8011`）
 
 | 方法名 | 爬虫路径 | HTTP | 入参 | 返回类型 | 调用时机 |
 |--------|---------|------|------|----------|---------|

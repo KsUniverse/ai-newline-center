@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { envMock } = vi.hoisted(() => ({
   envMock: {
-    CRAWLER_API_URL: "http://localhost:8011",
+    CRAWLER_API_URL: "http://47.96.227.116:8011",
     NODE_ENV: "development",
   },
 }));
@@ -13,7 +13,7 @@ vi.mock("@/lib/env", () => ({
 
 describe("crawlerService", () => {
   beforeEach(() => {
-    envMock.CRAWLER_API_URL = "http://localhost:8011";
+    envMock.CRAWLER_API_URL = "http://47.96.227.116:8011";
     envMock.NODE_ENV = "development";
     vi.restoreAllMocks();
   });
@@ -34,7 +34,7 @@ describe("crawlerService", () => {
     const result = await crawlerService.getSecUserId("https://www.douyin.com/user/tester");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:8011/api/douyin/web/get_sec_user_id?url=https%3A%2F%2Fwww.douyin.com%2Fuser%2Ftester",
+      "http://47.96.227.116:8011/api/douyin/web/get_sec_user_id?url=https%3A%2F%2Fwww.douyin.com%2Fuser%2Ftester",
       expect.objectContaining({
         method: "GET",
       }),
