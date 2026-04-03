@@ -7,14 +7,16 @@ const {
   findByProfileUrlMock,
   findManyAccountsMock,
   findVideosByAccountIdMock,
-  previewProfileMock,
+  fetchUserProfileMock,
+  getSecUserIdMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
   findAccountByIdMock: vi.fn(),
   findByProfileUrlMock: vi.fn(),
   findManyAccountsMock: vi.fn(),
   findVideosByAccountIdMock: vi.fn(),
-  previewProfileMock: vi.fn(),
+  fetchUserProfileMock: vi.fn(),
+  getSecUserIdMock: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/douyin-account.repository", () => ({
@@ -34,7 +36,8 @@ vi.mock("@/server/repositories/douyin-video.repository", () => ({
 
 vi.mock("@/server/services/crawler.service", () => ({
   crawlerService: {
-    fetchDouyinProfile: previewProfileMock,
+    fetchUserProfile: fetchUserProfileMock,
+    getSecUserId: getSecUserIdMock,
   },
 }));
 
@@ -45,7 +48,8 @@ describe("douyinAccountService", () => {
     findByProfileUrlMock.mockReset();
     findManyAccountsMock.mockReset();
     findVideosByAccountIdMock.mockReset();
-    previewProfileMock.mockReset();
+    fetchUserProfileMock.mockReset();
+    getSecUserIdMock.mockReset();
   });
 
   it("only allows employees to create accounts", async () => {
@@ -62,6 +66,7 @@ describe("douyinAccountService", () => {
         },
         {
           profileUrl: "https://www.douyin.com/user/tester",
+          secUserId: "sec_123",
           nickname: "测试账号",
           avatar: "https://cdn.example.com/avatar.jpg",
           bio: null,
@@ -93,6 +98,7 @@ describe("douyinAccountService", () => {
         },
         {
           profileUrl: "https://www.douyin.com/user/tester",
+          secUserId: "sec_123",
           nickname: "测试账号",
           avatar: "https://cdn.example.com/avatar.jpg",
           bio: null,
@@ -149,9 +155,10 @@ describe("douyinAccountService", () => {
     });
   });
 
-  it("uses crawlerService for account preview", async () => {
-    previewProfileMock.mockResolvedValue({
-      profileUrl: "https://www.douyin.com/user/tester",
+  it("resolves secUserId before fetching the preview profile", async () => {
+    getSecUserIdMock.mockResolvedValue("sec_123");
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "sec_123",
       nickname: "测试账号",
       avatar: "https://cdn.example.com/avatar.jpg",
       bio: null,
@@ -171,7 +178,9 @@ describe("douyinAccountService", () => {
       "https://www.douyin.com/user/tester",
     );
 
-    expect(previewProfileMock).toHaveBeenCalledWith("https://www.douyin.com/user/tester");
+    expect(getSecUserIdMock).toHaveBeenCalledWith("https://www.douyin.com/user/tester");
+    expect(fetchUserProfileMock).toHaveBeenCalledWith("sec_123");
+    expect(result.secUserId).toBe("sec_123");
     expect(result.nickname).toBe("测试账号");
   });
 });

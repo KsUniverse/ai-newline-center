@@ -14,6 +14,7 @@ export function startScheduler(): void {
 
   const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "0 */6 * * *";
   const videoSyncCron = env.VIDEO_SYNC_CRON ?? "0 * * * *";
+  const videoSnapshotCron = env.VIDEO_SNAPSHOT_CRON ?? "*/10 * * * *";
 
   cron.schedule(accountSyncCron, () => {
     void syncService.runAccountInfoBatchSync();
@@ -21,5 +22,9 @@ export function startScheduler(): void {
 
   cron.schedule(videoSyncCron, () => {
     void syncService.runVideoBatchSync();
+  });
+
+  cron.schedule(videoSnapshotCron, () => {
+    void syncService.runVideoSnapshotCollection();
   });
 }

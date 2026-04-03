@@ -22,6 +22,7 @@ export interface DouyinAccountDetailDTO extends DouyinAccountDTO {
 
 export interface AccountPreview {
   profileUrl: string;
+  secUserId: string;
   nickname: string;
   avatar: string;
   bio: string | null;
@@ -40,5 +41,11 @@ export interface DouyinVideoDTO {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  tags: string[];
   createdAt: string;
+}
+
+export interface DouyinVideoWithAccountDTO extends DouyinVideoDTO {
+  accountNickname: string;
+  accountAvatar: string;
 }

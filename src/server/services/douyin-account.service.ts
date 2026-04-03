@@ -9,6 +9,7 @@ import { douyinVideoRepository } from "@/server/repositories/douyin-video.reposi
 
 interface CreateDouyinAccountData {
   profileUrl: string;
+  secUserId: string;
   nickname: string;
   avatar: string;
   bio?: string | null;
@@ -26,7 +27,19 @@ class DouyinAccountService {
     if (caller.role !== UserRole.EMPLOYEE) {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
-    return crawlerService.fetchDouyinProfile(profileUrl);
+
+    const secUserId = await crawlerService.getSecUserId(profileUrl);
+    const profile = await crawlerService.fetchUserProfile(secUserId);
+
+    return {
+      profileUrl,
+      secUserId,
+      nickname: profile.nickname,
+      avatar: profile.avatar,
+      bio: profile.bio,
+      followersCount: profile.followersCount,
+      videosCount: profile.videosCount,
+    };
   }
 
   async createAccount(caller: SessionUser, data: CreateDouyinAccountData) {

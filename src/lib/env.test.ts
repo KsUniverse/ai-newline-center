@@ -81,4 +81,18 @@ describe("parseEnv", () => {
     expect(result.ACCOUNT_SYNC_CRON).toBe("0 */6 * * *");
     expect(result.VIDEO_SYNC_CRON).toBe("0 * * * *");
   });
+
+  it("accepts VIDEO_SNAPSHOT_CRON to configure snapshot collection", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+      VIDEO_SNAPSHOT_CRON: "*/10 * * * *",
+    });
+
+    expect(result.VIDEO_SNAPSHOT_CRON).toBe("*/10 * * * *");
+  });
 });

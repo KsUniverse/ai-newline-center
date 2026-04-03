@@ -11,6 +11,7 @@ const createAccountSchema = z.object({
     .string()
     .url()
     .regex(/^https?:\/\/(www\.)?douyin\.com\/user\/.+$/, "请输入合法的抖音主页链接"),
+  secUserId: z.string().min(1),
   nickname: z.string().min(1).max(200),
   avatar: z.string().url(),
   bio: z.string().max(500).nullable().optional(),

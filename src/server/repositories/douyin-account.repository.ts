@@ -96,9 +96,47 @@ class DouyinAccountRepository {
     return { items, total, page, limit };
   }
 
+  async findIdsByUserId(userId: string, db: DatabaseClient = prisma): Promise<string[]> {
+    const accounts = await db.douyinAccount.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return accounts.map((account) => account.id);
+  }
+
+  async findIdsByOrganizationId(
+    organizationId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<string[]> {
+    const accounts = await db.douyinAccount.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return accounts.map((account) => account.id);
+  }
+
   async create(
     data: {
       profileUrl: string;
+      secUserId: string;
       nickname: string;
       avatar: string;
       bio?: string | null;
@@ -112,6 +150,21 @@ class DouyinAccountRepository {
   ): Promise<DouyinAccount> {
     return db.douyinAccount.create({
       data,
+    });
+  }
+
+  async updateSecUserId(
+    id: string,
+    secUserId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        secUserId,
+      },
     });
   }
 
