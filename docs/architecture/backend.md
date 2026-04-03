@@ -23,6 +23,7 @@ Service (src/server/services/)
 Repository (src/server/repositories/)
   ├── Prisma CRUD 操作
   ├── 查询构建 (organizationId 过滤)
+  ├── 同领域共享查询条件/Include 片段复用
   └── 数据转换
 ```
 
@@ -120,6 +121,47 @@ class UserRepository {
 export const userRepository = new UserRepository();
 ```
 
+## Repository 抽象复用模式
+
+当同一个 Prisma Model 通过 `type`、`deletedAt` 或不同可见范围承载多个业务视图时，
+Repository 层应优先抽取**共享查询构建函数**，而不是为每个业务视图复制一套近似查询。
+
+```typescript
+type ArchiveFilter = "active" | "archived" | "all";
+
+interface BuildAccountWhereParams {
+  type?: DouyinAccountType;
+  userId?: string;
+  organizationId?: string;
+  archiveFilter?: ArchiveFilter;
+}
+
+class DouyinAccountRepository {
+  private buildWhere(params: BuildAccountWhereParams): Prisma.DouyinAccountWhereInput {
+    const { type, userId, organizationId, archiveFilter = "active" } = params;
+
+    return {
+      ...(type ? { type } : {}),
+      ...(userId ? { userId } : {}),
+      ...(organizationId ? { organizationId } : {}),
+      ...(archiveFilter === "active" ? { deletedAt: null } : {}),
+      ...(archiveFilter === "archived" ? { deletedAt: { not: null } } : {}),
+    };
+  }
+}
+```
+
+**适用场景**：
+- 同一模型下有 `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` 这类 type 分支
+- 主列表 / 归档列表仅在 `deletedAt` 条件上不同
+- 查询主体一致，仅 include / 排序 / archiveFilter 略有差异
+
+**规则**：
+- 共享逻辑放在 Repository 私有 helper 中，不上浮到 Route Handler
+- 业务语义方法仍保留，例如 `findManyBenchmarks()`、`findAllMyAccountsForCollection()`
+- Service 依赖“语义方法”，不直接拼装 Prisma where 条件
+- `include` 片段如 `user: { select: { id, name } }` 可抽成常量复用，避免多处漂移
+
 ## 统一响应格式
 
 ```typescript
@@ -189,6 +231,7 @@ export class AppError extends Error {
 7. 所有列表查询必须传入 organizationId 进行数据隔离
 8. AI 调用统一走 AiGateway，禁止直接调用 AI SDK
 9. 爬虫调用统一走 CrawlerService，禁止直接 fetch 爬虫 API
+10. 当同一模型服务多个业务类型时，优先抽取 Repository 共享查询构建函数，避免复制近似查询
 
 ---
 

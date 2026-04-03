@@ -317,13 +317,30 @@ describe("crawlerService", () => {
     });
   });
 
-  it("wraps collection videos with raw data passthrough", async () => {
+  it("maps collection videos into structured items", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         code: 200,
         data: {
-          collection_list: [{ aweme_id: "fav_1" }],
+          aweme_list: [
+            {
+              aweme_id: "fav_1",
+              collect_time: 1712102400,
+              author: {
+                sec_user_id: "author_sec_1",
+              },
+            },
+            {
+              awemeId: "fav_2",
+              favorited_time: "1712106000",
+              author_info: {
+                sec_uid: "author_sec_2",
+              },
+            },
+          ],
+          has_more: 1,
+          max_cursor: 88,
         },
       }),
     });
@@ -333,7 +350,20 @@ describe("crawlerService", () => {
     const result = await crawlerService.fetchCollectionVideos("sec_123");
 
     expect(result).toEqual({
-      collection_list: [{ aweme_id: "fav_1" }],
+      items: [
+        {
+          awemeId: "fav_1",
+          authorSecUserId: "author_sec_1",
+          collectedAt: new Date("2024-04-03T00:00:00.000Z"),
+        },
+        {
+          awemeId: "fav_2",
+          authorSecUserId: "author_sec_2",
+          collectedAt: new Date("2024-04-03T01:00:00.000Z"),
+        },
+      ],
+      hasMore: true,
+      cursor: 88,
     });
   });
 

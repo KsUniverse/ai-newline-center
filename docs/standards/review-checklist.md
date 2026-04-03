@@ -39,6 +39,8 @@
 - [ ] API 响应使用统一 `ApiResponse<T>` 格式
 - [ ] 数据隔离：业务模型有 `organizationId` + Repository 查询使用 `organizationId` 过滤
 - [ ] 数据模型有 id/createdAt/updatedAt 必备字段
+- [ ] 同领域近似逻辑未复制扩散：Repository / Service 是否优先复用了共享查询构建、映射或校验逻辑
+- [ ] 业务语义方法与共享抽象边界清晰：上层未直接拼 Prisma 条件替代 Repository 语义方法
 
 ### 4. 编码规范 (Medium / Low)
 
@@ -91,3 +93,10 @@
 - **High**: 0 个 → 必须全部修复
 - **Medium**: 可接受，记录到技术债务
 - **Low**: 可接受，建议修复
+
+## 常见高风险反模式
+
+- 为同一模型的不同 `type` 分支复制两套近似 Repository 查询
+- 在 Service 层直接拼 Prisma where 条件，绕过 Repository 语义方法
+- 版本文档与全局架构规范冲突后，只改代码不回写文档
+- 目录结构已变化，但 `project-structure.md` 仍保留旧路径，导致后续 Agent / Copilot 继续生成过期代码

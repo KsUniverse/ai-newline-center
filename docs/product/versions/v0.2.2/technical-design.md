@@ -14,7 +14,7 @@
 | 新增模型 | 无（复用 `DouyinAccount` + `DouyinVideo`，通过 `type` 字段区分） |
 | 新增 API | 6 个路由组（`/api/benchmarks/*`） |
 | 新增页面/组件 | 3 个页面 + 7 个业务组件 |
-| 架构变更 | 无 `[ARCH-CHANGE]` — 新增第 4 个定时器，完全遵循现有调度器模式 |
+| 架构变更 | 无 `[ARCH-CHANGE]` — 新增第 4 个定时器；账号域采用共享 Repository 条件构建，避免 `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` 重复查询 |
 
 ---
 
@@ -188,12 +188,12 @@ const listBenchmarkVideosSchema = z.object({
 // 对标账号列表 DTO（含创建者姓名，用于卡片展示）
 export interface BenchmarkAccountDTO extends DouyinAccountDTO {
   creatorName: string; // user.name 平铺到 DTO，避免前端访问嵌套
+  deletedAt: string | null; // 主列表为 null；归档列表用于展示归档时间
 }
 
 // 对标账号详情 DTO
 export interface BenchmarkAccountDetailDTO extends BenchmarkAccountDTO {
   lastSyncedAt: string | null;
-  deletedAt: string | null; // null = 未归档；ISO string = 归档时间
 }
 ```
 
@@ -266,7 +266,7 @@ interface CrawlerCollectionResult {
 |------|-----|
 | 新增环境变量 | `COLLECTION_SYNC_CRON`（可选，默认 `*/5 * * * *`） |
 | 执行方法 | `syncService.runCollectionSync()` |
-| 防重入机制 | 模块级 `let collectionSyncRunning = false` flag |
+| 防重入机制 | `startScheduler()` 内部 `let collectionSyncRunning = false` flag |
 
 **scheduler.ts 变更**：
 
@@ -274,7 +274,7 @@ interface CrawlerCollectionResult {
 // 新增环境变量
 const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/5 * * * *";
 
-// 新增防重入变量（模块级）
+// 新增防重入变量（startScheduler 内部）
 let collectionSyncRunning = false;
 
 // 新增定时器注册
@@ -319,10 +319,9 @@ cron.schedule(collectionSyncCron, () => {
               → 失败：记录 error 日志，continue（不创建）
            ii. 调用 douyinAccountRepository.createBenchmark({
                  ...profile,
-                 profileUrl: profile.profileUrl ?? `https://www.douyin.com/user/${item.authorSecUserId}`,
+                 profileUrl: `https://www.douyin.com/user/${item.authorSecUserId}`,
                  userId: account.userId,        // first-creator
                  organizationId: account.organizationId,
-                 type: BENCHMARK_ACCOUNT,
                })
                → 唯一约束冲突（并发创建）：catch 并 continue（幂等）
 
@@ -336,7 +335,7 @@ cron.schedule(collectionSyncCron, () => {
 
 | 约束 | 实现方式 |
 |------|---------|
-| 防重入 | 模块级 `collectionSyncRunning` flag |
+| 防重入 | `startScheduler()` 内部 `collectionSyncRunning` flag |
 | 单账号失败不中断 | for 循环内 try/catch |
 | 博主全局唯一 | `secUserId @unique` 约束 + service 层检查 |
 | 已归档博主不重建 | `findBySecUserIdIncludingDeleted` 找到则 skip |
@@ -460,6 +459,17 @@ src/components/features/benchmarks/
 
 修改 `src/server/repositories/douyin-account.repository.ts`，新增以下方法：
 
+### 抽象优先实现说明
+
+由于 `DouyinAccount` 同时服务 `MY_ACCOUNT` 与 `BENCHMARK_ACCOUNT` 两种业务视图，实际实现采用了
+“**共享 where/include 构建 + 语义方法封装**”模式：
+
+- 共享条件构建：抽取 `buildWhere()` / `buildArchiveWhere()`
+- 共享 include：抽取 `userInclude`
+- 语义方法保留：`findManyBenchmarks()`、`findAllMyAccountsForCollection()`、`findBenchmarkById()` 等
+
+这样可以保持 Service 层使用语义化方法，同时避免在 Repository 中复制多套近似 Prisma 查询。
+
 | 方法 | 说明 |
 |------|------|
 | `findAllMyAccountsForCollection()` | `type=MY_ACCOUNT AND secUserId IS NOT NULL AND deletedAt IS NULL`，用于收藏同步 |
@@ -542,8 +552,9 @@ COLLECTION_SYNC_CRON: z.string().optional(),
 |------|-----------|
 | 第 4 个定时器 | 与现有 3 个定时器模式完全一致（`startScheduler` + `initialized` flag） |
 | 软删除 | 复用现有 `deletedAt DateTime?` 字段，未引入新模式 |
-| 防重入 | 模块级 flag（简单可靠，适合自托管单节点） |
+| 防重入 | `startScheduler()` 内部 flag + `initialized` 幂等注册 |
 | 数据隔离 | Repository 层 organizationId 过滤，与现有规范一致 |
 | 对标账号与 MY_ACCOUNT | 独立页面（`/benchmarks`），不合并，通过 `type` 字段区分 |
 | fetchCollectionVideos 改造 | 仍在 CrawlerService 内，保持单一封装原则 |
 | `collectedAt` 不持久化 | 瞬时值，不需要新 schema 字段 |
+| 账号域复用 | Repository 内抽取共享查询构建函数，减少 type 分支重复实现 |

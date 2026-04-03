@@ -81,6 +81,20 @@
 | sort | string | 排序字段 | createdAt |
 | order | "asc" \| "desc" | 排序方向 | desc |
 | search | string | 搜索关键词 | — |
+| archiveFilter | string | 归档筛选语义（如 active / archived） | — |
+| type | string | 同模型不同业务类型筛选 | — |
+| status | string | 状态筛选 | — |
+
+### 同领域接口一致性
+
+同一业务域下的列表接口必须优先保持筛选语义一致，例如：
+- 统一使用 `page/limit/search/sort/order`
+- 归档语义优先使用 `archiveFilter` 或清晰拆分为 `/archived`
+- 类型筛选统一使用 `type`
+- 状态筛选统一使用 `status`
+
+禁止为同一筛选语义引入多套近似命名，例如同一个领域里同时出现
+`archived=true`、`includeDeleted=true`、`showArchived=1`。
 
 ## 类型定义
 
@@ -119,6 +133,8 @@ export interface PaginationParams {
 5. API 版本暂不使用前缀（v1），未来需要时在路径中添加
 6. 所有需要认证的接口必须先调用 `auth()` 获取 session
 7. 长任务（AI/爬虫）使用异步任务 API 模式
+8. 同领域接口的分页、筛选参数和返回 DTO 应优先复用统一命名与语义
+9. 不要通过复制近似 endpoint 来承载同一筛选语义，优先复用已有资源路径约定
 
 ---
 

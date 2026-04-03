@@ -1,4 +1,4 @@
-import type { DouyinAccount } from "@prisma/client";
+import { Prisma, type DouyinAccount } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
@@ -102,6 +102,94 @@ class SyncService {
     }
 
     return { lastSyncedAt };
+  }
+
+  async runCollectionSync(): Promise<void> {
+    try {
+      const accounts = await douyinAccountRepository.findAllMyAccountsForCollection();
+      const windowStart = new Date(Date.now() - 60 * 60 * 1000);
+
+      for (const account of accounts) {
+        try {
+          const result = await crawlerService.fetchCollectionVideos(account.secUserId as string);
+
+          for (const item of result.items) {
+            if (!item.collectedAt) {
+              continue;
+            }
+
+            if (item.collectedAt < windowStart) {
+              break;
+            }
+
+            if (!item.authorSecUserId) {
+              console.warn("Skipped collection item without author secUserId:", {
+                accountId: account.id,
+                awemeId: item.awemeId,
+              });
+              continue;
+            }
+
+            const existing = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
+              item.authorSecUserId,
+            );
+            if (existing) {
+              continue;
+            }
+
+            try {
+              const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
+
+              await douyinAccountRepository.createBenchmark({
+                profileUrl:
+                  profile.secUserId
+                    ? `https://www.douyin.com/user/${profile.secUserId}`
+                    : `https://www.douyin.com/user/${item.authorSecUserId}`,
+                secUserId: item.authorSecUserId,
+                nickname: profile.nickname,
+                avatar: profile.avatar,
+                bio: profile.bio,
+                signature: profile.signature,
+                followersCount: profile.followersCount,
+                followingCount: profile.followingCount,
+                likesCount: profile.likesCount,
+                videosCount: profile.videosCount,
+                douyinNumber: profile.douyinNumber,
+                ipLocation: profile.ipLocation,
+                age: profile.age,
+                province: profile.province,
+                city: profile.city,
+                verificationLabel: profile.verificationLabel,
+                verificationIconUrl: profile.verificationIconUrl,
+                verificationType: profile.verificationType,
+                userId: account.userId,
+                organizationId: account.organizationId,
+              });
+            } catch (error) {
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === "P2002"
+              ) {
+                continue;
+              }
+
+              console.error("Failed to create benchmark from collection sync:", {
+                accountId: account.id,
+                authorSecUserId: item.authorSecUserId,
+                error,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Failed to sync collection videos:", {
+            accountId: account.id,
+            error,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to run collection sync:", { error });
+    }
   }
 
   private async syncAccountInfo(account: DouyinAccount): Promise<Date> {

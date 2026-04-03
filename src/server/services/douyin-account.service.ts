@@ -7,7 +7,7 @@ import { crawlerService } from "@/server/services/crawler.service";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 
-interface CreateDouyinAccountData {
+export interface CreateDouyinAccountData {
   profileUrl: string;
   secUserId: string;
   nickname: string;
@@ -28,9 +28,53 @@ interface CreateDouyinAccountData {
   verificationType?: number | null;
 }
 
-interface ListParams {
+export interface ListParams {
   page: number;
   limit: number;
+}
+
+export function mapCrawlerProfileToPreview(
+  profileUrl: string,
+  profile: {
+    secUserId: string;
+    nickname: string;
+    avatar: string;
+    bio: string | null;
+    signature: string | null;
+    followersCount: number;
+    followingCount: number;
+    likesCount: number;
+    videosCount: number;
+    douyinNumber: string | null;
+    ipLocation: string | null;
+    age: number | null;
+    province: string | null;
+    city: string | null;
+    verificationLabel: string | null;
+    verificationIconUrl: string | null;
+    verificationType: number | null;
+  },
+): AccountPreview {
+  return {
+    profileUrl,
+    secUserId: profile.secUserId,
+    nickname: profile.nickname,
+    avatar: profile.avatar,
+    bio: profile.bio,
+    signature: profile.signature,
+    followersCount: profile.followersCount,
+    followingCount: profile.followingCount,
+    likesCount: profile.likesCount,
+    videosCount: profile.videosCount,
+    douyinNumber: profile.douyinNumber,
+    ipLocation: profile.ipLocation,
+    age: profile.age,
+    province: profile.province,
+    city: profile.city,
+    verificationLabel: profile.verificationLabel,
+    verificationIconUrl: profile.verificationIconUrl,
+    verificationType: profile.verificationType,
+  };
 }
 
 class DouyinAccountService {
@@ -42,26 +86,7 @@ class DouyinAccountService {
     const secUserId = await crawlerService.getSecUserId(profileUrl);
     const profile = await crawlerService.fetchUserProfile(secUserId);
 
-    return {
-      profileUrl,
-      secUserId,
-      nickname: profile.nickname,
-      avatar: profile.avatar,
-      bio: profile.bio,
-      signature: profile.signature,
-      followersCount: profile.followersCount,
-      followingCount: profile.followingCount,
-      likesCount: profile.likesCount,
-      videosCount: profile.videosCount,
-      douyinNumber: profile.douyinNumber,
-      ipLocation: profile.ipLocation,
-      age: profile.age,
-      province: profile.province,
-      city: profile.city,
-      verificationLabel: profile.verificationLabel,
-      verificationIconUrl: profile.verificationIconUrl,
-      verificationType: profile.verificationType,
-    };
+    return mapCrawlerProfileToPreview(profileUrl, profile);
   }
 
   async createAccount(caller: SessionUser, data: CreateDouyinAccountData) {
@@ -86,18 +111,21 @@ class DouyinAccountService {
     switch (caller.role) {
       case UserRole.EMPLOYEE:
         return douyinAccountRepository.findMany({
+          type: DouyinAccountType.MY_ACCOUNT,
           userId: caller.id,
           page: params.page,
           limit: params.limit,
         });
       case UserRole.BRANCH_MANAGER:
         return douyinAccountRepository.findMany({
+          type: DouyinAccountType.MY_ACCOUNT,
           organizationId: caller.organizationId,
           page: params.page,
           limit: params.limit,
         });
       case UserRole.SUPER_ADMIN:
         return douyinAccountRepository.findMany({
+          type: DouyinAccountType.MY_ACCOUNT,
           page: params.page,
           limit: params.limit,
         });
@@ -110,6 +138,9 @@ class DouyinAccountService {
     const account = await douyinAccountRepository.findById(id);
 
     if (!account) {
+      throw new AppError("NOT_FOUND", "账号不存在", 404);
+    }
+    if (account.type !== DouyinAccountType.MY_ACCOUNT) {
       throw new AppError("NOT_FOUND", "账号不存在", 404);
     }
 

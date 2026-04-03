@@ -15,3 +15,5 @@ applyTo: "src/app/api/**"
 4. **格式**: `{ success: boolean, data?: T, error?: { code, message } }`
 5. **分页**: GET 列表必须支持 page/limit 参数
 6. **认证**: `const session = await auth()`
+7. **同领域接口一致性**: 分页、筛选参数和 DTO 语义优先复用统一命名，不随意引入近似参数名
+8. **只做入口层**: 不在 Route Handler 里拼业务条件或 Prisma 查询，复杂筛选语义交给 Service / Repository

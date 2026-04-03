@@ -58,7 +58,17 @@ interface CrawlerVideoDetail {
   shareCount: number;
 }
 
-type CrawlerCollectionResult = Record<string, unknown>;
+interface CrawlerCollectionItem {
+  awemeId: string | null;
+  authorSecUserId: string | null;
+  collectedAt: Date | null;
+}
+
+interface CrawlerCollectionResult {
+  items: CrawlerCollectionItem[];
+  hasMore: boolean;
+  cursor: number;
+}
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -155,10 +165,30 @@ class CrawlerService {
   }
 
   async fetchCollectionVideos(secUserId: string): Promise<CrawlerCollectionResult> {
-    return this.callCrawlerApi<CrawlerCollectionResult>(
+    const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_user_collection_videos",
       { sec_user_id: secUserId },
     );
+    const items = this.pickArray(raw, ["aweme_list", "collect_list", "video_list"]).map((item) => {
+      const author = this.pickRecord(item, ["author", "author_info"]) ?? {};
+      const collectedAtTimestamp = this.pickNumber(item, [
+        "collect_time",
+        "favorited_time",
+        "create_time",
+      ]);
+
+      return {
+        awemeId: this.pickString(item, ["aweme_id", "awemeId"]),
+        authorSecUserId: this.pickString(author, ["sec_user_id", "sec_uid"]),
+        collectedAt: collectedAtTimestamp ? new Date(collectedAtTimestamp * 1000) : null,
+      };
+    });
+
+    return {
+      items,
+      hasMore: this.pickBoolean(raw, ["has_more"]) ?? false,
+      cursor: this.pickNumber(raw, ["max_cursor", "cursor"]) ?? 0,
+    };
   }
 
   async fetchOneVideo(awemeId: string): Promise<CrawlerVideoDetail> {

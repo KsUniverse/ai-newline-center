@@ -15,3 +15,4 @@ applyTo: "prisma/**"
 4. **软删除**: `deletedAt DateTime?`
 5. **关系**: 显式定义 `@relation(fields: [...], references: [...])`
 6. **迁移**: `pnpm db:migrate --name <描述>` → `pnpm db:generate`，禁止修改已提交迁移文件
+7. **单模型优先**: 若多个业务视图仅由 `type/status/archive` 区分，优先单模型承载，避免复制式表结构

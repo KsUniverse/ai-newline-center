@@ -19,6 +19,14 @@ tools: [read, edit, search, execute]
 4. 阅读 `docs/architecture/frontend.md` 了解前端架构规范
 5. 逐项实现任务，**每完成一项必须执行视觉验收**后再标记 ✅
 
+### 进入实现前先做复用判断
+
+- 是否已有同领域页面骨架可复用（如列表页 / 详情页 / 空状态）？
+- 是否已有共享卡片、Drawer、分页、Header 结构可复用？
+- 差异是否仅在接口、文案、Badge、权限展示？
+
+若答案是“是”，优先抽共享组件或配置化差异；**禁止复制一份现有页面/组件后整体平移改名**。
+
 ### 每项任务的视觉验收要求（标记 ✅ 前必做）
 
 - **暗色模式**: 切换到暗色主题，确认组件可见（卡片背景 ≠ 页面背景）
@@ -50,6 +58,8 @@ tools: [read, edit, search, execute]
 8. **Mock 数据优先**: 所有数据层使用 mock 数据（硬编码或 mock 函数），**不依赖后端 API 就绪**。每个 mock 调用点标注 `// TODO: [INTEGRATE] 替换为真实 API 调用`
 9. **复杂业务逻辑**: 只做 UI 壳和交互框架，复杂逻辑标注 `// TODO: [INTEGRATE] 需要后端集成阶段补充`
 10. **文档问题**: 开发中遇到文档描述与实际不符，标注 `[DOC-ISSUE]`（参见 PROCESS.md「开发中断修正协议」）
+11. **统一风格优先**: 同领域页面的布局、分页、空状态、添加流程优先保持一致
+12. **复用优先**: 若差异只在文案、接口、Badge、权限展示，优先抽共享卡片、Drawer、列表骨架或 props 配置
 
 ## 约束
 
@@ -63,6 +73,6 @@ tools: [read, edit, search, execute]
 
 所有前端任务完成后，执行自省三步：
 
-1. **回顾**: 实现中是否遇到 ui-ux-system.md 未定义的组件样式或交互模式？前端架构规范是否有未覆盖的场景？
-2. **检查**: 新增组件是否对 `docs/architecture/frontend.md` 的组件树描述有影响？`docs/standards/ui-ux-system.md` 是否需要补充新组件规范？
+1. **回顾**: 实现中是否沉淀出新的共享 UI 模式？是否出现复制式页面/组件扩散？ui-ux-system.md 未定义哪些样式或交互？
+2. **检查**: 新增组件是否对 `docs/architecture/frontend.md`、`docs/architecture/project-structure.md` 的描述有影响？`docs/standards/ui-ux-system.md` 是否需要补充新组件规范？
 3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后执行（注意：前端角色不直接修改文档，提议后由架构师或编排者执行）

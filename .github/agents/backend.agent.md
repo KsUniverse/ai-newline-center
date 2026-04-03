@@ -25,6 +25,11 @@ tools: [read, edit, search, execute]
 4. 确保编译通过 + 类型安全 (`pnpm type-check` + `pnpm lint`)
 5. 开发中遇到文档问题，按「开发中断修正协议」处理：标注 `[DOC-ISSUE]`
 
+**实现优先级判断**：
+- 先找现有领域抽象能否复用，再决定是否新增方法或文件
+- 同一模型服务多个业务分支时，优先抽共享 `where/include/select/orderBy/helper`
+- 若只是 `type`、权限、归档、文案差异，禁止复制一整套近似 Service / Repository
+
 ### Phase 5: 集成联调
 
 前端完成后，替换 mock 数据，补充业务逻辑。
@@ -50,6 +55,8 @@ tools: [read, edit, search, execute]
 6. **AI 调用**: 统一走 AiGateway Service
 7. **爬虫调用**: 统一走 CrawlerService
 8. **环境变量**: 使用 `env.XXX`，禁止直接 `process.env`
+9. **抽象优先**: 出现第二处近似查询或映射逻辑时，优先提炼共享函数，不复制扩展
+10. **语义方法保留**: 抽共享逻辑后，上层继续调用业务语义方法，不直接拼 Prisma 条件替代 Repository
 
 详细规范参见 `docs/architecture/backend.md` 和 `docs/architecture/api-conventions.md`。
 
@@ -65,6 +72,6 @@ tools: [read, edit, search, execute]
 
 每个阶段（Phase 3 或 Phase 5）完成后，执行自省三步：
 
-1. **回顾**: 实现中是否发现架构文档缺失的模式？coding-standards 是否有未覆盖的场景？API 契约在联调中是否发现偏差？
-2. **检查**: `docs/architecture/backend.md`、`docs/architecture/api-conventions.md`、`docs/standards/coding-standards.md` 是否需要补充？
+1. **回顾**: 实现中是否沉淀出可复用抽象？是否出现复制式实现苗头？API 契约在联调中是否发现偏差？
+2. **检查**: `docs/architecture/backend.md`、`docs/architecture/api-conventions.md`、`docs/standards/coding-standards.md`、`docs/architecture/project-structure.md` 是否需要补充？
 3. **提议**: 列出需要修改的文档和内容摘要 → 提交给用户确认后由架构师执行

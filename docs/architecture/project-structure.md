@@ -32,82 +32,70 @@ ai-newline-center/
 │   │   │   ├── layout.tsx             # 仪表盘布局 (Sidebar + Header)
 │   │   │   ├── accounts/              # 我的账号
 │   │   │   ├── benchmarks/            # 对标账号
-│   │   │   ├── analysis/              # AI 拆解
-│   │   │   ├── fragments/             # 碎片观点
-│   │   │   ├── rewrite/               # AI 仿写
-│   │   │   ├── publish/               # 发布复盘
-│   │   │   └── admin/                 # 管理后台
-│   │   │       ├── organizations/     # 组织管理
-│   │   │       ├── users/             # 用户管理
-│   │   │       ├── ai-providers/      # AI 模型配置
-│   │   │       └── prompts/           # Prompt 模板
+│   │   │   ├── dashboard/             # 仪表盘首页
+│   │   │   ├── organizations/         # 组织管理
+│   │   │   └── users/                 # 用户管理
 │   │   └── api/                       # API 路由
 │   │       ├── auth/[...nextauth]/    # NextAuth 路由
+│   │       ├── benchmarks/            # 对标账号 API
 │   │       ├── organizations/         # 组织管理 API
+│   │       ├── douyin-accounts/       # 我的抖音账号 API
+│   │       ├── proxy/                 # 代理接口
 │   │       ├── users/                 # 用户管理 API
-│   │       ├── douyin-accounts/       # 抖音账号 API
-│   │       ├── tasks/                 # 异步任务 API
-│   │       │   ├── route.ts           # POST 创建任务
-│   │       │   └── [id]/
-│   │       │       ├── route.ts       # GET 任务状态
-│   │       │       └── stream/
-│   │       │           └── route.ts   # GET SSE 流
-│   │       └── admin/
-│   │           ├── ai-providers/      # AI 配置 API
-│   │           └── prompts/           # Prompt 模板 API
+│   │       └── videos/                # 视频列表 API
 │   ├── components/
 │   │   ├── ui/                        # shadcn/ui 组件 (不手动修改)
 │   │   ├── features/                  # 业务功能组件
 │   │   │   ├── auth/                  # 登录相关
-│   │   │   ├── organization/          # 组织管理
-│   │   │   ├── user/                  # 用户管理
-│   │   │   ├── douyin-account/        # 抖音账号
-│   │   │   ├── analysis/              # AI 拆解
-│   │   │   ├── fragment/              # 碎片观点
-│   │   │   ├── rewrite/               # AI 仿写
-│   │   │   └── publish/               # 发布复盘
+│   │   │   ├── organizations/         # 组织管理
+│   │   │   ├── users/                 # 用户管理
+│   │   │   ├── accounts/              # 我的账号
+│   │   │   ├── benchmarks/            # 对标账号
 │   │   └── shared/                    # 跨功能通用组件
 │   │       ├── layout/                # 布局 (AppLayout, Sidebar, Header)
 │   │       └── common/                # 通用 (SlidePanel, EmptyState, Loading)
-│   ├── hooks/                         # 自定义 React Hooks
-│   │   ├── use-sse.ts                 # SSE 订阅 Hook
-│   │   └── use-confirm.ts            # 确认弹框 Hook
 │   ├── lib/                           # 工具库
 │   │   ├── api-client.ts              # API 请求封装
-│   │   ├── sse-client.ts              # SSE 客户端
-│   │   ├── auth.ts                    # NextAuth 配置
-│   │   ├── env.ts                     # 环境变量验证 (Zod)
-│   │   ├── prisma.ts                  # Prisma 客户端单例
-│   │   ├── redis.ts                   # Redis 连接
-│   │   ├── errors.ts                  # AppError 类
 │   │   ├── api-response.ts            # 统一响应工具
+│   │   ├── auth.ts                    # NextAuth 配置
+│   │   ├── auth-guard.ts              # API 角色校验
+│   │   ├── env.ts                     # 环境变量验证 (Zod)
+│   │   ├── errors.ts                  # AppError 类
+│   │   ├── management-client.ts       # 管理端客户端
+│   │   ├── middleware-auth.ts         # 中间件鉴权辅助
+│   │   ├── prisma.ts                  # Prisma 客户端单例
+│   │   ├── scheduler.ts               # 定时任务注册
+│   │   ├── stores/                    # 客户端状态
 │   │   ├── utils.ts                   # 通用工具函数
-│   │   └── constants.ts               # 常量定义
+│   │   └── [helper].ts                # 其他工具函数
 │   ├── server/                        # 服务端专用代码
 │   │   ├── services/                  # 业务逻辑层
-│   │   │   ├── ai-gateway.service.ts  # AI 统一网关
+│   │   │   ├── benchmark-account.service.ts # 对标账号
 │   │   │   ├── crawler.service.ts     # 爬虫封装
+│   │   │   ├── douyin-account.service.ts # 我的账号
+│   │   │   ├── organization.service.ts # 组织管理
+│   │   │   ├── storage.service.ts     # 文件存储
+│   │   │   ├── sync.service.ts        # 定时同步
 │   │   │   ├── user.service.ts
+│   │   │   ├── video.service.ts
 │   │   │   └── [resource].service.ts
 │   │   ├── repositories/             # 数据访问层
-│   │   │   ├── ai-provider.repository.ts
-│   │   │   ├── prompt-template.repository.ts
+│   │   │   ├── douyin-account.repository.ts
+│   │   │   ├── douyin-video.repository.ts
+│   │   │   ├── organization.repository.ts
 │   │   │   ├── user.repository.ts
+│   │   │   ├── video-snapshot.repository.ts
 │   │   │   └── [resource].repository.ts
-│   │   ├── queue/                     # BullMQ 任务队列
-│   │   │   ├── index.ts               # 队列定义
-│   │   │   ├── ai.worker.ts           # AI 任务处理器
-│   │   │   └── crawler.worker.ts      # 爬虫任务处理器
-│   │   └── cron/                      # 定时任务
-│   │       └── index.ts               # cron 注册
-│   ├── stores/                        # Zustand stores
-│   │   ├── auth.store.ts
-│   │   └── [store-name].store.ts
-│   └── types/                         # 共享类型定义
-│       ├── api.ts                     # API 请求/响应类型
-│       ├── database.ts                # 数据模型类型
-│       ├── next-auth.d.ts             # NextAuth 类型扩展
-│       └── [domain].ts                # 领域类型
+│   ├── types/                         # 共享类型定义
+│   │   ├── api.ts                     # API 请求/响应类型
+│   │   ├── douyin-account.ts          # 抖音账号领域类型
+│   │   ├── organization.ts            # 组织领域类型
+│   │   ├── next-auth.d.ts             # NextAuth 类型扩展
+│   │   ├── node-cron.d.ts             # 定时任务类型补充
+│   │   ├── user-management.ts         # 用户管理类型
+│   │   └── [domain].ts                # 其他领域类型
+│   ├── middleware.ts                  # Next.js 中间件
+│   └── instrumentation.ts             # 服务端启动初始化
 ├── .env.local                         # 环境变量 (不提交)
 ├── .env.example                       # 环境变量模板
 ├── docker-compose.yml                 # Docker 编排 (PostgreSQL + Redis)
@@ -143,3 +131,9 @@ ai-newline-center/
 ```
 
 统一使用 `@/` 前缀引用 src 下的模块，禁止使用相对路径跨层引用。
+
+## 目录设计原则
+
+- **同领域聚合**：同一业务域的 Route、Service、Repository、Types 命名尽量一致
+- **共享抽象优先**：同领域多视图若只差过滤条件或少量行为，应优先在 Repository / Service 内复用共享逻辑
+- **文档跟实现同步**：目录结构调整后，必须同步更新本文件，避免 Agent 或 Copilot 依据过期路径生成代码

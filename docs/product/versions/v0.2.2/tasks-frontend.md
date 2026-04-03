@@ -26,6 +26,7 @@
 - 新建页面: 3（`/benchmarks`, `/benchmarks/archived`, `/benchmarks/[id]`）
 - 新建组件: 7（`src/components/features/benchmarks/` 目录）
 - 前置依赖: BE-009（BenchmarkAccountDTO、BenchmarkAccountDetailDTO 类型必须先完成）
+- 实现策略: **统一风格优先、复用优先、避免复制式实现**。若差异只在文案、接口、Badge、权限展示，优先抽共享组件或配置，不直接复制整页或整组件
 
 ---
 
@@ -54,6 +55,7 @@
   - 文件: `src/app/(dashboard)/benchmarks/page.tsx`（新建）
   - 详情:
     - `"use client"` 组件，模式参照 `accounts/page.tsx`
+    - **复用要求**：优先复用现有列表页骨架和分页交互风格，不复制 `accounts/page.tsx` 后做大段平移修改
     - **页面结构**（按 `docs/architecture/frontend.md` 列表页标准模式）：
       - Header 区：标题「对标账号」+ 描述「管理你的对标博主，通过收藏自动同步或手动添加」
       - Header 右侧：「查看已归档 →」文字链按钮（`variant="link" className="text-sm text-muted-foreground"` + `Link href="/benchmarks/archived"`）和 「+ 添加对标账号」按钮
@@ -120,6 +122,7 @@
   - 文件: `src/components/features/benchmarks/benchmark-add-drawer.tsx`（新建）
   - 详情:
     - 参照 `account-add-drawer.tsx` 结构，修改以下内容：
+    - **复用要求**：若差异主要在接口、文案和错误码映射，优先抽共享 Drawer 结构或表单/预览片段，不直接复制完整组件后局部改字
       - **预览接口**：`POST /api/benchmarks/preview`（替换 `/api/douyin-accounts/preview`）
       - **提交接口**：`POST /api/benchmarks`（替换 `/api/douyin-accounts`）
       - Sheet 标题：「添加对标账号」
@@ -150,6 +153,7 @@
 
     **`BenchmarkCard`**：
     - 参照 `account-card.tsx` 布局风格
+    - **复用要求**：若仅字段展示和操作入口不同，优先抽共享卡片骨架、格式化逻辑或 props 配置，不直接复制整张卡片实现
     - 展示字段：头像（`proxyImageUrl`）、昵称、粉丝数（`formatNumber`）、作品数、创建者姓名（`account.creatorName`，使用 `text-xs text-muted-foreground`）
     - 若 `archived={true}`（归档列表），额外显示归档时间：`text-2xs text-muted-foreground`
     - **「···」菜单**（仅在非归档模式 + `account.userId == currentUserId` 时显示）：
@@ -293,3 +297,13 @@ FE-004（详情页 /benchmarks/[id]）
     ↓
 FE-001（侧边栏新增导航入口）
 ```
+
+## 文档同步触发条件
+
+若前端在实现 benchmark 域过程中沉淀出新的通用 UI 模式，例如：
+- 共享卡片骨架
+- 共享 Drawer/预览流程
+- 共享列表页 Header + 分页模式
+- 同领域页面的配置化差异模式
+
+则应在任务完成后的自省中提出文档更新建议，回写到 `docs/architecture/frontend.md` 或相关规范文档。

@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  createBenchmarkMock,
+  fetchCollectionVideosMock,
   fetchUserProfileMock,
   fetchVideoListMock,
   getSecUserIdMock,
   findAccountByIdMock,
   findAllAccountsMock,
+  findAllMyAccountsForCollectionMock,
   findAllActiveVideosMock,
+  findBySecUserIdIncludingDeletedMock,
   countByAccountIdMock,
   findByVideoIdMock,
   createSnapshotMock,
@@ -16,12 +20,16 @@ const {
   updateSecUserIdMock,
   upsertVideoMock,
 } = vi.hoisted(() => ({
+  createBenchmarkMock: vi.fn(),
+  fetchCollectionVideosMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
   fetchVideoListMock: vi.fn(),
   getSecUserIdMock: vi.fn(),
   findAccountByIdMock: vi.fn(),
   findAllAccountsMock: vi.fn(),
+  findAllMyAccountsForCollectionMock: vi.fn(),
   findAllActiveVideosMock: vi.fn(),
+  findBySecUserIdIncludingDeletedMock: vi.fn(),
   countByAccountIdMock: vi.fn(),
   findByVideoIdMock: vi.fn(),
   createSnapshotMock: vi.fn(),
@@ -34,6 +42,7 @@ const {
 
 vi.mock("@/server/services/crawler.service", () => ({
   crawlerService: {
+    fetchCollectionVideos: fetchCollectionVideosMock,
     fetchUserProfile: fetchUserProfileMock,
     fetchVideoList: fetchVideoListMock,
     getSecUserId: getSecUserIdMock,
@@ -43,8 +52,11 @@ vi.mock("@/server/services/crawler.service", () => ({
 
 vi.mock("@/server/repositories/douyin-account.repository", () => ({
   douyinAccountRepository: {
+    createBenchmark: createBenchmarkMock,
     findById: findAccountByIdMock,
     findAll: findAllAccountsMock,
+    findAllMyAccountsForCollection: findAllMyAccountsForCollectionMock,
+    findBySecUserIdIncludingDeleted: findBySecUserIdIncludingDeletedMock,
     updateAccountInfo: updateAccountInfoMock,
     updateSecUserId: updateSecUserIdMock,
   },
@@ -74,12 +86,16 @@ vi.mock("@/server/services/storage.service", () => ({
 
 describe("syncService", () => {
   beforeEach(() => {
+    createBenchmarkMock.mockReset();
+    fetchCollectionVideosMock.mockReset();
     fetchUserProfileMock.mockReset();
     fetchVideoListMock.mockReset();
     getSecUserIdMock.mockReset();
     findAccountByIdMock.mockReset();
     findAllAccountsMock.mockReset();
+    findAllMyAccountsForCollectionMock.mockReset();
     findAllActiveVideosMock.mockReset();
+    findBySecUserIdIncludingDeletedMock.mockReset();
     countByAccountIdMock.mockReset();
     findByVideoIdMock.mockReset();
     createSnapshotMock.mockReset();
@@ -412,5 +428,85 @@ describe("syncService", () => {
       "https://cdn.example.com/video-ok.mp4",
       "videos",
     );
+  });
+
+  it("creates benchmark accounts for recent collection authors and stops at the time window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-03T12:00:00.000Z"));
+
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+      },
+    ]);
+    fetchCollectionVideosMock.mockResolvedValue({
+      items: [
+        {
+          awemeId: "fav_1",
+          authorSecUserId: "author_recent",
+          collectedAt: new Date("2026-04-03T11:30:00.000Z"),
+        },
+        {
+          awemeId: "fav_2",
+          authorSecUserId: "author_old",
+          collectedAt: new Date("2026-04-03T10:30:00.000Z"),
+        },
+      ],
+      hasMore: false,
+      cursor: 0,
+    });
+    findBySecUserIdIncludingDeletedMock.mockResolvedValue(null);
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "author_recent",
+      nickname: "对标作者",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(fetchCollectionVideosMock).toHaveBeenCalledWith("sec_owner_1");
+    expect(createBenchmarkMock).toHaveBeenCalledWith({
+      profileUrl: "https://www.douyin.com/user/author_recent",
+      secUserId: "author_recent",
+      nickname: "对标作者",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+      userId: "user_1",
+      organizationId: "org_1",
+    });
+    expect(fetchUserProfileMock).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
   });
 });

@@ -49,6 +49,8 @@
 4. **约定优于配置**: 文件位置决定功能（Next.js 路由约定）
 5. **弹框优先**: 交互操作优先使用弹框/抽屉/Slide-over，减少页面跳转
 6. **异步可靠**: AI/爬虫等耗时操作通过 BullMQ 异步处理，前端 SSE 订阅结果
+7. **抽象优先**: 同领域出现第二套近似实现时，优先提炼共享查询构建、映射和校验逻辑，再落具体语义方法
+8. **统一风格优先**: 版本设计与全局规范、既有实现冲突时，优先向统一风格收敛，并同步回写文档
 
 ## 技术栈
 
@@ -80,9 +82,10 @@
 |------|------|------|
 | 认证 | NextAuth Credentials | 账号密码登录，管理员创建账号 |
 | 数据隔离 | Repository 层手动过滤 orgId | 每个查询显式传入 organizationId |
+| 领域复用 | Repository 共享 where/include 构建 + Service 暴露语义方法 | 避免同领域 `type` 分支复制近似实现 |
 | AI 调用 | AI Gateway + BullMQ + SSE | 异步可靠 + 流式体验 |
 | 爬虫 | Service 层封装 + 自动重试 | 统一错误处理和日志 |
-| 定时任务 | node-cron + instrumentation.ts | 自托管环境，简单可靠；服务启动时由 `instrumentation.ts` 调用 `startScheduler()`；多个独立定时器（当前 3 个，见 Scheduler 模块），各使用独立防重入 flag；`initialized` 标志防热重载重复注册 |
+| 定时任务 | node-cron + instrumentation.ts | 自托管环境，简单可靠；服务启动时由 `instrumentation.ts` 调用 `startScheduler()`；多个独立定时器（当前 4 个，见 Scheduler 模块），各使用独立防重入 flag；`initialized` 标志防热重载重复注册 |
 | 部署 | 自托管 VPS (Docker) | 完全可控 |
 | 前端布局 | Linear 风格分栏 | 紧凑侧边栏 + 列表/详情分栏 |
 | 交互模式 | 弹框/抽屉/Slide-over | 减少页面跳转，保持上下文 |

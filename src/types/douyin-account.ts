@@ -79,3 +79,12 @@ export interface DouyinVideoWithAccountDTO extends DouyinVideoDTO {
   accountNickname: string;
   accountAvatar: string;
 }
+
+export interface BenchmarkAccountDTO extends DouyinAccountDTO {
+  creatorName: string;
+  deletedAt: string | null;
+}
+
+export interface BenchmarkAccountDetailDTO extends BenchmarkAccountDTO {
+  lastSyncedAt: string | null;
+}

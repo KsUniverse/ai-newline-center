@@ -21,6 +21,7 @@
 - 改造服务: `crawler.service.ts`（fetchCollectionVideos 返回类型）、`sync.service.ts`（新增 runCollectionSync）、`scheduler.ts`（第 4 个 cron）、`env.ts`（新增环境变量）
 - 新增 API 路由: `/api/benchmarks/`（6 个 handler）
 - 类型变更: `src/types/douyin-account.ts`（新增 2 个 DTO 类型）
+- 实现策略: **抽象优先**。`DouyinAccount` 相关查询优先抽取共享 where/include 构建，再暴露 benchmark 语义方法
 
 ---
 
@@ -77,7 +78,7 @@
 
 - [ ] **BE-003**: (P0) 新增对标账号所需的 Repository 方法
   - 文件: `src/server/repositories/douyin-account.repository.ts`
-  - 详情: 在 `DouyinAccountRepository` 类中新增以下方法：
+  - 详情: 在 `DouyinAccountRepository` 类中新增以下方法，并优先抽取共享查询构建逻辑（如 `buildWhere`、共享 `include` 常量）：
 
     **a. `findAllMyAccountsForCollection()`**
     ```typescript
@@ -306,11 +307,11 @@
     ```typescript
     export interface BenchmarkAccountDTO extends DouyinAccountDTO {
       creatorName: string;
+      deletedAt: string | null;
     }
 
     export interface BenchmarkAccountDetailDTO extends BenchmarkAccountDTO {
       lastSyncedAt: string | null;
-      deletedAt: string | null;
     }
     ```
 
