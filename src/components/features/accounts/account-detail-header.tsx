@@ -1,12 +1,16 @@
-import type { DouyinAccountDetailDTO } from "@/types/douyin-account";
+"use client";
+
 import { proxyImageUrl, formatNumber } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { AccountSyncSection } from "./account-sync-section";
+import type { DouyinAccountDetailDTO } from "@/types/douyin-account";
 
 interface AccountDetailHeaderProps {
   account: DouyinAccountDetailDTO;
+  onSyncSuccess: (newLastSyncedAt: string) => void;
 }
 
-export function AccountDetailHeader({ account }: AccountDetailHeaderProps) {
+export function AccountDetailHeader({ account, onSyncSuccess }: AccountDetailHeaderProps) {
   return (
     <div className="flex items-start gap-5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -37,6 +41,11 @@ export function AccountDetailHeader({ account }: AccountDetailHeaderProps) {
             作品
           </span>
         </div>
+        <AccountSyncSection
+          accountId={account.id}
+          lastSyncedAt={account.lastSyncedAt}
+          onSyncSuccess={onSyncSuccess}
+        />
       </div>
     </div>
   );

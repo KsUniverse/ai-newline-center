@@ -108,6 +108,13 @@ export default function AccountDetailPage() {
     return null;
   }
 
+  function handleSyncSuccess(newLastSyncedAt: string) {
+    setAccount((prev) => {
+      if (!prev) return prev;
+      return { ...prev, lastSyncedAt: newLastSyncedAt };
+    });
+  }
+
   function handleVideoClick(video: DouyinVideoDTO) {
     setSelectedVideo(video);
     setVideoDialogOpen(true);
@@ -150,7 +157,7 @@ export default function AccountDetailPage() {
             </div>
           </div>
         ) : (
-          <AccountDetailHeader account={account} />
+          <AccountDetailHeader account={account} onSyncSuccess={handleSyncSuccess} />
         )}
       </div>
 

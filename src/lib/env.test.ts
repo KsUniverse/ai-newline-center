@@ -65,4 +65,20 @@ describe("parseEnv", () => {
       }),
     ).toThrow(/CRAWLER_API_URL 在生产环境必填/);
   });
+
+  it("accepts optional cron expressions", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+      ACCOUNT_SYNC_CRON: "0 */6 * * *",
+      VIDEO_SYNC_CRON: "0 * * * *",
+    });
+
+    expect(result.ACCOUNT_SYNC_CRON).toBe("0 */6 * * *");
+    expect(result.VIDEO_SYNC_CRON).toBe("0 * * * *");
+  });
 });

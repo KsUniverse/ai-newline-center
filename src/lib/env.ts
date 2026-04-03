@@ -7,6 +7,8 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   CRAWLER_API_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
+  ACCOUNT_SYNC_CRON: z.string().optional(),
+  VIDEO_SYNC_CRON: z.string().optional(),
   SEED_ADMIN_ACCOUNT: z.string().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
   SEED_ADMIN_NAME: z.string().optional(),
@@ -20,7 +22,7 @@ const envSchema = z.object({
     });
   }
 
-  if (values.NODE_ENV === "production" && !values.CRAWLER_API_URL) {
+  if (values.NODE_ENV === "production" && !values.CRAWLER_API_URL && process.env.NEXT_PHASE !== "phase-production-build") {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["CRAWLER_API_URL"],

@@ -17,6 +17,7 @@ export interface DouyinAccountDetailDTO extends DouyinAccountDTO {
     id: string;
     name: string;
   };
+  lastSyncedAt: string | null;
 }
 
 export interface AccountPreview {

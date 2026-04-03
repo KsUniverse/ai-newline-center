@@ -463,22 +463,59 @@ export const crawlerService = new CrawlerService();
 
 ---
 
-## 定时任务
+## 定时任务模式
+
+定时任务通过 `node-cron` 实现，调度器在 Next.js 服务启动时由 `instrumentation.ts` 自动激活。
+
+### 启动入口
+
+`instrumentation.ts`（项目根目录，与 `src/` 同级）是 Next.js 15 原生支持的服务端初始化钩子，无需额外配置：
 
 ```typescript
-// src/server/cron/index.ts
-import cron from "node-cron";
-import { crawlerQueue } from "@/server/queue";
+// instrumentation.ts
+export async function register() {
+  // 仅在 Node.js 运行时执行（避免 Edge Runtime / 测试环境）
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NODE_ENV !== "test") {
+    const { startScheduler } = await import("./src/lib/scheduler");
+    startScheduler();
+  }
+}
+```
 
-export function registerCronJobs() {
-  // 每小时同步账号数据
-  cron.schedule("0 * * * *", async () => {
-    // 查询所有需要同步的账号 → 批量加入 crawlerQueue
+### 调度器文件
+
+调度器统一定义在 `src/lib/scheduler.ts`，使用模块级 `initialized` 标志防止 Next.js 热重载时重复注册：
+
+```typescript
+// src/lib/scheduler.ts
+import cron from "node-cron";
+import { env } from "@/lib/env";
+import { syncService } from "@/server/services/sync.service";
+
+let initialized = false;
+
+export function startScheduler(): void {
+  if (initialized) return;
+  initialized = true;
+
+  // 账号基础信息同步（默认每 6 小时，可通过环境变量覆盖）
+  const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "0 */6 * * *";
+  cron.schedule(accountSyncCron, () => {
+    void syncService.runAccountInfoBatchSync();
   });
 
-  // 每2小时同步收藏列表
-  cron.schedule("0 */2 * * *", async () => {
-    // 查询所有抖音号 → 批量加入 crawlerQueue (类型: FETCH_FAVORITES)
+  // 视频增量同步（默认每 1 小时，可通过环境变量覆盖）
+  const videoSyncCron = env.VIDEO_SYNC_CRON ?? "0 * * * *";
+  cron.schedule(videoSyncCron, () => {
+    void syncService.runVideoBatchSync();
   });
 }
 ```
+
+### 规则
+
+1. **启动入口唯一**: 所有 cron 注册必须通过 `startScheduler()` 集中管理，不可在其他位置散落注册
+2. **防重复注册**: `initialized` 标志确保 `startScheduler()` 幂等，热重载不会叠加注册
+3. **调用 Service 批量方法**: cron 任务只调用 Service 层的批量方法（如 `runXxxBatchSync()`），不直接操作 Repository 或 Prisma
+4. **容错继续**: 批量方法内部逐条处理，单条失败记录日志后跳过，不中断整个批次
+5. **环境变量覆盖**: cron 表达式优先从 `env.*_CRON` 读取，提供默认值作为兜底

@@ -27,6 +27,17 @@ export interface FindManyDouyinAccountsParams {
 }
 
 class DouyinAccountRepository {
+  async findAll(db: DatabaseClient = prisma): Promise<DouyinAccount[]> {
+    return db.douyinAccount.findMany({
+      where: {
+        deletedAt: null,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+  }
+
   async findByProfileUrl(
     profileUrl: string,
     db: DatabaseClient = prisma,
@@ -100,6 +111,26 @@ class DouyinAccountRepository {
     db: DatabaseClient = prisma,
   ): Promise<DouyinAccount> {
     return db.douyinAccount.create({
+      data,
+    });
+  }
+
+  async updateAccountInfo(
+    id: string,
+    data: {
+      nickname: string;
+      avatar: string;
+      bio: string | null;
+      followersCount: number;
+      videosCount: number;
+      lastSyncedAt: Date;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
       data,
     });
   }

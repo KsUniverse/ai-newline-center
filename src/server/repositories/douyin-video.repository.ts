@@ -5,6 +5,38 @@ import { prisma } from "@/lib/prisma";
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 
 class DouyinVideoRepository {
+  async upsertByVideoId(
+    data: {
+      videoId: string;
+      accountId: string;
+      title: string;
+      coverUrl: string | null;
+      videoUrl: string | null;
+      publishedAt: Date | null;
+      playCount: number;
+      likeCount: number;
+      commentCount: number;
+      shareCount: number;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinVideo> {
+    return db.douyinVideo.upsert({
+      where: {
+        videoId: data.videoId,
+      },
+      create: data,
+      update: {
+        title: data.title,
+        coverUrl: data.coverUrl,
+        videoUrl: data.videoUrl,
+        playCount: data.playCount,
+        likeCount: data.likeCount,
+        commentCount: data.commentCount,
+        shareCount: data.shareCount,
+      },
+    });
+  }
+
   async findByAccountId(
     params: { accountId: string; page: number; limit: number },
     db: DatabaseClient = prisma,

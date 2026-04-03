@@ -71,4 +71,69 @@ describe("crawlerService.fetchDouyinProfile", () => {
       statusCode: 502,
     });
   });
+
+  it("returns mock videos in development when crawler API is not configured", async () => {
+    const { crawlerService } = await import("@/server/services/crawler.service");
+
+    const result = await crawlerService.fetchDouyinVideos(
+      "https://www.douyin.com/user/tester",
+      1,
+    );
+
+    expect(result.videos).toHaveLength(8);
+    expect(result.hasMore).toBe(false);
+    expect(result.videos[0]?.videoId).toContain("mock_tester");
+  });
+
+  it("returns empty mock videos from the second page", async () => {
+    const { crawlerService } = await import("@/server/services/crawler.service");
+
+    const result = await crawlerService.fetchDouyinVideos(
+      "https://www.douyin.com/user/tester",
+      2,
+    );
+
+    expect(result).toEqual({
+      videos: [],
+      hasMore: false,
+    });
+  });
+
+  it("calls the crawler API for videos when configured", async () => {
+    envMock.CRAWLER_API_URL = "https://crawler.example.com";
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        videos: [
+          {
+            videoId: "video_1",
+            title: "真实视频",
+            coverUrl: null,
+            videoUrl: null,
+            publishedAt: "2026-04-03T00:00:00.000Z",
+            playCount: 100,
+            likeCount: 10,
+            commentCount: 1,
+            shareCount: 2,
+          },
+        ],
+        hasMore: false,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchDouyinVideos(
+      "https://www.douyin.com/user/tester",
+      1,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://crawler.example.com/douyin/user/videos",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(result.videos[0]?.videoId).toBe("video_1");
+  });
 });

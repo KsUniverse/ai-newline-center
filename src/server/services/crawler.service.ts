@@ -2,6 +2,23 @@ import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
 import type { AccountPreview } from "@/types/douyin-account";
 
+interface VideoFromCrawler {
+  videoId: string;
+  title: string;
+  coverUrl: string | null;
+  videoUrl: string | null;
+  publishedAt: string | null;
+  playCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+}
+
+interface FetchVideosResult {
+  videos: VideoFromCrawler[];
+  hasMore: boolean;
+}
+
 class CrawlerService {
   async fetchDouyinProfile(profileUrl: string): Promise<AccountPreview> {
     if (env.NODE_ENV === "development" && !env.CRAWLER_API_URL) {
@@ -9,6 +26,17 @@ class CrawlerService {
     }
 
     return this.callCrawlerApi<AccountPreview>("/douyin/user/profile", { profileUrl });
+  }
+
+  async fetchDouyinVideos(profileUrl: string, page: number): Promise<FetchVideosResult> {
+    if (env.NODE_ENV === "development" && !env.CRAWLER_API_URL) {
+      return this.mockVideos(profileUrl, page);
+    }
+
+    return this.callCrawlerApi<FetchVideosResult>("/douyin/user/videos", {
+      profileUrl,
+      page,
+    });
   }
 
   private mockProfile(profileUrl: string): AccountPreview {
@@ -21,6 +49,33 @@ class CrawlerService {
       bio: "这是一个模拟账号的简介",
       followersCount: Math.floor(Math.random() * 100_000),
       videosCount: Math.floor(Math.random() * 500),
+    };
+  }
+
+  private mockVideos(profileUrl: string, page: number): FetchVideosResult {
+    if (page > 1) {
+      return {
+        videos: [],
+        hasMore: false,
+      };
+    }
+
+    const slug = profileUrl.split("/").pop() ?? "mock";
+    const videos: VideoFromCrawler[] = Array.from({ length: 8 }, (_, index) => ({
+      videoId: `mock_${slug}_${index}`,
+      title: `模拟视频 ${index + 1} - ${slug}`,
+      coverUrl: null,
+      videoUrl: null,
+      publishedAt: new Date(Date.now() - index * 86400000).toISOString(),
+      playCount: Math.floor(Math.random() * 10000),
+      likeCount: Math.floor(Math.random() * 1000),
+      commentCount: Math.floor(Math.random() * 100),
+      shareCount: Math.floor(Math.random() * 50),
+    }));
+
+    return {
+      videos,
+      hasMore: false,
     };
   }
 
