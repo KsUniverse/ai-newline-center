@@ -12,20 +12,36 @@ interface CrawlerUserProfile {
   nickname: string;
   avatar: string;
   bio: string | null;
+  signature: string | null;
   followersCount: number;
+  followingCount: number;
+  likesCount: number;
   videosCount: number;
+  douyinNumber: string | null;
+  ipLocation: string | null;
+  age: number | null;
+  province: string | null;
+  city: string | null;
+  verificationLabel: string | null;
+  verificationIconUrl: string | null;
+  verificationType: number | null;
 }
 
 interface CrawlerVideoItem {
   awemeId: string;
   title: string;
   coverUrl: string | null;
+  coverSourceUrl: string | null;
   videoUrl: string | null;
+  videoSourceUrl: string | null;
   publishedAt: string | null;
   playCount: number;
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  collectCount: number;
+  admireCount: number;
+  recommendCount: number;
 }
 
 interface CrawlerVideoListResult {
@@ -48,10 +64,14 @@ type UnknownRecord = Record<string, unknown>;
 
 class CrawlerService {
   async getSecUserId(url: string): Promise<string> {
-    const raw = await this.callCrawlerApi<UnknownRecord>(
+    const raw = await this.callCrawlerApi<unknown>(
       "/api/douyin/web/get_sec_user_id",
       { url },
     );
+
+    if (typeof raw === "string" && raw.length > 0) {
+      return raw;
+    }
 
     const secUserId = this.pickString(raw, ["sec_user_id", "secUid", "sec_uid"]);
     if (!secUserId) {
@@ -67,6 +87,9 @@ class CrawlerService {
       { sec_user_id: secUserId },
     );
     const user = this.pickRecord(raw, ["user", "user_info"]) ?? raw;
+    const firstEndorsement = this.pickFirstRecord(user, ["endorsement_info_list"]);
+    const accountCertInfo = this.parseJsonRecord(this.pickString(user, ["account_cert_info"]));
+    const signature = this.pickString(user, ["signature", "bio"]) ?? null;
 
     return {
       secUserId:
@@ -81,9 +104,29 @@ class CrawlerService {
           "avatar_thumb",
           "avatar",
         ]) ?? "",
-      bio: this.pickString(user, ["signature", "bio"]) ?? null,
+      bio: signature,
+      signature,
       followersCount: this.pickNumber(user, ["follower_count", "followers_count"]) ?? 0,
+      followingCount: this.pickNumber(user, ["following_count", "follow_count"]) ?? 0,
+      likesCount: this.pickNumber(user, ["total_favorited", "favoriting_count"]) ?? 0,
       videosCount: this.pickNumber(user, ["aweme_count", "video_count", "videos_count"]) ?? 0,
+      douyinNumber:
+        this.pickString(user, ["unique_id"]) ??
+        this.pickString(user, ["short_id"]) ??
+        null,
+      ipLocation: this.pickString(user, ["ip_location"]) ?? null,
+      age: this.pickNumber(user, ["user_age"]) ?? null,
+      province: this.pickString(user, ["province"]) ?? null,
+      city: this.pickString(user, ["city"]) ?? null,
+      verificationLabel:
+        this.pickString(firstEndorsement, ["text"]) ??
+        this.pickString(accountCertInfo, ["label_text"]) ??
+        null,
+      verificationIconUrl:
+        this.pickString(firstEndorsement, ["light_icon_url"]) ??
+        this.pickString(firstEndorsement, ["dark_icon_url"]) ??
+        null,
+      verificationType: this.pickNumber(user, ["verification_type"]) ?? null,
     };
   }
 
@@ -102,7 +145,7 @@ class CrawlerService {
     );
 
     const rawVideos = this.pickArray(raw, ["aweme_list", "videos", "video_list"]);
-    const videos = rawVideos.map((item) => this.mapVideoItem(item));
+    const videos = await Promise.all(rawVideos.map((item) => this.mapVideoItem(item)));
 
     return {
       videos,
@@ -180,33 +223,49 @@ class CrawlerService {
     throw new AppError("CRAWLER_ERROR", "爬虫服务调用失败，请稍后重试", 502);
   }
 
-  private mapVideoItem(rawVideo: unknown): CrawlerVideoItem {
+  private async mapVideoItem(rawVideo: unknown): Promise<CrawlerVideoItem> {
     const video = this.asRecord(rawVideo);
     const statistics = this.pickRecord(video, ["statistics", "stats"]) ?? {};
     const videoAsset = this.pickRecord(video, ["video"]) ?? video;
+    const coverCandidates = this.pickNestedUrlList(videoAsset, [
+      ["cover", "origin_cover"],
+      ["origin_cover"],
+      ["cover", "dynamic_cover"],
+      ["dynamic_cover"],
+      ["cover"],
+    ]);
+    const videoCandidates = this.pickNestedUrlList(videoAsset, [
+      ["play_addr"],
+      ["download_addr"],
+    ]);
 
-    const coverUrl = this.pickFirstUrl(videoAsset, ["cover", "origin_cover", "dynamic_cover"]);
-    const videoUrl = this.pickFirstUrl(videoAsset, ["play_addr", "download_addr"]);
+    const coverSourceUrl = await this.pickReachableUrl(coverCandidates);
+    const videoSourceUrl = await this.pickReachableUrl(videoCandidates);
 
-    if (coverUrl) {
-      console.info(`[CrawlerService] 待下载封面: ${coverUrl}`);
+    if (coverSourceUrl) {
+      console.info(`[CrawlerService] 待下载封面: ${coverSourceUrl}`);
     }
 
-    if (videoUrl) {
-      console.info(`[CrawlerService] 待下载视频: ${videoUrl}`);
+    if (videoSourceUrl) {
+      console.info(`[CrawlerService] 待下载视频: ${videoSourceUrl}`);
     }
 
     return {
       awemeId: this.pickString(video, ["aweme_id", "awemeId", "video_id"]) ?? "",
       title: this.pickString(video, ["desc", "title"]) ?? "",
-      coverUrl,
-      videoUrl,
+      coverUrl: null,
+      coverSourceUrl,
+      videoUrl: null,
+      videoSourceUrl,
       publishedAt: this.mapTimestamp(this.pickUnknown(video, ["create_time", "published_at"])),
       playCount: this.pickNumber(statistics, ["play_count", "playCount"]) ?? 0,
       likeCount: this.pickNumber(statistics, ["digg_count", "like_count", "likeCount"]) ?? 0,
       commentCount:
         this.pickNumber(statistics, ["comment_count", "commentCount"]) ?? 0,
       shareCount: this.pickNumber(statistics, ["share_count", "shareCount"]) ?? 0,
+      collectCount: this.pickNumber(statistics, ["collect_count", "collectCount"]) ?? 0,
+      admireCount: this.pickNumber(statistics, ["admire_count", "admireCount"]) ?? 0,
+      recommendCount: this.pickNumber(statistics, ["recommend_count", "recommendCount"]) ?? 0,
     };
   }
 
@@ -228,32 +287,51 @@ class CrawlerService {
     return value && typeof value === "object" ? (value as UnknownRecord) : {};
   }
 
-  private pickUnknown(record: UnknownRecord, keys: string[]): unknown {
+  private pickUnknown(record: unknown, keys: string[]): unknown {
+    if (!record || typeof record !== "object") {
+      return undefined;
+    }
+
+    const source = record as UnknownRecord;
     for (const key of keys) {
-      if (key in record) {
-        return record[key];
+      if (key in source) {
+        return source[key];
       }
     }
 
     return undefined;
   }
 
-  private pickRecord(record: UnknownRecord, keys: string[]): UnknownRecord | null {
+  private pickRecord(record: unknown, keys: string[]): UnknownRecord | null {
     const value = this.pickUnknown(record, keys);
     return value && typeof value === "object" ? (value as UnknownRecord) : null;
   }
 
-  private pickArray(record: UnknownRecord, keys: string[]): unknown[] {
+  private pickFirstRecord(record: unknown, keys: string[]): UnknownRecord | null {
+    const value = this.pickUnknown(record, keys);
+
+    if (!Array.isArray(value)) {
+      return null;
+    }
+
+    const firstRecord = value.find(
+      (item): item is UnknownRecord => Boolean(item) && typeof item === "object",
+    );
+
+    return firstRecord ?? null;
+  }
+
+  private pickArray(record: unknown, keys: string[]): unknown[] {
     const value = this.pickUnknown(record, keys);
     return Array.isArray(value) ? value : [];
   }
 
-  private pickString(record: UnknownRecord, keys: string[]): string | null {
+  private pickString(record: unknown, keys: string[]): string | null {
     const value = this.pickUnknown(record, keys);
     return typeof value === "string" && value.length > 0 ? value : null;
   }
 
-  private pickNumber(record: UnknownRecord, keys: string[]): number | null {
+  private pickNumber(record: unknown, keys: string[]): number | null {
     const value = this.pickUnknown(record, keys);
 
     if (typeof value === "number") {
@@ -267,7 +345,7 @@ class CrawlerService {
     return null;
   }
 
-  private pickBoolean(record: UnknownRecord, keys: string[]): boolean | null {
+  private pickBoolean(record: unknown, keys: string[]): boolean | null {
     const value = this.pickUnknown(record, keys);
 
     if (typeof value === "boolean") {
@@ -281,7 +359,7 @@ class CrawlerService {
     return null;
   }
 
-  private pickFirstUrl(record: UnknownRecord, keys: string[]): string | null {
+  private pickFirstUrl(record: unknown, keys: string[]): string | null {
     for (const key of keys) {
       const value = this.pickUnknown(record, [key]);
 
@@ -303,6 +381,74 @@ class CrawlerService {
     }
 
     return null;
+  }
+
+  private pickNestedUrlList(record: unknown, paths: string[][]): string[] {
+    for (const path of paths) {
+      let current: unknown = record;
+
+      for (const key of path) {
+        current = this.pickUnknown(current, [key]);
+        if (current === undefined) {
+          break;
+        }
+      }
+
+      if (Array.isArray(current)) {
+        const urls = current.filter(
+          (item): item is string => typeof item === "string" && item.length > 0,
+        );
+        if (urls.length > 0) {
+          return urls;
+        }
+      }
+
+      if (current && typeof current === "object") {
+        const urlList = (current as { url_list?: unknown }).url_list;
+        if (Array.isArray(urlList)) {
+          const urls = urlList.filter(
+            (item): item is string => typeof item === "string" && item.length > 0,
+          );
+          if (urls.length > 0) {
+            return urls;
+          }
+        }
+      }
+    }
+
+    return [];
+  }
+
+  private async pickReachableUrl(urls: string[]): Promise<string | null> {
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          method: "HEAD",
+          signal: AbortSignal.timeout(10_000),
+        });
+
+        if (response.ok) {
+          return url;
+        }
+      } catch {
+        // ignore and try next url
+      }
+    }
+
+    return null;
+  }
+
+  private parseJsonRecord(value: string | null): UnknownRecord | null {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return parsed && typeof parsed === "object" ? (parsed as UnknownRecord) : null;
+    } catch {
+      return null;
+    }
   }
 }
 

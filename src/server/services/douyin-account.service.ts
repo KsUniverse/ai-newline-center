@@ -13,8 +13,19 @@ interface CreateDouyinAccountData {
   nickname: string;
   avatar: string;
   bio?: string | null;
+  signature?: string | null;
   followersCount: number;
+  followingCount: number;
+  likesCount: number;
   videosCount: number;
+  douyinNumber?: string | null;
+  ipLocation?: string | null;
+  age?: number | null;
+  province?: string | null;
+  city?: string | null;
+  verificationLabel?: string | null;
+  verificationIconUrl?: string | null;
+  verificationType?: number | null;
 }
 
 interface ListParams {
@@ -37,8 +48,19 @@ class DouyinAccountService {
       nickname: profile.nickname,
       avatar: profile.avatar,
       bio: profile.bio,
+      signature: profile.signature,
       followersCount: profile.followersCount,
+      followingCount: profile.followingCount,
+      likesCount: profile.likesCount,
       videosCount: profile.videosCount,
+      douyinNumber: profile.douyinNumber,
+      ipLocation: profile.ipLocation,
+      age: profile.age,
+      province: profile.province,
+      city: profile.city,
+      verificationLabel: profile.verificationLabel,
+      verificationIconUrl: profile.verificationIconUrl,
+      verificationType: profile.verificationType,
     };
   }
 

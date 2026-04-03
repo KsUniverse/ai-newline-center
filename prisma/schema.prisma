@@ -74,8 +74,19 @@ model DouyinAccount {
   nickname       String
   avatar         String
   bio            String?
+  signature      String?
   followersCount Int               @default(0)
+  followingCount Int               @default(0)
+  likesCount     Int               @default(0)
   videosCount    Int               @default(0)
+  douyinNumber   String?
+  ipLocation     String?
+  age            Int?
+  province       String?
+  city           String?
+  verificationLabel   String?
+  verificationIconUrl String?
+  verificationType    Int?
   type           DouyinAccountType @default(MY_ACCOUNT)
   userId         String
   user           User              @relation(fields: [userId], references: [id])
@@ -99,12 +110,19 @@ model DouyinVideo {
   account      DouyinAccount @relation(fields: [accountId], references: [id])
   title        String
   coverUrl     String?
+  coverSourceUrl String?
+  coverStoragePath String?
   videoUrl     String?
+  videoSourceUrl String?
+  videoStoragePath String?
   publishedAt  DateTime?
   playCount    Int           @default(0)
   likeCount    Int           @default(0)
   commentCount Int           @default(0)
   shareCount   Int           @default(0)
+  collectCount Int           @default(0)
+  admireCount  Int           @default(0)
+  recommendCount Int         @default(0)
   tags         String[]      @default([])
   snapshots    VideoSnapshot[]
   createdAt    DateTime      @default(now())

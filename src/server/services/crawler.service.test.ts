@@ -42,6 +42,22 @@ describe("crawlerService", () => {
     expect(result).toBe("sec_123");
   });
 
+  it("accepts a plain string secUserId response from the crawler API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 200,
+        data: "sec_string_123",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.getSecUserId("https://www.douyin.com/user/tester");
+
+    expect(result).toBe("sec_string_123");
+  });
+
   it("maps crawler profile fields and logs the raw JSON response", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -67,13 +83,24 @@ describe("crawlerService", () => {
     const { crawlerService } = await import("@/server/services/crawler.service");
     const result = await crawlerService.fetchUserProfile("sec_123");
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       secUserId: "sec_123",
       nickname: "真实账号",
       avatar: "https://cdn.example.com/avatar.jpg",
       bio: "账号简介",
+      signature: "账号简介",
       followersCount: 100,
+      followingCount: 0,
+      likesCount: 0,
       videosCount: 10,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
     });
     expect(consoleInfoSpy).toHaveBeenCalledWith(
       "[CrawlerService] /api/douyin/web/handler_user_profile response:",
@@ -93,6 +120,65 @@ describe("crawlerService", () => {
         },
       }),
     );
+  });
+
+  it("maps extended profile fields for official-style account cards", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 200,
+        data: {
+          user: {
+            sec_uid: "sec_123",
+            nickname: "股道寻龙",
+            avatar_larger: {
+              url_list: ["https://p3-pc.douyinpic.com/avatar.jpeg"],
+            },
+            signature: "十年磨一剑，逆风翻盘。",
+            follower_count: 14436,
+            following_count: 428,
+            total_favorited: 38352,
+            aweme_count: 3,
+            unique_id: "49001906753",
+            ip_location: "IP属地：湖北",
+            user_age: 36,
+            province: "湖北",
+            city: "武汉",
+            verification_type: 0,
+            endorsement_info_list: [
+              {
+                text: "慧研智投科技有限公司一般证券从业人员",
+                light_icon_url: "https://lf3-static.bytednsdoc.com/yellow-v.png",
+              },
+            ],
+          },
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchUserProfile("sec_123");
+
+    expect(result).toEqual({
+      secUserId: "sec_123",
+      nickname: "股道寻龙",
+      avatar: "https://p3-pc.douyinpic.com/avatar.jpeg",
+      bio: "十年磨一剑，逆风翻盘。",
+      signature: "十年磨一剑，逆风翻盘。",
+      followersCount: 14436,
+      followingCount: 428,
+      likesCount: 38352,
+      videosCount: 3,
+      douyinNumber: "49001906753",
+      ipLocation: "IP属地：湖北",
+      age: 36,
+      province: "湖北",
+      city: "武汉",
+      verificationLabel: "慧研智投科技有限公司一般证券从业人员",
+      verificationIconUrl: "https://lf3-static.bytednsdoc.com/yellow-v.png",
+      verificationType: 0,
+    });
   });
 
   it("maps crawler video list fields and logs pending downloads", async () => {
@@ -138,13 +224,18 @@ describe("crawlerService", () => {
         {
           awemeId: "video_1",
           title: "真实视频",
-          coverUrl: "https://cdn.example.com/cover.jpg",
-          videoUrl: "https://cdn.example.com/video.mp4",
+          coverUrl: null,
+          coverSourceUrl: "https://cdn.example.com/cover.jpg",
+          videoUrl: null,
+          videoSourceUrl: "https://cdn.example.com/video.mp4",
           publishedAt: "2024-04-03T00:00:00.000Z",
           playCount: 100,
           likeCount: 10,
           commentCount: 1,
           shareCount: 2,
+          collectCount: 0,
+          admireCount: 0,
+          recommendCount: 0,
         },
       ],
       hasMore: false,
@@ -156,6 +247,74 @@ describe("crawlerService", () => {
     expect(consoleInfoSpy).toHaveBeenCalledWith(
       "[CrawlerService] 待下载视频: https://cdn.example.com/video.mp4",
     );
+  });
+
+  it("selects the first reachable origin cover and play url from url lists", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          code: 200,
+          data: {
+            aweme_list: [
+              {
+                aweme_id: "video_1",
+                desc: "真实视频",
+                video: {
+                  play_addr: {
+                    url_list: [
+                      "https://cdn.example.com/video-bad.mp4",
+                      "https://cdn.example.com/video-ok.mp4",
+                    ],
+                  },
+                  dynamic_cover: {
+                    url_list: [
+                      "https://cdn.example.com/dynamic-cover-bad.gif",
+                      "https://cdn.example.com/dynamic-cover-ok.gif",
+                    ],
+                  },
+                  origin_cover: {
+                    url_list: [
+                      "https://cdn.example.com/origin-cover-bad.webp",
+                      "https://cdn.example.com/origin-cover-ok.webp",
+                    ],
+                  },
+                },
+                create_time: 1712102400,
+                statistics: {
+                  play_count: 100,
+                  digg_count: 10,
+                  comment_count: 1,
+                  share_count: 2,
+                  collect_count: 3,
+                  admire_count: 4,
+                  recommend_count: 5,
+                },
+              },
+            ],
+            has_more: 0,
+            max_cursor: 99,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchVideoList("sec_123", 50);
+
+    expect(result.videos[0]).toMatchObject({
+      awemeId: "video_1",
+      coverSourceUrl: "https://cdn.example.com/origin-cover-ok.webp",
+      videoSourceUrl: "https://cdn.example.com/video-ok.mp4",
+      collectCount: 3,
+      admireCount: 4,
+      recommendCount: 5,
+    });
   });
 
   it("wraps collection videos with raw data passthrough", async () => {

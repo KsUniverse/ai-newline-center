@@ -140,8 +140,19 @@ class DouyinAccountRepository {
       nickname: string;
       avatar: string;
       bio?: string | null;
+      signature?: string | null;
       followersCount: number;
+      followingCount: number;
+      likesCount: number;
       videosCount: number;
+      douyinNumber?: string | null;
+      ipLocation?: string | null;
+      age?: number | null;
+      province?: string | null;
+      city?: string | null;
+      verificationLabel?: string | null;
+      verificationIconUrl?: string | null;
+      verificationType?: number | null;
       userId: string;
       organizationId: string;
       type: "MY_ACCOUNT";
@@ -174,8 +185,19 @@ class DouyinAccountRepository {
       nickname: string;
       avatar: string;
       bio: string | null;
+      signature: string | null;
       followersCount: number;
+      followingCount: number;
+      likesCount: number;
       videosCount: number;
+      douyinNumber: string | null;
+      ipLocation: string | null;
+      age: number | null;
+      province: string | null;
+      city: string | null;
+      verificationLabel: string | null;
+      verificationIconUrl: string | null;
+      verificationType: number | null;
       lastSyncedAt: Date;
     },
     db: DatabaseClient = prisma,

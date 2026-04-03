@@ -5,6 +5,7 @@ import { douyinAccountRepository } from "@/server/repositories/douyin-account.re
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { crawlerService } from "@/server/services/crawler.service";
+import { storageService } from "@/server/services/storage.service";
 
 const INITIAL_SYNC_LIMIT = 10;
 const INCREMENTAL_BATCH_SIZE = 4;
@@ -61,6 +62,9 @@ class SyncService {
           likeCount: detail.likeCount,
           commentCount: detail.commentCount,
           shareCount: detail.shareCount,
+          collectCount: video.collectCount,
+          admireCount: video.admireCount,
+          recommendCount: video.recommendCount,
         });
       } catch (error) {
         console.error("Failed to collect video snapshot:", {
@@ -107,8 +111,19 @@ class SyncService {
       nickname: profile.nickname,
       avatar: profile.avatar,
       bio: profile.bio,
+      signature: profile.signature,
       followersCount: profile.followersCount,
+      followingCount: profile.followingCount,
+      likesCount: profile.likesCount,
       videosCount: profile.videosCount,
+      douyinNumber: profile.douyinNumber,
+      ipLocation: profile.ipLocation,
+      age: profile.age,
+      province: profile.province,
+      city: profile.city,
+      verificationLabel: profile.verificationLabel,
+      verificationIconUrl: profile.verificationIconUrl,
+      verificationType: profile.verificationType,
       lastSyncedAt: new Date(),
     });
 
@@ -176,25 +191,44 @@ class SyncService {
       awemeId: string;
       title: string;
       coverUrl: string | null;
+      coverSourceUrl: string | null;
       videoUrl: string | null;
+      videoSourceUrl: string | null;
       publishedAt: string | null;
       playCount: number;
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      collectCount: number;
+      admireCount: number;
+      recommendCount: number;
     },
   ): Promise<void> {
+    const coverStoragePath = video.coverSourceUrl
+      ? await storageService.downloadAndStore(video.coverSourceUrl, "covers")
+      : null;
+    const videoStoragePath = video.videoSourceUrl
+      ? await storageService.downloadAndStore(video.videoSourceUrl, "videos")
+      : null;
+
     await douyinVideoRepository.upsertByVideoId({
       videoId: video.awemeId,
       accountId,
       title: video.title,
-      coverUrl: video.coverUrl,
-      videoUrl: video.videoUrl,
+      coverUrl: coverStoragePath,
+      coverSourceUrl: video.coverSourceUrl,
+      coverStoragePath,
+      videoUrl: videoStoragePath,
+      videoSourceUrl: video.videoSourceUrl,
+      videoStoragePath,
       publishedAt: video.publishedAt ? new Date(video.publishedAt) : null,
       playCount: video.playCount,
       likeCount: video.likeCount,
       commentCount: video.commentCount,
       shareCount: video.shareCount,
+      collectCount: video.collectCount,
+      admireCount: video.admireCount,
+      recommendCount: video.recommendCount,
       tags: [],
     });
   }

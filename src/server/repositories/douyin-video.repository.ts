@@ -32,12 +32,19 @@ class DouyinVideoRepository {
       accountId: string;
       title: string;
       coverUrl: string | null;
+      coverSourceUrl?: string | null;
+      coverStoragePath?: string | null;
       videoUrl: string | null;
+      videoSourceUrl?: string | null;
+      videoStoragePath?: string | null;
       publishedAt: Date | null;
       playCount: number;
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      collectCount?: number;
+      admireCount?: number;
+      recommendCount?: number;
       tags?: string[];
     },
     db: DatabaseClient = prisma,
@@ -50,12 +57,19 @@ class DouyinVideoRepository {
       update: {
         title: data.title,
         coverUrl: data.coverUrl,
+        coverSourceUrl: data.coverSourceUrl,
+        coverStoragePath: data.coverStoragePath,
         videoUrl: data.videoUrl,
+        videoSourceUrl: data.videoSourceUrl,
+        videoStoragePath: data.videoStoragePath,
         publishedAt: data.publishedAt,
         playCount: data.playCount,
         likeCount: data.likeCount,
         commentCount: data.commentCount,
         shareCount: data.shareCount,
+        collectCount: data.collectCount,
+        admireCount: data.admireCount,
+        recommendCount: data.recommendCount,
         ...(data.tags ? { tags: data.tags } : {}),
       },
     });
@@ -172,6 +186,9 @@ class DouyinVideoRepository {
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      collectCount?: number;
+      admireCount?: number;
+      recommendCount?: number;
     },
     db: DatabaseClient = prisma,
   ): Promise<DouyinVideo> {
