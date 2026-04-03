@@ -93,4 +93,31 @@ describe("startScheduler", () => {
     await Promise.resolve();
     consoleWarnSpy.mockRestore();
   });
+
+  it("skips account sync reentry while the previous run is still active", async () => {
+    let resolveRun: (() => void) | undefined;
+    runAccountInfoBatchSyncMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveRun = resolve;
+      }),
+    );
+    const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const { startScheduler } = await import("@/lib/scheduler");
+    startScheduler();
+
+    const accountHandler = scheduleMock.mock.calls[0]?.[1] as (() => void) | undefined;
+
+    accountHandler?.();
+    accountHandler?.();
+
+    expect(runAccountInfoBatchSyncMock).toHaveBeenCalledTimes(1);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      "[Scheduler] Account sync already running, skipping...",
+    );
+
+    resolveRun?.();
+    await Promise.resolve();
+    consoleWarnSpy.mockRestore();
+  });
 });

@@ -4,6 +4,7 @@ import { AppError } from "@/lib/errors";
 import {
   douyinAccountRepository,
   type DouyinBenchmarkWithUser,
+  type FindManyBenchmarksParams,
 } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { crawlerService } from "@/server/services/crawler.service";
@@ -20,6 +21,14 @@ import type {
 } from "@/types/douyin-account";
 import type { PaginatedData } from "@/types/api";
 
+type BenchmarkArchiveFilter = NonNullable<FindManyBenchmarksParams["archiveFilter"]>;
+
+interface ListBenchmarksParams {
+  page: number;
+  limit: number;
+  archiveFilter?: BenchmarkArchiveFilter;
+}
+
 class BenchmarkAccountService {
   async previewBenchmark(caller: SessionUser, profileUrl: string): Promise<AccountPreview> {
     this.assertSupportedCaller(caller);
@@ -30,7 +39,10 @@ class BenchmarkAccountService {
     return mapCrawlerProfileToPreview(profileUrl, profile);
   }
 
-  async createBenchmark(caller: SessionUser, data: CreateDouyinAccountData) {
+  async createBenchmark(
+    caller: SessionUser,
+    data: CreateDouyinAccountData,
+  ): Promise<{ id: string; profileUrl: string; secUserId: string }> {
     this.assertSupportedCaller(caller);
 
     const existingBySecUserId = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
@@ -55,22 +67,28 @@ class BenchmarkAccountService {
       throw new AppError("ACCOUNT_EXISTS_AS_MY", "该账号已作为我的账号被添加", 409);
     }
 
-    return douyinAccountRepository.createBenchmark({
+    const benchmark = await douyinAccountRepository.createBenchmark({
       ...data,
       userId: caller.id,
       organizationId: caller.organizationId,
     });
+
+    return {
+      id: benchmark.id,
+      profileUrl: benchmark.profileUrl,
+      secUserId: data.secUserId,
+    };
   }
 
   async listBenchmarks(
     caller: SessionUser,
-    params: ListParams,
+    params: ListBenchmarksParams,
   ): Promise<PaginatedData<BenchmarkAccountDTO>> {
     const result = await douyinAccountRepository.findManyBenchmarks({
       organizationId: this.resolveOrganizationScope(caller),
-      includeArchived: false,
       page: params.page,
       limit: params.limit,
+      archiveFilter: params.archiveFilter ?? "active",
     });
 
     return {
@@ -83,17 +101,11 @@ class BenchmarkAccountService {
     caller: SessionUser,
     params: ListParams,
   ): Promise<PaginatedData<BenchmarkAccountDTO>> {
-    const result = await douyinAccountRepository.findManyBenchmarks({
-      organizationId: this.resolveOrganizationScope(caller),
-      includeArchived: true,
+    return this.listBenchmarks(caller, {
       page: params.page,
       limit: params.limit,
+      archiveFilter: "archived",
     });
-
-    return {
-      ...result,
-      items: result.items.map((item) => this.toBenchmarkAccountDTO(item)),
-    };
   }
 
   async getBenchmarkDetail(

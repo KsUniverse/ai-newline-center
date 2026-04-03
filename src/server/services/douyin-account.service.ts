@@ -111,21 +111,18 @@ class DouyinAccountService {
     switch (caller.role) {
       case UserRole.EMPLOYEE:
         return douyinAccountRepository.findMany({
-          type: DouyinAccountType.MY_ACCOUNT,
           userId: caller.id,
           page: params.page,
           limit: params.limit,
         });
       case UserRole.BRANCH_MANAGER:
         return douyinAccountRepository.findMany({
-          type: DouyinAccountType.MY_ACCOUNT,
           organizationId: caller.organizationId,
           page: params.page,
           limit: params.limit,
         });
       case UserRole.SUPER_ADMIN:
         return douyinAccountRepository.findMany({
-          type: DouyinAccountType.MY_ACCOUNT,
           page: params.page,
           limit: params.limit,
         });

@@ -155,7 +155,7 @@ describe("benchmarkAccountService", () => {
 
     expect(findManyBenchmarksMock).toHaveBeenCalledWith({
       organizationId: "org_1",
-      includeArchived: false,
+      archiveFilter: "active",
       page: 1,
       limit: 20,
     });

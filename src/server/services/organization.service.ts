@@ -1,9 +1,10 @@
 import type { Organization } from "@prisma/client";
-import { OrganizationStatus, OrganizationType, UserStatus } from "@prisma/client";
+import { OrganizationStatus, OrganizationType, UserRole, UserStatus } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import type { BranchWithUserCount, OrganizationWithUserCount } from "@/server/repositories/organization.repository";
+import type { SessionUser } from "@/server/services/user.service";
 import { organizationRepository } from "@/server/repositories/organization.repository";
 
 class OrganizationService {
@@ -23,6 +24,14 @@ class OrganizationService {
     }
 
     return organization;
+  }
+
+  async getBranchByIdForCaller(caller: SessionUser, id: string): Promise<OrganizationWithUserCount> {
+    if (caller.role === UserRole.BRANCH_MANAGER && caller.organizationId !== id) {
+      throw new AppError("FORBIDDEN", "无操作权限", 403);
+    }
+
+    return this.getBranchById(id);
   }
 
   async createBranch(name: string): Promise<Organization> {

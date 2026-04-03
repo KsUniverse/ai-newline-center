@@ -46,7 +46,7 @@ describe("/api/benchmarks", () => {
     expect(response.status).toBe(200);
     expect(listBenchmarksMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: "user_1" }),
-      { page: 1, limit: 20 },
+      { page: 1, limit: 20, archiveFilter: undefined },
     );
   });
 

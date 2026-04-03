@@ -36,9 +36,9 @@ export interface FindManyDouyinAccountsParams {
 
 export interface FindManyBenchmarksParams {
   organizationId?: string;
-  includeArchived?: boolean;
   page: number;
   limit: number;
+  archiveFilter?: ArchiveFilter;
 }
 
 interface BuildAccountWhereParams {
@@ -192,7 +192,7 @@ class DouyinAccountRepository {
   async findMany(
     params: FindManyDouyinAccountsParams,
     db: DatabaseClient = prisma,
-  ) {
+  ): Promise<{ items: DouyinAccount[]; total: number; page: number; limit: number }> {
     const { type = DouyinAccountType.MY_ACCOUNT, userId, organizationId, page, limit } = params;
     const where = this.buildWhere({
       type,
@@ -219,12 +219,12 @@ class DouyinAccountRepository {
   async findManyBenchmarks(
     params: FindManyBenchmarksParams,
     db: DatabaseClient = prisma,
-  ) {
-    const { organizationId, includeArchived = false, page, limit } = params;
+  ): Promise<{ items: DouyinBenchmarkWithUser[]; total: number; page: number; limit: number }> {
+    const { organizationId, archiveFilter = "active", page, limit } = params;
     const where = this.buildWhere({
       type: DouyinAccountType.BENCHMARK_ACCOUNT,
       organizationId,
-      archiveFilter: includeArchived ? "archived" : "active",
+      archiveFilter,
     });
 
     const [items, total] = await Promise.all([
