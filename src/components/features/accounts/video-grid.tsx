@@ -29,7 +29,7 @@ export function VideoGrid({ videos, loading, onVideoClick }: VideoGridProps) {
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-[3/4] rounded-lg bg-card animate-pulse border border-border/60"
+            className="aspect-3/4 rounded-lg bg-card animate-pulse border border-border/60"
           />
         ))}
       </div>

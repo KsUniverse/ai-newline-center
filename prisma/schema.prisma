@@ -125,6 +125,7 @@ model DouyinVideo {
   recommendCount Int         @default(0)
   tags         String[]      @default([])
   snapshots    VideoSnapshot[]
+  transcription Transcription?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
@@ -148,4 +149,26 @@ model VideoSnapshot {
   @@index([videoId])
   @@index([videoId, timestamp])
   @@map("video_snapshots")
+}
+
+enum TranscriptionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Transcription {
+  id           String              @id @default(cuid())
+  videoId      String              @unique
+  video        DouyinVideo         @relation(fields: [videoId], references: [id])
+  status       TranscriptionStatus @default(PENDING)
+  aiModel      String
+  originalText String?
+  editedText   String?
+  errorMessage String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("transcriptions")
 }

@@ -140,52 +140,68 @@ export interface PaginationParams {
 
 ## 异步任务 API 模式
 
-用于 AI 拆解、AI 仿写、爬虫同步等耗时操作。
+用于 AI 转录、AI 拆解、AI 仿写等耗时操作。
 
 ### 提交任务
 
 ```
-POST /api/tasks
-Body: { type: "AI_REWRITE", payload: { ... } }
-Response: { success: true, data: { id: "task_xxx", status: "PENDING" } }
+POST /api/{resource}
+Body: { ...任务参数 }
+Response: { success: true, data: { id: "xxx", status: "PENDING" } }
 ```
 
 ### 查询任务状态
 
 ```
-GET /api/tasks/{id}
+GET /api/{resource}/{id}
 Response: { success: true, data: { id, status, result?, error? } }
 ```
 
 ### SSE 流式订阅
 
+路径约定：`GET /api/{resource}/[id]/sse`
+
 ```
-GET /api/tasks/{id}/stream
 Content-Type: text/event-stream
-
-event: chunk
-data: {"text": "生成的部分文本..."}
-
-event: chunk
-data: {"text": "更多文本..."}
-
-event: done
-data: {"taskId": "task_xxx", "status": "COMPLETED"}
-
-event: error
-data: {"code": "AI_ERROR", "message": "模型调用失败"}
+Cache-Control: no-cache
+Connection: keep-alive
 ```
 
-### SSE 规范
+**SSE 消息格式**（每条消息）：
+```
+event: {eventName}
+data: {JSON 字符串}
 
-| 事件类型 | 数据格式 | 说明 |
-|---------|---------|------|
-| `chunk` | `{ text: string }` | AI 生成的文本片段 |
-| `progress` | `{ percent: number, message: string }` | 进度更新 |
-| `done` | `{ taskId: string, status: string }` | 任务完成 |
-| `error` | `{ code: string, message: string }` | 任务失败 |
+```
 
-**客户端处理**：使用 `EventSource` API 订阅，连接断开时可重连。
+| 事件名 | data 格式 | 说明 |
+|--------|-----------|------|
+| `status` | `{ id: string, status: "PROCESSING" }` | Worker 开始处理（中间态） |
+| `done` | `{ id: string, status: "COMPLETED", ...结果字段 }` | 任务完成 |
+| `error` | `{ id: string, status: "FAILED", errorMessage: string \| null }` | 任务失败 |
+
+**心跳**：每 30s 发送 `: keepalive\n\n`，防止代理断线。
+
+**客户端处理**（前端 EventSource 用法）：
+```typescript
+const source = new EventSource(`/api/{resource}/${id}/sse`);
+source.addEventListener("done", (e) => {
+  const data = JSON.parse(e.data);
+  // 处理完成
+  source.close();
+});
+source.addEventListener("error", (e) => {
+  // 处理失败
+  source.close();
+});
+// 组件卸载时
+source.close();
+```
+
+**连接建立时的终态快速路径**：SSE 端点在接受连接后应先查询 DB 中的当前状态，若已是 `COMPLETED`/`FAILED` 则立即推送对应事件并关闭连接，避免客户端永久等待。
+
+**实现机制**：Worker → Redis Pub/Sub channel `{domain}:{id}` → SSE 端点订阅 → 推送客户端。  
+详见 `docs/architecture/backend.md` 的"BullMQ 任务队列"节中的 SSE 模板。
 
 ---
 

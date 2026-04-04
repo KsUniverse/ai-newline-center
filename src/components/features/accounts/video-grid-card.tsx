@@ -40,7 +40,7 @@ export function VideoGridCard({
   return (
     <button
       type="button"
-      className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-card cursor-pointer"
+      className="relative aspect-3/4 w-full overflow-hidden rounded-lg bg-card cursor-pointer"
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       onClick={onClick}
@@ -92,7 +92,7 @@ export function VideoGridCard({
       )}
 
       {/* Bottom gradient overlay */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
+      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
         <p className="truncate text-sm font-medium text-white text-left">
           {video.title}
         </p>

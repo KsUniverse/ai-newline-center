@@ -391,49 +391,193 @@ export const aiGateway = new AiGatewayService();
 
 ## BullMQ 任务队列
 
-处理 AI 任务（拆解/仿写）和爬虫任务（同步/采集）。
+处理 AI 任务（转录/拆解/仿写）和爬虫任务（同步/采集）。
+
+### 目录结构与文件职责
+
+```
+src/lib/
+  redis.ts                  # ioredis 连接工厂（BullMQ 专用 + Pub/Sub 专用）
+  bullmq.ts                 # 队列工厂函数 + Job 数据类型（每个 domain 在此注册队列）
+  transcription-worker.ts   # 转录任务 Worker 初始化（initialized 防重入）
+  # {domain}-worker.ts      # 后续 domain Worker 同此模式
+instrumentation.ts          # Node.js 运行时启动时注册 Scheduler + 所有 Worker
+```
+
+### Redis 客户端（src/lib/redis.ts）
 
 ```typescript
-// src/server/queue/index.ts
-import { Queue, Worker } from "bullmq";
-import { redis } from "@/lib/redis";
+import IORedis from "ioredis";
+import { env } from "@/lib/env";
 
-// 定义队列
-export const aiQueue = new Queue("ai-tasks", { connection: redis });
-export const crawlerQueue = new Queue("crawler-tasks", { connection: redis });
+// BullMQ 专用连接（不用于 Pub/Sub）
+export function createBullMQRedisConnection(): IORedis {
+  return new IORedis(env.REDIS_URL!, { maxRetriesPerRequest: null });
+}
 
-// AI 任务处理器
-new Worker("ai-tasks", async (job) => {
-  const { taskId, step, variables } = job.data;
-  // 更新任务状态为 PROCESSING
-  // 调用 aiGateway.stream() 获取流式结果
-  // 边生成边更新 DB 中的结果字段
-  // 完成后更新状态为 COMPLETED 或 FAILED
-}, { connection: redis });
+// Pub/Sub 专用连接（每个 Worker 和 SSE 端点独立创建）
+export function createPubSubRedisClient(): IORedis {
+  return new IORedis(env.REDIS_URL!);
+}
 ```
+
+> **注意**：BullMQ 要求 `maxRetriesPerRequest: null`，Pub/Sub 客户端不能复用 BullMQ 连接。
+
+### 队列工厂（src/lib/bullmq.ts）
+
+每个任务域在此文件注册队列名称、Job 数据类型和工厂函数：
+
+```typescript
+import { Queue } from "bullmq";
+import { createBullMQRedisConnection } from "@/lib/redis";
+
+export const TRANSCRIPTION_QUEUE_NAME = "transcription";
+
+let transcriptionQueue: Queue | null = null;
+
+export function getTranscriptionQueue(): Queue {
+  if (!transcriptionQueue) {
+    transcriptionQueue = new Queue(TRANSCRIPTION_QUEUE_NAME, {
+      connection: createBullMQRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: { age: 86400 },
+        removeOnFail: false,
+      },
+    });
+  }
+  return transcriptionQueue;
+}
+```
+
+### Worker 初始化规范（src/lib/{domain}-worker.ts）
+
+```typescript
+import { Worker } from "bullmq";
+import { createBullMQRedisConnection } from "@/lib/redis";
+import { QUEUE_NAME } from "@/lib/bullmq";
+
+let initialized = false; // ← 必须，防止 Next.js 热重载重复初始化
+
+export function startXxxWorker(): void {
+  if (initialized) return;
+  if (!env.REDIS_URL) {
+    console.warn("[XxxWorker] REDIS_URL not set, worker skipped.");
+    return;
+  }
+  initialized = true;
+
+  const worker = new Worker(QUEUE_NAME, async (job) => {
+    // 1. 更新状态 → PROCESSING，Pub/Sub 推送
+    // 2. 调用 AiGateway 或 CrawlerService
+    // 3. 成功 → 更新状态 → COMPLETED，Pub/Sub 推送
+  }, { connection: createBullMQRedisConnection(), concurrency: 2 });
+
+  // 重试耗尽后的终态处理
+  worker.on("failed", async (job, error) => {
+    if (!job || job.attemptsMade < (job.opts.attempts ?? 3)) return;
+    // 更新状态 → FAILED，Pub/Sub 推送
+  });
+
+  console.log(`[XxxWorker] Worker started.`);
+}
+```
+
+### 在 instrumentation.ts 中注册
+
+```typescript
+// instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NODE_ENV !== "test") {
+    const { startScheduler } = await import("./src/lib/scheduler");
+    const { startXxxWorker } = await import("./src/lib/xxx-worker");
+    startScheduler();
+    startXxxWorker();
+  }
+}
+```
+
+> **约束**：所有 Worker 必须在 `instrumentation.ts` 的 `nodejs` 分支内注册，不能在 Route Handler 或 Service 中延迟初始化。
 
 ### 任务状态机
 
 ```
 PENDING → PROCESSING → COMPLETED
-                     → FAILED → PENDING (重试)
+                     ↓ (失败，BullMQ 自动重试)
+                     FAILED（重试耗尽）
 ```
 
-### SSE 推送
+### SSE 推送（通过 Redis Pub/Sub 桥接）
+
+Worker 在状态变更时 **发布** 到 `{domain}:{id}` 频道；SSE 端点为每个连接创建独立 Subscriber **订阅**该频道。
 
 ```typescript
-// src/app/api/tasks/[id]/stream/route.ts
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// Worker 内（发布方）
+const publisher = createPubSubRedisClient();
+await publisher.publish(
+  `transcription:${transcriptionId}`,
+  JSON.stringify({ event: "done", data: { transcriptionId, status: "COMPLETED", originalText } }),
+);
+
+// SSE 端点（订阅方）
+const subscriber = createPubSubRedisClient();
+await subscriber.subscribe(`transcription:${id}`);
+subscriber.on("message", (_channel, message) => {
+  const parsed = JSON.parse(message);
+  controller.enqueue(encoder.encode(`event: ${parsed.event}\ndata: ${JSON.stringify(parsed.data)}\n\n`));
+});
+// 连接关闭时：clearInterval(heartbeat); subscriber.quit();
+```
+
+SSE 端点模板（完整规范见 `api-conventions.md`）：
+
+```typescript
+// src/app/api/{resource}/[id]/sse/route.ts
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<Response> {
+  const { id } = await params;
+  const session = await auth();
+  // 鉴权 + organizationId 验证
+
+  // 连接建立时先查一次终态，避免 race condition
+  const record = await someService.getById(id, session.user);
+  if (record.status === "COMPLETED" || record.status === "FAILED") {
+    // 直接返回结果并结束
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
-    async start(controller) {
-      // 1. 查询任务当前状态
-      // 2. 如果已完成，直接返回结果并关闭
-      // 3. 如果进行中，订阅 Redis pub/sub 获取实时进度
-      // 4. 逐块推送给前端
-      // 5. 完成后关闭流
+    start(controller) {
+      const subscriber = createPubSubRedisClient();
+      void subscriber.subscribe(`{domain}:${id}`);
+
+      const heartbeat = setInterval(() => {
+        controller.enqueue(encoder.encode(": keepalive\n\n"));
+      }, 30_000);
+
+      subscriber.on("message", (_ch, msg) => {
+        const parsed = JSON.parse(msg) as { event: string; data: unknown };
+        controller.enqueue(
+          encoder.encode(`event: ${parsed.event}\ndata: ${JSON.stringify(parsed.data)}\n\n`),
+        );
+        if (parsed.event === "done" || parsed.event === "error") {
+          clearInterval(heartbeat);
+          void subscriber.quit();
+          controller.close();
+        }
+      });
+
+      request.signal.addEventListener("abort", () => {
+        clearInterval(heartbeat);
+        void subscriber.quit();
+        controller.close();
+      });
     },
   });
+
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",

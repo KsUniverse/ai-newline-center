@@ -22,6 +22,7 @@ import {
 
 import { BenchmarkDetailHeader } from "./benchmark-detail-header";
 import { BenchmarkVideoList } from "./benchmark-video-list";
+import { BenchmarkVideoDetailPanel } from "./benchmark-video-detail-panel";
 
 const VIDEOS_PER_PAGE = 20;
 
@@ -38,6 +39,7 @@ export function BenchmarkDetailPageView() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [error, setError] = useState("");
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<DouyinVideoDTO | null>(null);
 
   const accountId = params.id;
   const currentUserId = session?.user?.id;
@@ -176,6 +178,7 @@ export function BenchmarkDetailPageView() {
           page={videoPage}
           onPageChange={setVideoPage}
           loading={videosLoading}
+          onVideoClick={(video) => setSelectedVideo(video)}
         />
       </div>
 
@@ -200,6 +203,10 @@ export function BenchmarkDetailPageView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <BenchmarkVideoDetailPanel
+        video={selectedVideo}
+        onClose={() => setSelectedVideo(null)}
+      />
     </div>
   );
 }

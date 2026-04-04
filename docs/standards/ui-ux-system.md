@@ -148,7 +148,7 @@ background-size: 20px 20px;
 {/* Auth Layout 背景层 */}
 <div className="pointer-events-none absolute inset-0">
   {/* 品牌色发光光晕（顶部中心） */}
-  <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,hsl(173_80%_37%_/_0.12),transparent)]" />
+  <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,hsl(173_80%_37%/0.12),transparent)]" />
   {/* 蓝色辅助氛围（右下角） */}
   <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_80%_100%,hsl(217_91%_60%/_0.06),transparent)]" />
   {/* 点阵纹理 */}
@@ -460,7 +460,7 @@ Logo 方块使用 `bg-primary text-primary-foreground`，搭配 `shadow-primary/
 ### AppHeader（顶部导航栏）
 
 ```tsx
-<header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+<header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
   {title ? (
     <h2 className="text-sm font-medium tracking-tight">{title}</h2>
   ) : (

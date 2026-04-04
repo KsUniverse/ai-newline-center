@@ -628,7 +628,7 @@ AccountsPage (page.tsx)
 **结构**:
 
 ```tsx
-<div className="group relative aspect-[3/4] overflow-hidden rounded-lg bg-card border border-border/60 cursor-pointer">
+<div className="group relative aspect-3/4 overflow-hidden rounded-lg bg-card border border-border/60 cursor-pointer">
   {/* 封面图（默认显示） */}
   <img 
     src={proxyImageUrl(video.coverUrl)} 
@@ -648,7 +648,7 @@ AccountsPage (page.tsx)
   )}
   
   {/* 底部渐变遮罩 */}
-  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
+  <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
     <p className="truncate text-sm font-medium text-white">{video.title}</p>
     <div className="mt-1 flex items-center justify-between text-sm text-white/80">
       <span className="flex items-center gap-1">
@@ -722,7 +722,7 @@ AccountsPage (page.tsx)
 精简版账号卡片，适合水平单行排列:
 
 ```tsx
-<button className="flex items-center gap-3 border border-border/60 rounded-lg bg-card px-4 py-3 min-w-[200px] hover:bg-muted/30 transition-colors">
+<button className="flex items-center gap-3 border border-border/60 rounded-lg bg-card px-4 py-3 min-w-50 hover:bg-muted/30 transition-colors">
   <img src={proxyImageUrl(account.avatar)} className="h-10 w-10 rounded-full object-cover" />
   <div className="min-w-0">
     <p className="truncate text-sm font-medium">{account.nickname}</p>

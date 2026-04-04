@@ -15,6 +15,7 @@
     "db:seed": "prisma db seed"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.50",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.6.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -26,9 +27,12 @@
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "ai": "^6.0.146",
     "bcryptjs": "^3.0.2",
+    "bullmq": "^5.73.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "ioredis": "^5.10.1",
     "lucide-react": "^1.7.0",
     "next": "^15.2.0",
     "next-auth": "beta",

@@ -15,6 +15,7 @@ interface BenchmarkVideoListProps {
   page: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
+  onVideoClick?: (video: DouyinVideoDTO) => void;
 }
 
 export function BenchmarkVideoList({
@@ -23,6 +24,7 @@ export function BenchmarkVideoList({
   page,
   onPageChange,
   loading = false,
+  onVideoClick,
 }: BenchmarkVideoListProps) {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
@@ -41,7 +43,7 @@ export function BenchmarkVideoList({
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-[3/4] rounded-lg bg-card animate-pulse border border-border/60"
+            className="aspect-3/4 rounded-lg bg-card animate-pulse border border-border/60"
           />
         ))}
       </div>
@@ -72,7 +74,7 @@ export function BenchmarkVideoList({
             isPlaying={playingVideoId === video.id}
             onHoverStart={() => handleHoverStart(video.id)}
             onHoverEnd={handleHoverEnd}
-            onClick={() => {}}
+            onClick={() => onVideoClick?.(video)}
           />
         ))}
       </div>

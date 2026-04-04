@@ -3,6 +3,8 @@ export async function register() {
   // before env.ts is loaded — direct process.env access is intentional and safe.
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NODE_ENV !== "test") {
     const { startScheduler } = await import("./src/lib/scheduler");
+    const { startTranscriptionWorker } = await import("./src/lib/transcription-worker");
     startScheduler();
+    startTranscriptionWorker();
   }
 }

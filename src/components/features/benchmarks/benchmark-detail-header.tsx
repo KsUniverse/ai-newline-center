@@ -37,7 +37,7 @@ export function BenchmarkDetailHeader({
               {account.nickname}
             </h2>
             {showVerification && (
-              <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[var(--verification-badge-bg)] px-2 py-0.5 text-xs text-[var(--verification-badge-text)]">
+              <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-(--verification-badge-bg) px-2 py-0.5 text-xs text-(--verification-badge-text)">
                 {account.verificationIconUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -46,7 +46,7 @@ export function BenchmarkDetailHeader({
                     className="h-3.5 w-3.5 shrink-0 object-contain"
                   />
                 ) : (
-                  <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[var(--verification-badge-text)] text-[9px] font-bold text-[var(--verification-badge-icon-text)]">
+                  <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-(--verification-badge-text) text-[9px] font-bold text-(--verification-badge-icon-text)">
                     V
                   </span>
                 )}

@@ -61,8 +61,8 @@ describe("startScheduler", () => {
     startScheduler();
 
     expect(scheduleMock).toHaveBeenCalledTimes(4);
-    expect(scheduleMock).toHaveBeenNthCalledWith(1, "0 */6 * * *", expect.any(Function));
-    expect(scheduleMock).toHaveBeenNthCalledWith(2, "0 * * * *", expect.any(Function));
+    expect(scheduleMock).toHaveBeenNthCalledWith(1, "0 */1 * * *", expect.any(Function));
+    expect(scheduleMock).toHaveBeenNthCalledWith(2, "*/10 * * * *", expect.any(Function));
     expect(scheduleMock).toHaveBeenNthCalledWith(3, "*/10 * * * *", expect.any(Function));
     expect(scheduleMock).toHaveBeenNthCalledWith(4, "*/5 * * * *", expect.any(Function));
   });

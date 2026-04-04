@@ -11,6 +11,8 @@ const envSchema = z.object({
   VIDEO_SYNC_CRON: z.string().optional(),
   VIDEO_SNAPSHOT_CRON: z.string().optional(),
   COLLECTION_SYNC_CRON: z.string().optional(),
+  TRANSCRIPTION_AI_MODEL: z.string().default("openai/whisper-1"),
+  OPENAI_API_KEY: z.string().optional(),
   SEED_ADMIN_ACCOUNT: z.string().optional(),
   SEED_ADMIN_PASSWORD: z.string().optional(),
   SEED_ADMIN_NAME: z.string().optional(),

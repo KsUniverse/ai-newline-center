@@ -8,3 +8,6 @@ export { BenchmarkVideoList } from "./benchmark-video-list";
 export { BenchmarksPageView } from "./benchmarks-page";
 export { BenchmarksArchivedPageView } from "./benchmarks-archived-page";
 export { BenchmarkDetailPageView } from "./benchmark-detail-page";
+export { BenchmarkVideoDetailPanel } from "./benchmark-video-detail-panel";
+export { VideoTranscriptionPanel } from "./video-transcription-panel";
+export { VideoTranscriptionEditor } from "./video-transcription-editor";

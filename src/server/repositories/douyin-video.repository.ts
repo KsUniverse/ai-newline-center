@@ -25,6 +25,16 @@ export type DouyinVideoWithAccount = Prisma.DouyinVideoGetPayload<{
   };
 }>;
 
+export type DouyinVideoWithAccountOrganization = Prisma.DouyinVideoGetPayload<{
+  include: {
+    account: {
+      include: {
+        organization: true;
+      };
+    };
+  };
+}>;
+
 class DouyinVideoRepository {
   async upsertByVideoId(
     data: {
@@ -175,6 +185,28 @@ class DouyinVideoRepository {
       where: {
         id,
         deletedAt: null,
+      },
+    });
+  }
+
+  async findByIdWithAccountOrganization(
+    id: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinVideoWithAccountOrganization | null> {
+    return db.douyinVideo.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        account: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        account: {
+          include: {
+            organization: true,
+          },
+        },
       },
     });
   }

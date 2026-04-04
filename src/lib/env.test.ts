@@ -109,4 +109,18 @@ describe("parseEnv", () => {
 
     expect(result.COLLECTION_SYNC_CRON).toBe("*/5 * * * *");
   });
+
+  it("defaults TRANSCRIPTION_AI_MODEL and allows OPENAI_API_KEY to be omitted in development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+    });
+
+    expect(result.TRANSCRIPTION_AI_MODEL).toBe("openai/whisper-1");
+    expect(result.OPENAI_API_KEY).toBeUndefined();
+  });
 });
