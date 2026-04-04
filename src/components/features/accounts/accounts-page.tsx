@@ -204,7 +204,7 @@ export function AccountsPageView() {
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                className="h-16 min-w-[200px] shrink-0 animate-pulse rounded-lg border border-border/60 bg-card"
+                className="h-16 min-w-50 shrink-0 animate-pulse rounded-lg border border-border/60 bg-card"
               />
             ))}
           </div>

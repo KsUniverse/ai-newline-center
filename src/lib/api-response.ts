@@ -4,13 +4,22 @@ import { ZodError } from "zod";
 import { AppError } from "@/lib/errors";
 import type { ApiResponse } from "@/types/api";
 
+const API_RESPONSE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export function successResponse<T>(data: T, status: number = 200): NextResponse<ApiResponse<T>> {
   return NextResponse.json<ApiResponse<T>>(
     {
       success: true,
       data,
     },
-    { status },
+    {
+      status,
+      headers: API_RESPONSE_HEADERS,
+    },
   );
 }
 
@@ -24,7 +33,10 @@ export function handleApiError(error: unknown): NextResponse<ApiResponse<never>>
           message: error.issues[0]?.message ?? "请求参数验证失败",
         },
       },
-      { status: 400 },
+      {
+        status: 400,
+        headers: API_RESPONSE_HEADERS,
+      },
     );
   }
 
@@ -37,7 +49,10 @@ export function handleApiError(error: unknown): NextResponse<ApiResponse<never>>
           message: error.message,
         },
       },
-      { status: error.statusCode },
+      {
+        status: error.statusCode,
+        headers: API_RESPONSE_HEADERS,
+      },
     );
   }
 
@@ -51,6 +66,9 @@ export function handleApiError(error: unknown): NextResponse<ApiResponse<never>>
         message: "服务器内部错误",
       },
     },
-    { status: 500 },
+    {
+      status: 500,
+      headers: API_RESPONSE_HEADERS,
+    },
   );
 }

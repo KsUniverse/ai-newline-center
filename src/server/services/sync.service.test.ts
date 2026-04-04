@@ -16,6 +16,7 @@ const {
   createSnapshotMock,
   downloadAndStoreMock,
   updateAccountInfoMock,
+  markLoginExpiredMock,
   updateStatsMock,
   updateSecUserIdMock,
   upsertVideoMock,
@@ -35,6 +36,7 @@ const {
   createSnapshotMock: vi.fn(),
   downloadAndStoreMock: vi.fn(),
   updateAccountInfoMock: vi.fn(),
+  markLoginExpiredMock: vi.fn(),
   updateStatsMock: vi.fn(),
   updateSecUserIdMock: vi.fn(),
   upsertVideoMock: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock("@/server/repositories/douyin-account.repository", () => ({
     findAll: findAllAccountsMock,
     findAllMyAccountsForCollection: findAllMyAccountsForCollectionMock,
     findBySecUserIdIncludingDeleted: findBySecUserIdIncludingDeletedMock,
+    markLoginExpired: markLoginExpiredMock,
     updateAccountInfo: updateAccountInfoMock,
     updateSecUserId: updateSecUserIdMock,
   },
@@ -100,6 +103,7 @@ describe("syncService", () => {
     findByVideoIdMock.mockReset();
     createSnapshotMock.mockReset();
     downloadAndStoreMock.mockReset();
+    markLoginExpiredMock.mockReset();
     updateAccountInfoMock.mockReset();
     updateStatsMock.mockReset();
     updateSecUserIdMock.mockReset();
@@ -440,6 +444,9 @@ describe("syncService", () => {
         userId: "user_1",
         organizationId: "org_1",
         secUserId: "sec_owner_1",
+        loginStatus: "LOGGED_IN",
+        loginStatePath: "D:/private/account-1.json",
+        favoriteCookieHeader: "sessionid=abc123; uid_tt=xyz456",
       },
     ]);
     fetchCollectionVideosMock.mockResolvedValue({
@@ -478,11 +485,17 @@ describe("syncService", () => {
       verificationIconUrl: null,
       verificationType: null,
     });
+    createBenchmarkMock.mockResolvedValue({
+      id: "benchmark_1",
+    });
 
     const { syncService } = await import("@/server/services/sync.service");
 
     await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
-    expect(fetchCollectionVideosMock).toHaveBeenCalledWith("sec_owner_1");
+    expect(fetchCollectionVideosMock).toHaveBeenCalledWith({
+      secUserId: "sec_owner_1",
+      cookieHeader: "sessionid=abc123; uid_tt=xyz456",
+    });
     expect(createBenchmarkMock).toHaveBeenCalledWith({
       profileUrl: "https://www.douyin.com/user/author_recent",
       secUserId: "author_recent",
@@ -508,5 +521,48 @@ describe("syncService", () => {
     expect(fetchUserProfileMock).toHaveBeenCalledTimes(1);
 
     vi.useRealTimers();
+  });
+
+  it("skips accounts without login state files instead of marking them expired", async () => {
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+        loginStatus: "NOT_LOGGED_IN",
+        loginStatePath: null,
+        favoriteCookieHeader: null,
+      },
+    ]);
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(markLoginExpiredMock).not.toHaveBeenCalled();
+    expect(fetchCollectionVideosMock).not.toHaveBeenCalled();
+  });
+
+  it("marks account expired when favorite request cookie header is missing", async () => {
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+        loginStatus: "LOGGED_IN",
+        loginStatePath: "D:/private/account-1.json",
+        favoriteCookieHeader: null,
+      },
+    ]);
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(markLoginExpiredMock).toHaveBeenCalledWith(
+      "account_1",
+      "账号收藏同步 Cookie 已失效，请重新登录",
+    );
+    expect(fetchCollectionVideosMock).not.toHaveBeenCalled();
   });
 });

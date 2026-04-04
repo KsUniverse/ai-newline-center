@@ -17,6 +17,7 @@ model Organization {
   children  Organization[]   @relation("OrgTree")
   users     User[]
   douyinAccounts DouyinAccount[]
+  douyinLoginSessions DouyinLoginSession[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -33,6 +34,7 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   douyinAccounts DouyinAccount[]
+  douyinLoginSessions DouyinLoginSession[]
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -67,6 +69,30 @@ enum DouyinAccountType {
   BENCHMARK_ACCOUNT
 }
 
+enum DouyinAccountLoginStatus {
+  NOT_LOGGED_IN
+  PENDING
+  LOGGED_IN
+  EXPIRED
+  FAILED
+}
+
+enum DouyinLoginSessionPurpose {
+  CREATE_ACCOUNT
+  RELOGIN
+}
+
+enum DouyinLoginSessionStatus {
+  CREATED
+  QRCODE_READY
+  SCANNED
+  CONFIRMED
+  SUCCESS
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
 model DouyinAccount {
   id             String            @id @default(cuid())
   profileUrl     String            @unique
@@ -88,11 +114,19 @@ model DouyinAccount {
   verificationIconUrl String?
   verificationType    Int?
   type           DouyinAccountType @default(MY_ACCOUNT)
+  loginStatus    DouyinAccountLoginStatus @default(NOT_LOGGED_IN)
+  loginStatePath String?
+  loginStateUpdatedAt DateTime?
+  loginStateCheckedAt DateTime?
+  loginStateExpiresAt DateTime?
+  loginErrorMessage String?
+  favoriteCookieHeader String?
   userId         String
   user           User              @relation(fields: [userId], references: [id])
   organizationId String
   organization   Organization      @relation(fields: [organizationId], references: [id])
   videos         DouyinVideo[]
+  loginSessions  DouyinLoginSession[]
   lastSyncedAt   DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -101,6 +135,34 @@ model DouyinAccount {
   @@index([userId])
   @@index([organizationId])
   @@map("douyin_accounts")
+}
+
+model DouyinLoginSession {
+  id                 String                   @id @default(cuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id])
+  organizationId     String
+  organization       Organization             @relation(fields: [organizationId], references: [id])
+  accountId          String?
+  account            DouyinAccount?           @relation(fields: [accountId], references: [id])
+  purpose            DouyinLoginSessionPurpose
+  status             DouyinLoginSessionStatus @default(CREATED)
+  qrcodeDataUrl      String?
+  tempStatePath      String?
+  resolvedSecUserId  String?
+  errorCode          String?
+  errorMessage       String?
+  expiresAt          DateTime?
+  startedAt          DateTime                 @default(now())
+  finishedAt         DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([organizationId, status])
+  @@map("douyin_login_sessions")
 }
 
 model DouyinVideo {

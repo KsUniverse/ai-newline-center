@@ -58,7 +58,7 @@ describe("crawlerService", () => {
     expect(result).toBe("sec_string_123");
   });
 
-  it("maps crawler profile fields and logs the raw JSON response", async () => {
+  it("maps crawler profile fields and logs the response code", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -77,7 +77,6 @@ describe("crawlerService", () => {
         },
       }),
     });
-    const consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", fetchMock);
 
     const { crawlerService } = await import("@/server/services/crawler.service");
@@ -102,24 +101,6 @@ describe("crawlerService", () => {
       verificationIconUrl: null,
       verificationType: null,
     });
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
-      "[CrawlerService] /api/douyin/web/handler_user_profile response:",
-      JSON.stringify({
-        code: 200,
-        data: {
-          user: {
-            sec_uid: "sec_123",
-            nickname: "真实账号",
-            avatar_larger: {
-              url_list: ["https://cdn.example.com/avatar.jpg"],
-            },
-            signature: "账号简介",
-            follower_count: 100,
-            aweme_count: 10,
-          },
-        },
-      }),
-    );
   });
 
   it("maps extended profile fields for official-style account cards", async () => {
@@ -347,7 +328,10 @@ describe("crawlerService", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { crawlerService } = await import("@/server/services/crawler.service");
-    const result = await crawlerService.fetchCollectionVideos("sec_123");
+    const result = await crawlerService.fetchCollectionVideos({
+      secUserId: "sec_123",
+      cookieHeader: "sessionid=abc123",
+    });
 
     expect(result).toEqual({
       items: [

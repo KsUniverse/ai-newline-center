@@ -2,6 +2,7 @@ export { AccountCard } from "./account-card";
 export { AccountCardGrid } from "./account-card-grid";
 export { AccountAddDrawer } from "./account-add-drawer";
 export { AccountDetailHeader } from "./account-detail-header";
+export { AccountLoginStatusBadge } from "./account-login-status-badge";
 export { AccountSyncSection } from "./account-sync-section";
 export { AccountEmptyState } from "./account-empty-state";
 export { AccountRow } from "./account-row";

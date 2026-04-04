@@ -6,8 +6,12 @@ import { useSession } from "next-auth/react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
+import { ApiError, apiClient } from "@/lib/api-client";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
+import { cn } from "@/lib/utils";
+import type { PaginatedData } from "@/types/api";
+import type { DouyinAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -15,12 +19,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import type { PaginatedData } from "@/types/api";
-import type { DouyinAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
-import { ApiError, apiClient } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-
 import { AccountDetailHeader } from "./account-detail-header";
+import { AccountReloginDialog } from "./account-relogin-dialog";
 import { VideoDetailDialog } from "./video-detail-dialog";
 import { VideoList } from "./video-list";
 
@@ -29,7 +29,7 @@ const VIDEOS_PER_PAGE = 20;
 export function AccountDetailPageView() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
   const [account, setAccount] = useState<DouyinAccountDetailDTO | null>(null);
   const [videos, setVideos] = useState<DouyinVideoDTO[]>([]);
@@ -39,11 +39,13 @@ export function AccountDetailPageView() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<DouyinVideoDTO | null>(null);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [reloginOpen, setReloginOpen] = useState(false);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
 
   const accountId = params.id;
+  const canRelogin = session?.user?.role === "EMPLOYEE";
 
   useEffect(() => {
     if (status !== "authenticated" || !accountId) {
@@ -182,21 +184,29 @@ export function AccountDetailPageView() {
             </div>
           </div>
         ) : (
-          <AccountDetailHeader account={account} onSyncSuccess={handleSyncSuccess} />
+          <AccountDetailHeader
+            account={account}
+            canRelogin={canRelogin}
+            onSyncSuccess={handleSyncSuccess}
+            onReloginOpen={() => setReloginOpen(true)}
+          />
         )}
       </div>
 
-      <div className="animate-in-up-d2 space-y-3">
-        <h3 className="text-lg font-semibold tracking-tight text-foreground/90">视频列表</h3>
-        <VideoList
-          videos={videos}
-          total={videosTotal}
-          page={videoPage}
-          limit={VIDEOS_PER_PAGE}
-          onPageChange={setVideoPage}
-          onVideoClick={handleVideoClick}
-          loading={videosLoading}
-        />
+      <div className="animate-in-up-d2 min-w-0 space-y-3">
+        <div className="min-w-0 flex-1 space-y-3">
+          <h3 className="text-lg font-semibold tracking-tight text-foreground/90">视频列表</h3>
+          <VideoList
+            videos={videos}
+            total={videosTotal}
+            page={videoPage}
+            limit={VIDEOS_PER_PAGE}
+            onPageChange={setVideoPage}
+            onVideoClick={handleVideoClick}
+            loading={videosLoading}
+          />
+        </div>
+
       </div>
 
       <VideoDetailDialog
@@ -204,6 +214,18 @@ export function AccountDetailPageView() {
         open={videoDialogOpen}
         onOpenChange={setVideoDialogOpen}
       />
+
+      {account && canRelogin && (
+        <AccountReloginDialog
+          account={account}
+          open={reloginOpen}
+          onOpenChange={setReloginOpen}
+          onSuccess={() => {
+            setReloginOpen(false);
+            setRefreshKey((current) => current + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

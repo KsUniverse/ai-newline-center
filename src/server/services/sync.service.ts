@@ -1,4 +1,4 @@
-import { Prisma, type DouyinAccount } from "@prisma/client";
+﻿import { DouyinAccountLoginStatus, Prisma, type DouyinAccount } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
@@ -119,7 +119,22 @@ class SyncService {
 
       for (const account of accounts) {
         try {
-          const result = await crawlerService.fetchCollectionVideos(account.secUserId as string);
+          if (account.loginStatus !== DouyinAccountLoginStatus.LOGGED_IN) {
+            continue;
+          }
+
+          if (!account.favoriteCookieHeader) {
+            await douyinAccountRepository.markLoginExpired(
+              account.id,
+              "账号收藏同步 Cookie 已失效，请重新登录",
+            );
+            continue;
+          }
+          const result = await crawlerService.fetchCollectionVideos({
+            // query includes requireSecUserId: true, so secUserId is non-null here
+            secUserId: account.secUserId as string,
+            cookieHeader: account.favoriteCookieHeader,
+          });
 
           for (const item of result.items) {
             // collectedAt 为 null（爬虫未返回字段）→ 视为状态未知，继续处理（由 findBySecUserIdIncludingDeleted 去重）
@@ -196,6 +211,14 @@ class SyncService {
             }
           }
         } catch (error) {
+          if (error instanceof AppError && error.code === "CRAWLER_AUTH_EXPIRED") {
+            await douyinAccountRepository.markLoginExpired(
+              account.id,
+              "账号登录态已失效，请重新登录",
+            );
+            continue;
+          }
+
           console.error("Failed to sync collection videos:", {
             accountId: account.id,
             error,
@@ -354,3 +377,4 @@ class SyncService {
 }
 
 export const syncService = new SyncService();
+

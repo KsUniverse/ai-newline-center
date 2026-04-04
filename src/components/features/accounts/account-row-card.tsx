@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { DouyinAccountDTO } from "@/types/douyin-account";
 import { proxyImageUrl, formatNumber } from "@/lib/utils";
 
+import { AccountLoginStatusBadge } from "./account-login-status-badge";
+
 interface AccountRowCardProps {
   account: DouyinAccountDTO;
 }
@@ -16,7 +18,7 @@ export function AccountRowCard({ account }: AccountRowCardProps) {
     <button
       type="button"
       onClick={() => router.push(`/accounts/${account.id}`)}
-      className="flex min-w-[200px] items-center gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/30 cursor-pointer shrink-0"
+      className="flex min-w-50 shrink-0 cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/30"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -28,9 +30,12 @@ export function AccountRowCard({ account }: AccountRowCardProps) {
         <p className="truncate text-sm font-medium text-foreground/90">
           {account.nickname}
         </p>
-        <p className="text-sm text-muted-foreground tabular-nums tracking-tight">
-          {formatNumber(account.followersCount)} 粉丝
-        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="text-sm text-muted-foreground tabular-nums tracking-tight">
+            {formatNumber(account.followersCount)} 粉丝
+          </p>
+          <AccountLoginStatusBadge status={account.loginStatus} />
+        </div>
       </div>
     </button>
   );

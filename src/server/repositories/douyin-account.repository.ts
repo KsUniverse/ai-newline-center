@@ -1,4 +1,5 @@
 import {
+  DouyinAccountLoginStatus,
   DouyinAccountType,
   type DouyinAccount,
   type Prisma,
@@ -9,6 +10,19 @@ import { prisma } from "@/lib/prisma";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 type ArchiveFilter = "active" | "archived" | "all";
+
+const loginStateMetaSelect = {
+  id: true,
+  userId: true,
+  organizationId: true,
+  loginStatus: true,
+  loginStatePath: true,
+  loginStateUpdatedAt: true,
+  loginStateCheckedAt: true,
+  loginStateExpiresAt: true,
+  loginErrorMessage: true,
+  favoriteCookieHeader: true,
+} satisfies Prisma.DouyinAccountSelect;
 
 const userInclude = {
   user: {
@@ -24,6 +38,10 @@ export type DouyinAccountWithUser = Prisma.DouyinAccountGetPayload<{
 }>;
 
 export type DouyinBenchmarkWithUser = DouyinAccountWithUser;
+
+export type DouyinAccountLoginStateMeta = Prisma.DouyinAccountGetPayload<{
+  select: typeof loginStateMetaSelect;
+}>;
 
 export interface FindManyDouyinAccountsParams {
   type?: DouyinAccountType;
@@ -53,6 +71,7 @@ interface BuildAccountWhereParams {
 }
 
 interface CreateDouyinAccountRecord {
+  id?: string;
   profileUrl: string;
   secUserId: string;
   nickname: string;
@@ -71,6 +90,14 @@ interface CreateDouyinAccountRecord {
   verificationLabel?: string | null;
   verificationIconUrl?: string | null;
   verificationType?: number | null;
+  loginStatus?: DouyinAccountLoginStatus;
+  loginStatePath?: string | null;
+  loginStateUpdatedAt?: Date | null;
+  loginStateCheckedAt?: Date | null;
+  loginStateExpiresAt?: Date | null;
+  loginErrorMessage?: string | null;
+  favoriteCookieHeader?: string | null;
+  lastSyncedAt?: Date | null;
   userId: string;
   organizationId: string;
   type: DouyinAccountType;
@@ -172,6 +199,38 @@ class DouyinAccountRepository {
         archiveFilter: "active",
       }),
       include: userInclude,
+    });
+  }
+
+  async findOwnedMyAccount(
+    id: string,
+    userId: string,
+    organizationId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount | null> {
+    return db.douyinAccount.findFirst({
+      where: this.buildWhere({
+        id,
+        userId,
+        organizationId,
+        type: DouyinAccountType.MY_ACCOUNT,
+        archiveFilter: "active",
+      }),
+    });
+  }
+
+  async findLoginStateMeta(
+    id: string,
+    organizationId?: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccountLoginStateMeta | null> {
+    return db.douyinAccount.findFirst({
+      where: this.buildWhere({
+        id,
+        organizationId,
+        archiveFilter: "active",
+      }),
+      select: loginStateMetaSelect,
     });
   }
 
@@ -356,6 +415,103 @@ class DouyinAccountRepository {
         id,
       },
       data,
+    });
+  }
+
+  async updateLoginStatus(
+    id: string,
+    loginStatus: DouyinAccountLoginStatus,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        loginStatus,
+      },
+    });
+  }
+
+  async updateLoginStateBinding(
+    id: string,
+    data: {
+      loginStatus?: DouyinAccountLoginStatus;
+      loginStatePath?: string | null;
+      loginStateUpdatedAt?: Date | null;
+      loginStateCheckedAt?: Date | null;
+      loginStateExpiresAt?: Date | null;
+      loginErrorMessage?: string | null;
+      favoriteCookieHeader?: string | null;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data,
+    });
+  }
+
+  async clearLoginStateBinding(
+    id: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        loginStatus: DouyinAccountLoginStatus.NOT_LOGGED_IN,
+        loginStatePath: null,
+        loginStateUpdatedAt: null,
+        loginStateCheckedAt: null,
+        loginStateExpiresAt: null,
+        loginErrorMessage: null,
+        favoriteCookieHeader: null,
+      },
+    });
+  }
+
+  async markLoginExpired(
+    id: string,
+    errorMessage: string | null,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        loginStatus: DouyinAccountLoginStatus.EXPIRED,
+        loginStateCheckedAt: new Date(),
+        loginErrorMessage: errorMessage,
+      },
+    });
+  }
+
+  async markLoginFailed(
+    id: string,
+    errorMessage: string,
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinAccount> {
+    return db.douyinAccount.update({
+      where: {
+        id,
+      },
+      data: {
+        loginStatus: DouyinAccountLoginStatus.FAILED,
+        loginErrorMessage: errorMessage,
+      },
+    });
+  }
+
+  async deleteById(id: string, db: DatabaseClient = prisma): Promise<DouyinAccount> {
+    return db.douyinAccount.delete({
+      where: {
+        id,
+      },
     });
   }
 }

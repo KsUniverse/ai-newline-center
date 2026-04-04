@@ -9,6 +9,7 @@ describe("api-response helpers", () => {
     const response = successResponse({ ok: true }, 201);
 
     expect(response.status).toBe(201);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
     await expect(response.json()).resolves.toEqual({
       success: true,
       data: { ok: true },
@@ -31,6 +32,7 @@ describe("api-response helpers", () => {
     const response = handleApiError(validationError);
 
     expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: {
@@ -44,6 +46,7 @@ describe("api-response helpers", () => {
     const response = handleApiError(new AppError("UNAUTHORIZED", "未登录", 401));
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: {
@@ -58,6 +61,7 @@ describe("api-response helpers", () => {
     const response = handleApiError(new Error("boom"));
 
     expect(response.status).toBe(500);
+    expect(response.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
     await expect(response.json()).resolves.toEqual({
       success: false,
       error: {

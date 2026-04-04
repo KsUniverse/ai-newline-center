@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,16 @@ interface AccountSyncSectionProps {
   accountId: string;
   lastSyncedAt: string | null;
   onSyncSuccess: (newLastSyncedAt: string) => void;
+  canRelogin?: boolean;
+  onReloginOpen?: () => void;
 }
 
 export function AccountSyncSection({
   accountId,
   lastSyncedAt,
   onSyncSuccess,
+  canRelogin,
+  onReloginOpen,
 }: AccountSyncSectionProps) {
   const [syncing, setSyncing] = useState(false);
 
@@ -55,6 +59,12 @@ export function AccountSyncSection({
           </>
         )}
       </Button>
+      {canRelogin && onReloginOpen && (
+        <Button size="sm" variant="outline" onClick={onReloginOpen}>
+          <LogIn className="h-3 w-3" />
+          更新登录
+        </Button>
+      )}
     </div>
   );
 }

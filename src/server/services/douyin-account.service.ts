@@ -1,11 +1,28 @@
-import { DouyinAccountType, UserRole } from "@prisma/client";
+import {
+  DouyinAccountLoginStatus,
+  DouyinAccountType,
+  type Prisma,
+  type PrismaClient,
+  UserRole,
+  type DouyinAccount,
+} from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
-import type { AccountPreview } from "@/types/douyin-account";
-import type { SessionUser } from "@/server/services/user.service";
-import { crawlerService } from "@/server/services/crawler.service";
-import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
+import { prisma } from "@/lib/prisma";
+import type {
+  AccountPreview,
+  DouyinAccountDTO,
+  DouyinAccountDetailDTO,
+} from "@/types/douyin-account";
+import {
+  douyinAccountRepository,
+  type DouyinAccountWithUser,
+} from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
+import { crawlerService } from "@/server/services/crawler.service";
+import type { SessionUser } from "@/server/services/user.service";
+
+type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 
 export interface CreateDouyinAccountData {
   profileUrl: string;
@@ -26,6 +43,19 @@ export interface CreateDouyinAccountData {
   verificationLabel?: string | null;
   verificationIconUrl?: string | null;
   verificationType?: number | null;
+  loginStatus?: DouyinAccountLoginStatus;
+  loginStateUpdatedAt?: Date | null;
+  loginStateCheckedAt?: Date | null;
+  loginStateExpiresAt?: Date | null;
+  loginErrorMessage?: string | null;
+  favoriteCookieHeader?: string | null;
+  lastSyncedAt?: Date | null;
+}
+
+interface CreateLoggedInAccountOptions {
+  accountId?: string;
+  loginStatePath?: string | null;
+  db?: DatabaseClient;
 }
 
 export interface ListParams {
@@ -77,11 +107,74 @@ export function mapCrawlerProfileToPreview(
   };
 }
 
+export function mapDouyinAccountToDto(account: DouyinAccount): DouyinAccountDTO {
+  return {
+    id: account.id,
+    profileUrl: account.profileUrl,
+    secUserId: account.secUserId,
+    nickname: account.nickname,
+    avatar: account.avatar,
+    bio: account.bio,
+    signature: account.signature,
+    followersCount: account.followersCount,
+    followingCount: account.followingCount,
+    likesCount: account.likesCount,
+    videosCount: account.videosCount,
+    douyinNumber: account.douyinNumber,
+    ipLocation: account.ipLocation,
+    age: account.age,
+    province: account.province,
+    city: account.city,
+    verificationLabel: account.verificationLabel,
+    verificationIconUrl: account.verificationIconUrl,
+    verificationType: account.verificationType,
+    type: account.type,
+    loginStatus: account.loginStatus,
+    loginStateUpdatedAt: account.loginStateUpdatedAt?.toISOString() ?? null,
+    loginStateCheckedAt: account.loginStateCheckedAt?.toISOString() ?? null,
+    loginStateExpiresAt: account.loginStateExpiresAt?.toISOString() ?? null,
+    loginErrorMessage: account.loginErrorMessage,
+    userId: account.userId,
+    organizationId: account.organizationId,
+    createdAt: account.createdAt.toISOString(),
+  };
+}
+
+function mapDouyinAccountDetailToDto(account: DouyinAccountWithUser): DouyinAccountDetailDTO {
+  return {
+    ...mapDouyinAccountToDto(account),
+    user: account.user,
+    lastSyncedAt: account.lastSyncedAt?.toISOString() ?? null,
+  };
+}
+
 class DouyinAccountService {
-  async previewAccount(caller: SessionUser, profileUrl: string): Promise<AccountPreview> {
+  private ensureEmployee(caller: SessionUser): void {
     if (caller.role !== UserRole.EMPLOYEE) {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
+  }
+
+  private async ensureAccountDoesNotExist(
+    data: Pick<CreateDouyinAccountData, "profileUrl" | "secUserId">,
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    const existing = await douyinAccountRepository.findByProfileUrl(data.profileUrl, false, db);
+    if (existing) {
+      throw new AppError("ACCOUNT_EXISTS", "该账号已被添加", 409);
+    }
+
+    const existingBySecUserId = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
+      data.secUserId,
+      db,
+    );
+    if (existingBySecUserId) {
+      throw new AppError("ACCOUNT_EXISTS", "该账号已被添加", 409);
+    }
+  }
+
+  async previewAccount(caller: SessionUser, profileUrl: string): Promise<AccountPreview> {
+    this.ensureEmployee(caller);
 
     const secUserId = await crawlerService.getSecUserId(profileUrl);
     const profile = await crawlerService.fetchUserProfile(secUserId);
@@ -89,49 +182,96 @@ class DouyinAccountService {
     return mapCrawlerProfileToPreview(profileUrl, profile);
   }
 
-  async createAccount(caller: SessionUser, data: CreateDouyinAccountData) {
-    if (caller.role !== UserRole.EMPLOYEE) {
-      throw new AppError("FORBIDDEN", "无操作权限", 403);
-    }
+  async createAccount(caller: SessionUser, data: CreateDouyinAccountData): Promise<DouyinAccountDTO> {
+    this.ensureEmployee(caller);
 
-    const existing = await douyinAccountRepository.findByProfileUrl(data.profileUrl);
-    if (existing) {
-      throw new AppError("ACCOUNT_EXISTS", "该账号已被添加", 409);
-    }
+    await this.ensureAccountDoesNotExist(data);
 
-    return douyinAccountRepository.create({
+    const createdAccount = await douyinAccountRepository.create({
       ...data,
       userId: caller.id,
       organizationId: caller.organizationId,
       type: DouyinAccountType.MY_ACCOUNT,
     });
+
+    return mapDouyinAccountToDto(createdAccount);
+  }
+
+  async createLoggedInAccount(
+    caller: SessionUser,
+    data: CreateDouyinAccountData,
+    options: CreateLoggedInAccountOptions = {},
+  ): Promise<DouyinAccount> {
+    this.ensureEmployee(caller);
+
+    const db = options.db ?? prisma;
+    await this.ensureAccountDoesNotExist(data, db);
+
+    return douyinAccountRepository.create({
+      id: options.accountId,
+      ...data,
+      userId: caller.id,
+      organizationId: caller.organizationId,
+      type: DouyinAccountType.MY_ACCOUNT,
+      loginStatus: data.loginStatus ?? DouyinAccountLoginStatus.LOGGED_IN,
+      loginStatePath: options.loginStatePath ?? null,
+      loginStateUpdatedAt: data.loginStateUpdatedAt ?? null,
+      loginStateCheckedAt: data.loginStateCheckedAt ?? null,
+      loginStateExpiresAt: data.loginStateExpiresAt ?? null,
+      loginErrorMessage: data.loginErrorMessage ?? null,
+      favoriteCookieHeader: data.favoriteCookieHeader ?? null,
+      lastSyncedAt: data.lastSyncedAt ?? null,
+    }, db);
   }
 
   async listAccounts(caller: SessionUser, params: ListParams) {
-    switch (caller.role) {
-      case UserRole.EMPLOYEE:
-        return douyinAccountRepository.findMany({
-          userId: caller.id,
-          page: params.page,
-          limit: params.limit,
-        });
-      case UserRole.BRANCH_MANAGER:
-        return douyinAccountRepository.findMany({
-          organizationId: caller.organizationId,
-          page: params.page,
-          limit: params.limit,
-        });
-      case UserRole.SUPER_ADMIN:
-        return douyinAccountRepository.findMany({
-          page: params.page,
-          limit: params.limit,
-        });
-      default:
-        throw new AppError("FORBIDDEN", "无操作权限", 403);
-    }
+    const result = await ((): ReturnType<typeof douyinAccountRepository.findMany> => {
+      switch (caller.role) {
+        case UserRole.EMPLOYEE:
+          return douyinAccountRepository.findMany({
+            userId: caller.id,
+            page: params.page,
+            limit: params.limit,
+          });
+        case UserRole.BRANCH_MANAGER:
+          return douyinAccountRepository.findMany({
+            organizationId: caller.organizationId,
+            page: params.page,
+            limit: params.limit,
+          });
+        case UserRole.SUPER_ADMIN:
+          return douyinAccountRepository.findMany({
+            page: params.page,
+            limit: params.limit,
+          });
+        default:
+          throw new AppError("FORBIDDEN", "无操作权限", 403);
+      }
+    })();
+
+    return {
+      ...result,
+      items: result.items.map((item) => mapDouyinAccountToDto(item)),
+    };
   }
 
-  async getAccountDetail(caller: SessionUser, id: string) {
+  async getOwnAccountForRelogin(caller: SessionUser, id: string): Promise<DouyinAccount> {
+    this.ensureEmployee(caller);
+
+    const account = await douyinAccountRepository.findOwnedMyAccount(
+      id,
+      caller.id,
+      caller.organizationId,
+    );
+
+    if (!account) {
+      throw new AppError("NOT_FOUND", "账号不存在", 404);
+    }
+
+    return account;
+  }
+
+  async getAccountDetail(caller: SessionUser, id: string): Promise<DouyinAccountDetailDTO> {
     const account = await douyinAccountRepository.findById(id);
 
     if (!account) {
@@ -152,7 +292,7 @@ class DouyinAccountService {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    return account;
+    return mapDouyinAccountDetailToDto(account);
   }
 
   async listVideos(caller: SessionUser, accountId: string, params: ListParams) {

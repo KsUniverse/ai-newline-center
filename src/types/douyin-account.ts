@@ -1,3 +1,35 @@
+export type DouyinAccountLoginStatus =
+  | "NOT_LOGGED_IN"
+  | "PENDING"
+  | "LOGGED_IN"
+  | "EXPIRED"
+  | "FAILED";
+
+export type DouyinLoginSessionPurpose = "CREATE_ACCOUNT" | "RELOGIN";
+
+export interface CreateDouyinLoginSessionForCreateAccountInput {
+  purpose: "CREATE_ACCOUNT";
+}
+
+export interface CreateDouyinLoginSessionForReloginInput {
+  purpose: "RELOGIN";
+  accountId: string;
+}
+
+export type CreateDouyinLoginSessionInput =
+  | CreateDouyinLoginSessionForCreateAccountInput
+  | CreateDouyinLoginSessionForReloginInput;
+
+export type DouyinLoginSessionStatus =
+  | "CREATED"
+  | "QRCODE_READY"
+  | "SCANNED"
+  | "CONFIRMED"
+  | "SUCCESS"
+  | "FAILED"
+  | "EXPIRED"
+  | "CANCELLED";
+
 export interface DouyinAccountDTO {
   id: string;
   profileUrl: string;
@@ -19,6 +51,11 @@ export interface DouyinAccountDTO {
   verificationIconUrl: string | null;
   verificationType: number | null;
   type: "MY_ACCOUNT" | "BENCHMARK_ACCOUNT";
+  loginStatus: DouyinAccountLoginStatus;
+  loginStateUpdatedAt: string | null;
+  loginStateCheckedAt: string | null;
+  loginStateExpiresAt: string | null;
+  loginErrorMessage: string | null;
   userId: string;
   organizationId: string;
   createdAt: string;
@@ -87,4 +124,17 @@ export interface BenchmarkAccountDTO extends DouyinAccountDTO {
 
 export interface BenchmarkAccountDetailDTO extends BenchmarkAccountDTO {
   lastSyncedAt: string | null;
+}
+
+export interface DouyinLoginSessionDTO {
+  id: string;
+  purpose: DouyinLoginSessionPurpose;
+  status: DouyinLoginSessionStatus;
+  qrcodeDataUrl: string | null;
+  expiresAt: string | null;
+  resolvedSecUserId: string | null;
+  accountId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  message: string;
 }

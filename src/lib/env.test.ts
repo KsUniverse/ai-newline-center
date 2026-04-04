@@ -123,4 +123,19 @@ describe("parseEnv", () => {
     expect(result.TRANSCRIPTION_AI_MODEL).toBe("openai/whisper-1");
     expect(result.OPENAI_API_KEY).toBeUndefined();
   });
+
+  it("defaults douyin login runtime configuration", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+    });
+
+    expect(result.DOUYIN_LOGIN_PAGE_URL).toBe("https://creator.douyin.com/");
+    expect(result.DOUYIN_LOGIN_TIMEOUT_MS).toBe(180000);
+    expect(result.DOUYIN_LOGIN_STATE_DIR).toBeUndefined();
+  });
 });
