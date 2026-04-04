@@ -21,6 +21,10 @@ export function startScheduler(): void {
   let videoSnapshotRunning = false;
   let collectionSyncRunning = false;
 
+  console.log(
+    `[Scheduler] Initialized: accountSync=${accountSyncCron}, videoSync=${videoSyncCron}, videoSnapshot=${videoSnapshotCron}, collectionSync=${collectionSyncCron}`,
+  );
+
   cron.schedule(accountSyncCron, () => {
     if (accountSyncRunning) {
       console.warn("[Scheduler] Account sync already running, skipping...");
@@ -28,9 +32,18 @@ export function startScheduler(): void {
     }
 
     accountSyncRunning = true;
-    void syncService.runAccountInfoBatchSync().finally(() => {
-      accountSyncRunning = false;
-    });
+    console.log("[Scheduler] Account sync triggered");
+    void syncService
+      .runAccountInfoBatchSync()
+      .then(() => {
+        console.log("[Scheduler] Account sync completed");
+      })
+      .catch((error: unknown) => {
+        console.error("[Scheduler] Account sync failed:", error);
+      })
+      .finally(() => {
+        accountSyncRunning = false;
+      });
   });
 
   cron.schedule(videoSyncCron, () => {
@@ -40,9 +53,18 @@ export function startScheduler(): void {
     }
 
     videoSyncRunning = true;
-    void syncService.runVideoBatchSync().finally(() => {
-      videoSyncRunning = false;
-    });
+    console.log("[Scheduler] Video sync triggered");
+    void syncService
+      .runVideoBatchSync()
+      .then(() => {
+        console.log("[Scheduler] Video sync completed");
+      })
+      .catch((error: unknown) => {
+        console.error("[Scheduler] Video sync failed:", error);
+      })
+      .finally(() => {
+        videoSyncRunning = false;
+      });
   });
 
   cron.schedule(videoSnapshotCron, () => {
@@ -52,9 +74,18 @@ export function startScheduler(): void {
     }
 
     videoSnapshotRunning = true;
-    void syncService.runVideoSnapshotCollection().finally(() => {
-      videoSnapshotRunning = false;
-    });
+    console.log("[Scheduler] Video snapshot sync triggered");
+    void syncService
+      .runVideoSnapshotCollection()
+      .then(() => {
+        console.log("[Scheduler] Video snapshot sync completed");
+      })
+      .catch((error: unknown) => {
+        console.error("[Scheduler] Video snapshot sync failed:", error);
+      })
+      .finally(() => {
+        videoSnapshotRunning = false;
+      });
   });
 
   cron.schedule(collectionSyncCron, () => {
@@ -64,8 +95,17 @@ export function startScheduler(): void {
     }
 
     collectionSyncRunning = true;
-    void syncService.runCollectionSync().finally(() => {
-      collectionSyncRunning = false;
-    });
+    console.log("[Scheduler] Collection sync triggered");
+    void syncService
+      .runCollectionSync()
+      .then(() => {
+        console.log("[Scheduler] Collection sync completed");
+      })
+      .catch((error: unknown) => {
+        console.error("[Scheduler] Collection sync failed:", error);
+      })
+      .finally(() => {
+        collectionSyncRunning = false;
+      });
   });
 }
