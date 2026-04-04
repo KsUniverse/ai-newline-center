@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+
+import { cn } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { PaginatedData } from "@/types/api";
 import type { BenchmarkAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
@@ -40,6 +49,8 @@ export function BenchmarkDetailPageView() {
   const [error, setError] = useState("");
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<DouyinVideoDTO | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
 
   const accountId = params.id;
   const currentUserId = session?.user?.id;
@@ -76,7 +87,7 @@ export function BenchmarkDetailPageView() {
     return () => {
       cancelled = true;
     };
-  }, [status, accountId]);
+  }, [status, accountId, refreshKey]);
 
   useEffect(() => {
     if (status !== "authenticated" || !accountId) return;
@@ -108,7 +119,7 @@ export function BenchmarkDetailPageView() {
     return () => {
       cancelled = true;
     };
-  }, [status, accountId, videoPage]);
+  }, [status, accountId, videoPage, refreshKey]);
 
   function handleConfirmArchive() {
     if (!accountId) return;
@@ -140,7 +151,7 @@ export function BenchmarkDetailPageView() {
 
   return (
     <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
-      <div className="animate-in-up">
+      <div className="animate-in-up flex items-center gap-2">
         <Button
           variant="ghost"
           size="sm"
@@ -150,6 +161,21 @@ export function BenchmarkDetailPageView() {
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
           返回
         </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground/50 shrink-0",
+                  isRefreshing && "animate-spin",
+                )}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>每 60 秒自动刷新</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <div className="animate-in-up-d1">

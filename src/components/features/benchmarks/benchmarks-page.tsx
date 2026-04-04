@@ -2,9 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+
+import { cn } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { PaginatedData } from "@/types/api";
 import type { BenchmarkAccountDTO } from "@/types/douyin-account";
@@ -34,6 +43,7 @@ export function BenchmarksPageView() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
   const [page, setPage] = useState(1);
   const [archiveTargetId, setArchiveTargetId] = useState<string | null>(null);
 
@@ -100,6 +110,21 @@ export function BenchmarksPageView() {
       description="管理你的对标博主，通过收藏自动同步或手动添加"
       actions={
         <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5 text-muted-foreground/50 shrink-0",
+                    isRefreshing && "animate-spin",
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>每 60 秒自动刷新</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="link" size="sm" className="text-sm text-muted-foreground" asChild>
             <Link href="/benchmarks/archived">查看已归档 →</Link>
           </Button>

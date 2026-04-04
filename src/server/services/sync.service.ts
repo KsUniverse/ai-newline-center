@@ -29,6 +29,12 @@ class SyncService {
 
   async runVideoBatchSync(): Promise<void> {
     const accounts = await douyinAccountRepository.findAll();
+    const myCount = accounts.filter((a) => a.type === "MY_ACCOUNT").length;
+    const benchmarkCount = accounts.filter((a) => a.type === "BENCHMARK_ACCOUNT").length;
+    console.log(
+      `[VideoSync] 开始批量视频同步，共 ${accounts.length} 个账号` +
+        `（MY_ACCOUNT: ${myCount}，BENCHMARK_ACCOUNT: ${benchmarkCount}）`,
+    );
 
     for (const account of accounts) {
       try {
@@ -109,21 +115,21 @@ class SyncService {
       const accounts = await douyinAccountRepository.findAllMyAccountsForCollection();
       const windowStart = new Date(Date.now() - 60 * 60 * 1000);
 
+      console.log(`[CollectionSync] 开始，共扫描 ${accounts.length} 个员工账号`);
+
       for (const account of accounts) {
         try {
           const result = await crawlerService.fetchCollectionVideos(account.secUserId as string);
 
           for (const item of result.items) {
-            if (!item.collectedAt) {
+            // collectedAt 为 null（爬虫未返回字段）→ 视为状态未知，继续处理（由 findBySecUserIdIncludingDeleted 去重）
+            // collectedAt 有值但早于时间窗口 → 跳过（continue，不 break，防止 API 返回乱序）
+            if (item.collectedAt !== null && item.collectedAt < windowStart) {
               continue;
             }
 
-            if (item.collectedAt < windowStart) {
-              break;
-            }
-
             if (!item.authorSecUserId) {
-              console.warn("Skipped collection item without author secUserId:", {
+              console.warn("[CollectionSync] 跳过无 authorSecUserId 的 item", {
                 accountId: account.id,
                 awemeId: item.awemeId,
               });
@@ -138,9 +144,12 @@ class SyncService {
             }
 
             try {
+              console.log(
+                `[CollectionSync] 发现新博主 secUserId=${item.authorSecUserId}，准备创建 BENCHMARK_ACCOUNT`,
+              );
               const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
 
-              await douyinAccountRepository.createBenchmark({
+              const created = await douyinAccountRepository.createBenchmark({
                 profileUrl:
                   profile.secUserId
                     ? `https://www.douyin.com/user/${profile.secUserId}`
@@ -165,15 +174,21 @@ class SyncService {
                 userId: account.userId,
                 organizationId: account.organizationId,
               });
+              console.log(
+                `[CollectionSync] BENCHMARK_ACCOUNT 创建成功 secUserId=${item.authorSecUserId} id=${created.id}`,
+              );
             } catch (error) {
               if (
                 error instanceof Prisma.PrismaClientKnownRequestError &&
                 error.code === "P2002"
               ) {
+                console.log(
+                  `[CollectionSync] secUserId=${item.authorSecUserId} 已存在（并发写冲突），跳过`,
+                );
                 continue;
               }
 
-              console.error("Failed to create benchmark from collection sync:", {
+              console.error("[CollectionSync] 创建 BENCHMARK_ACCOUNT 失败", {
                 accountId: account.id,
                 authorSecUserId: item.authorSecUserId,
                 error,
@@ -292,6 +307,22 @@ class SyncService {
       recommendCount: number;
     },
   ): Promise<void> {
+    // 预检查：已存在则仅更新数据指标，不重新下载文件
+    const existing = await douyinVideoRepository.findByVideoId(video.awemeId);
+    if (existing) {
+      await douyinVideoRepository.updateStatsByVideoId(video.awemeId, {
+        playCount: video.playCount,
+        likeCount: video.likeCount,
+        commentCount: video.commentCount,
+        shareCount: video.shareCount,
+        collectCount: video.collectCount,
+        admireCount: video.admireCount,
+        recommendCount: video.recommendCount,
+      });
+      return;
+    }
+
+    // 不存在：正常下载文件并创建记录
     const coverStoragePath = video.coverSourceUrl
       ? await storageService.downloadAndStore(video.coverSourceUrl, "covers")
       : null;

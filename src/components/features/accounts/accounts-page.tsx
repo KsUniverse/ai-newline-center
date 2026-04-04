@@ -2,8 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+
+import { cn } from "@/lib/utils";
+import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { PaginatedData } from "@/types/api";
 import type { DouyinAccountDTO, DouyinVideoWithAccountDTO } from "@/types/douyin-account";
@@ -41,6 +50,7 @@ export function AccountsPageView() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
   const [selectedVideo, setSelectedVideo] = useState<DouyinVideoWithAccountDTO | null>(null);
   const [page, setPage] = useState(1);
   const [filterAccountId, setFilterAccountId] = useState<string | undefined>();
@@ -163,12 +173,29 @@ export function AccountsPageView() {
       title={title}
       description={description}
       actions={
-        isEmployee ? (
-          <Button onClick={() => setDrawerOpen(true)} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            添加账号
-          </Button>
-        ) : undefined
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5 text-muted-foreground/50 shrink-0",
+                    isRefreshing && "animate-spin",
+                  )}
+                />
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>每 60 秒自动刷新</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {isEmployee && (
+            <Button onClick={() => setDrawerOpen(true)} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              添加账号
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="animate-in-up-d1">

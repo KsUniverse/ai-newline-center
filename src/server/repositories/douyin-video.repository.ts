@@ -85,6 +85,25 @@ class DouyinVideoRepository {
     });
   }
 
+  async updateStatsByVideoId(
+    videoId: string,
+    stats: {
+      playCount: number;
+      likeCount: number;
+      commentCount: number;
+      shareCount: number;
+      collectCount?: number;
+      admireCount?: number;
+      recommendCount?: number;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await db.douyinVideo.update({
+      where: { videoId },
+      data: stats,
+    });
+  }
+
   async countByAccountId(accountId: string, db: DatabaseClient = prisma): Promise<number> {
     return db.douyinVideo.count({
       where: {
