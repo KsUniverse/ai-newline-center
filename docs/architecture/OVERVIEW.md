@@ -85,7 +85,7 @@
 | 领域复用 | Repository 共享 where/include 构建 + Service 暴露语义方法 | 避免同领域 `type` 分支复制近似实现 |
 | AI 调用 | AI Gateway + BullMQ + SSE | 异步可靠 + 流式体验 |
 | 爬虫 | Service 层封装 + 自动重试 | 统一错误处理和日志 |
-| 定时任务 | node-cron + instrumentation.ts | 自托管环境，简单可靠；服务启动时由 `instrumentation.ts` 调用 `startScheduler()`；多个独立定时器（当前 4 个，见 Scheduler 模块），各使用独立防重入 flag；`initialized` 标志防热重载重复注册 |
+| 定时任务 | node-cron + instrumentation.ts | 自托管环境，简单可靠；服务启动时由 `instrumentation.ts` 调用 `startScheduler()`；多个独立定时器（当前 4 个，见 Scheduler 模块）；`globalThis.__schedulerInitialized` 防热重载重复注册 |
 | 部署 | 自托管 VPS (Docker) | 完全可控 |
 | 前端布局 | Linear 风格分栏 | 紧凑侧边栏 + 列表/详情分栏 |
 | 交互模式 | 弹框/抽屉/Slide-over | 减少页面跳转，保持上下文 |
