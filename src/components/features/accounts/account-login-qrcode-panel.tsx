@@ -10,33 +10,10 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDateTime } from "@/lib/utils";
 
 import {
+  getAccountLoginProcessSteps,
   getAccountLoginViewCopy,
   type AccountLoginViewState,
 } from "./account-login-status-copy";
-
-function getStepState(viewState: AccountLoginViewState, stepIndex: number): "done" | "active" | "upcoming" {
-  if (viewState === "SUCCESS") {
-    return stepIndex <= 2 ? "done" : "upcoming";
-  }
-
-  if (viewState === "QRCODE_READY" || viewState === "SCANNED" || viewState === "EXPIRED") {
-    if (stepIndex === 0) {
-      return "done";
-    }
-
-    if (stepIndex === 1) {
-      return "active";
-    }
-
-    return "upcoming";
-  }
-
-  if (viewState === "FAILED") {
-    return stepIndex === 0 ? "done" : stepIndex === 1 ? "active" : "upcoming";
-  }
-
-  return stepIndex === 0 ? "active" : "upcoming";
-}
 
 interface AccountLoginQrcodePanelProps {
   purpose: DouyinLoginSessionPurpose;
@@ -64,17 +41,13 @@ export function AccountLoginQrcodePanel({
   onCancel,
 }: AccountLoginQrcodePanelProps) {
   const copy = getAccountLoginViewCopy(viewState, purpose, session);
+  const steps = getAccountLoginProcessSteps(purpose, session);
   const isBusy = isStarting || viewState === "CREATING_SESSION" || viewState === "SUCCESS";
   const canShowQr = Boolean(session?.qrcodeDataUrl) && viewState !== "SUCCESS";
   const qrcodeDataUrl = session?.qrcodeDataUrl ?? "";
   const canRefresh = Boolean(session?.id) && !isStarting && !isRefreshing && !isCancelling;
   const showRetry = viewState === "FAILED" || viewState === "IDLE";
   const showRefresh = viewState === "QRCODE_READY" || viewState === "SCANNED" || viewState === "EXPIRED";
-  const steps = [
-    "生成二维码",
-    "手机确认",
-    purpose === "CREATE_ACCOUNT" ? "自动建号" : "更新登录态",
-  ];
 
   return (
     <div className="space-y-5">
@@ -102,30 +75,28 @@ export function AccountLoginQrcodePanel({
           </div>
         </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          {steps.map((step, index) => {
-            const stepState = getStepState(viewState, index);
-
-            return (
-              <div
-                key={step}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-sm transition-colors",
-                  stepState === "done" &&
-                    "border-[hsl(var(--success)/0.24)] bg-[hsl(var(--success)/0.12)] text-foreground/90",
-                  stepState === "active" &&
-                    "border-[hsl(var(--primary)/0.32)] bg-[hsl(var(--primary)/0.12)] text-foreground/90",
-                  stepState === "upcoming" &&
-                    "border-border/60 bg-background/70 text-muted-foreground",
-                )}
-              >
-                <p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/70">
-                  Step {index + 1}
-                </p>
-                <p className="mt-1 font-medium">{step}</p>
-              </div>
-            );
-          })}
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {steps.map((step, index) => (
+            <div
+              key={step.key}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-sm transition-colors",
+                step.state === "done" &&
+                  "border-[hsl(var(--success)/0.24)] bg-[hsl(var(--success)/0.12)] text-foreground/90",
+                step.state === "active" &&
+                  "border-[hsl(var(--primary)/0.32)] bg-[hsl(var(--primary)/0.12)] text-foreground/90",
+                step.state === "failed" &&
+                  "border-[hsl(var(--destructive)/0.28)] bg-[hsl(var(--destructive)/0.12)] text-destructive",
+                step.state === "upcoming" &&
+                  "border-border/60 bg-background/70 text-muted-foreground",
+              )}
+            >
+              <p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/70">
+                Step {index + 1}
+              </p>
+              <p className="mt-1 font-medium">{step.label}</p>
+            </div>
+          ))}
         </div>
 
         {session?.expiresAt && (viewState === "QRCODE_READY" || viewState === "SCANNED") && (
@@ -144,28 +115,24 @@ export function AccountLoginQrcodePanel({
       <div className="rounded-xl border border-border/60 bg-card p-5">
         <div className="flex min-h-80 items-center justify-center rounded-xl border border-dashed border-border/70 bg-background/80 p-6">
           {canShowQr ? (
-            <div className="space-y-4 text-center">
+            <div className="text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={qrcodeDataUrl}
                 alt="抖音登录二维码"
                 className="mx-auto h-56 w-56 rounded-xl border border-border/60 bg-card object-contain p-3"
               />
-              <p className="text-sm text-muted-foreground">请使用手机抖音 App 扫码</p>
-              <p className="text-2xs uppercase tracking-[0.12em] text-muted-foreground/70">
-                仅绑定当前账号，不与其他账号共用登录态
-              </p>
             </div>
           ) : isBusy ? (
             <div className="space-y-3 text-center">
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">系统正在同步登录状态，请稍候。</p>
+              <p className="text-sm text-muted-foreground">{copy.description}</p>
             </div>
           ) : (
             <div className="space-y-3 text-center">
               <ShieldAlert className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                当前没有可展示的二维码，请重新生成后继续登录。
+                当前没有可展示的二维码，请重新发起后继续登录。
               </p>
             </div>
           )}

@@ -329,9 +329,18 @@ describe("crawlerService", () => {
 
     const { crawlerService } = await import("@/server/services/crawler.service");
     const result = await crawlerService.fetchCollectionVideos({
-      secUserId: "sec_123",
       cookieHeader: "sessionid=abc123",
     });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "/api/douyin/web/fetch_user_collection_videos?cookie=sessionid%3Dabc123&max_cursor=0&count=30",
+      ),
+      expect.objectContaining({
+        method: "GET",
+        headers: undefined,
+      }),
+    );
 
     expect(result).toEqual({
       items: [
@@ -349,6 +358,42 @@ describe("crawlerService", () => {
       hasMore: true,
       cursor: 88,
     });
+  });
+
+  it("does not treat video create_time as collection time", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 200,
+        data: {
+          aweme_list: [
+            {
+              aweme_id: "fav_3",
+              create_time: 1712102400,
+              author: {
+                sec_user_id: "author_sec_3",
+              },
+            },
+          ],
+          has_more: 0,
+          cursor: 0,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchCollectionVideos({
+      cookieHeader: "sessionid=abc123",
+    });
+
+    expect(result.items).toEqual([
+      {
+        awemeId: "fav_3",
+        authorSecUserId: "author_sec_3",
+        collectedAt: null,
+      },
+    ]);
   });
 
   it("maps single video stats from the crawler API", async () => {

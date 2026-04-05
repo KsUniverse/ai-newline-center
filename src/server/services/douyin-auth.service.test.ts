@@ -1,4 +1,4 @@
-import { DouyinAccountLoginStatus, DouyinLoginSessionPurpose, DouyinLoginSessionStatus } from "@prisma/client";
+﻿import { DouyinAccountLoginStatus, DouyinLoginSessionPurpose, DouyinLoginSessionStatus } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppError } from "@/lib/errors";
@@ -24,9 +24,7 @@ const {
   resolveIdentityMock,
   cancelSessionMock,
   finishSessionMock,
-  getTempStatePathMock,
-  moveTempStateToAccountMock,
-  deleteStateFileMock,
+  getStorageStateMock,
 } = vi.hoisted(() => ({
   updateLoginStateBindingMock: vi.fn(),
   clearLoginStateBindingMock: vi.fn(),
@@ -48,9 +46,7 @@ const {
   resolveIdentityMock: vi.fn(),
   cancelSessionMock: vi.fn(),
   finishSessionMock: vi.fn(),
-  getTempStatePathMock: vi.fn(),
-  moveTempStateToAccountMock: vi.fn(),
-  deleteStateFileMock: vi.fn(),
+  getStorageStateMock: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/douyin-account.repository", () => ({
@@ -91,14 +87,34 @@ vi.mock("@/server/services/douyin-login-session-manager", () => ({
     resolveIdentity: resolveIdentityMock,
     cancelSession: cancelSessionMock,
     finishSession: finishSessionMock,
+    getStorageState: getStorageStateMock,
+    getProgressStep: vi.fn((_, status) => {
+      switch (status) {
+        case DouyinLoginSessionStatus.SUCCESS:
+          return "SUCCESS";
+        case DouyinLoginSessionStatus.EXPIRED:
+          return "EXPIRED";
+        case DouyinLoginSessionStatus.CANCELLED:
+          return "CANCELLED";
+        case DouyinLoginSessionStatus.SCANNED:
+          return "WAITING_FOR_CONFIRM";
+        case DouyinLoginSessionStatus.CONFIRMED:
+          return "PERSISTING_LOGIN_STATE";
+        case DouyinLoginSessionStatus.QRCODE_READY:
+          return "WAITING_FOR_SCAN";
+        default:
+          return "FAILED";
+      }
+    }),
+    setProgressStep: vi.fn(),
   },
 }));
 
 vi.mock("@/server/services/douyin-login-state-storage.service", () => ({
   douyinLoginStateStorageService: {
-    getTempStatePath: getTempStatePathMock,
-    moveTempStateToAccount: moveTempStateToAccountMock,
-    deleteStateFile: deleteStateFileMock,
+    getAccountStatePath: vi.fn(),
+    writeStorageState: vi.fn(),
+    deleteStateFile: vi.fn(),
   },
 }));
 
@@ -136,7 +152,6 @@ function createLoginSession(status: DouyinLoginSessionStatus = DouyinLoginSessio
     purpose: DouyinLoginSessionPurpose.RELOGIN,
     status,
     qrcodeDataUrl: null,
-    tempStatePath: "D:/private/tmp/cm9login00001abc123456789.json",
     resolvedSecUserId: null,
     errorCode: null,
     errorMessage: null,
@@ -171,9 +186,7 @@ describe("douyinAuthService relogin flow", () => {
     resolveIdentityMock.mockReset();
     cancelSessionMock.mockReset();
     finishSessionMock.mockReset();
-    getTempStatePathMock.mockReset();
-    moveTempStateToAccountMock.mockReset();
-    deleteStateFileMock.mockReset();
+    getStorageStateMock.mockReset();
 
     updateLoginStateBindingMock.mockResolvedValue(undefined);
     clearLoginStateBindingMock.mockResolvedValue(undefined);
@@ -198,9 +211,7 @@ describe("douyinAuthService relogin flow", () => {
     markLoginSessionExpiredMock.mockResolvedValue(createLoginSession(DouyinLoginSessionStatus.EXPIRED));
     markLoginSessionSuccessMock.mockResolvedValue(createLoginSession(DouyinLoginSessionStatus.SUCCESS));
     getOwnAccountForReloginMock.mockResolvedValue(createAccount());
-    getTempStatePathMock.mockReturnValue("D:/private/tmp/cm9login00001abc123456789.json");
-    moveTempStateToAccountMock.mockResolvedValue("D:/private/accounts/account_1.json");
-    deleteStateFileMock.mockResolvedValue(undefined);
+    getStorageStateMock.mockResolvedValue(null);
     cancelSessionMock.mockResolvedValue(undefined);
     finishSessionMock.mockResolvedValue(undefined);
   });
@@ -232,6 +243,7 @@ describe("douyinAuthService relogin flow", () => {
       loginErrorMessage: null,
       loginStateExpiresAt: null,
     });
+    expect(getStorageStateMock).not.toHaveBeenCalled();
     expect(finishSessionMock).toHaveBeenCalledWith("cm9login00001abc123456789");
   });
 
@@ -240,13 +252,13 @@ describe("douyinAuthService relogin flow", () => {
       status: DouyinLoginSessionStatus.QRCODE_READY,
       qrcodeDataUrl: "data:image/png;base64,abc",
       expiresAt: new Date("2026-04-04T08:03:00.000Z"),
-      currentUrl: "https://creator.douyin.com/",
+      currentUrl: "https://www.douyin.com/",
     });
     pollSessionMock.mockResolvedValue({
       status: DouyinLoginSessionStatus.CONFIRMED,
       qrcodeDataUrl: "data:image/png;base64,abc",
       expiresAt: new Date("2026-04-04T08:03:00.000Z"),
-      currentUrl: "https://creator.douyin.com/creator-micro/content/upload",
+      currentUrl: "https://www.douyin.com/jingxuan",
     });
     resolveIdentityMock.mockResolvedValue({
       secUserId: "wrong_sec_user",
@@ -269,9 +281,8 @@ describe("douyinAuthService relogin flow", () => {
     expect(updateResolvedIdentityMock).toHaveBeenCalledWith("cm9login00001abc123456789", {
       resolvedSecUserId: "wrong_sec_user",
     });
-    expect(moveTempStateToAccountMock).not.toHaveBeenCalled();
+    expect(getStorageStateMock).not.toHaveBeenCalled();
     expect(markLoginSessionSuccessMock).not.toHaveBeenCalled();
-    expect(deleteStateFileMock).toHaveBeenCalledWith("D:/private/tmp/cm9login00001abc123456789.json");
     expect(updateLoginStateBindingMock).toHaveBeenNthCalledWith(1, "account_1", {
       loginStatus: DouyinAccountLoginStatus.PENDING,
       loginErrorMessage: null,
@@ -282,4 +293,5 @@ describe("douyinAuthService relogin flow", () => {
       loginStateExpiresAt: null,
     });
   });
+
 });

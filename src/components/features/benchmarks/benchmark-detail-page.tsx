@@ -1,19 +1,12 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 import type { PaginatedData } from "@/types/api";
 import type { BenchmarkAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
@@ -50,7 +43,9 @@ export function BenchmarkDetailPageView() {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<DouyinVideoDTO | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
+  const hasLoadedAccountRef = useRef(false);
+  const hasLoadedVideosRef = useRef(false);
+  useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
 
   const accountId = params.id;
   const currentUserId = session?.user?.id;
@@ -61,23 +56,27 @@ export function BenchmarkDetailPageView() {
     let cancelled = false;
 
     async function loadAccount() {
+      const shouldShowLoading = !hasLoadedAccountRef.current;
       try {
-        setLoading(true);
+        if (shouldShowLoading) {
+          setLoading(true);
+        }
         const result = await apiClient.get<BenchmarkAccountDetailDTO>(
           `/benchmarks/${accountId}`,
         );
         if (!cancelled) {
           setAccount(result);
           setError("");
+          hasLoadedAccountRef.current = true;
         }
       } catch (error) {
         if (!cancelled) {
-          const message = error instanceof ApiError ? error.message : "加载账号信息失败";
+          const message = error instanceof ApiError ? error.message : "鍔犺浇璐﹀彿淇℃伅澶辫触";
           setError(message);
           toast.error(message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && shouldShowLoading) {
           setLoading(false);
         }
       }
@@ -95,21 +94,25 @@ export function BenchmarkDetailPageView() {
     let cancelled = false;
 
     async function loadVideos() {
+      const shouldShowLoading = !hasLoadedVideosRef.current;
       try {
-        setVideosLoading(true);
+        if (shouldShowLoading) {
+          setVideosLoading(true);
+        }
         const result = await apiClient.get<PaginatedData<DouyinVideoDTO>>(
           `/benchmarks/${accountId}/videos?page=${videoPage}&limit=${VIDEOS_PER_PAGE}`,
         );
         if (!cancelled) {
           setVideos(result.items);
           setVideosTotal(result.total);
+          hasLoadedVideosRef.current = true;
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "加载视频列表失败");
+          toast.error(error instanceof ApiError ? error.message : "鍔犺浇瑙嗛鍒楄〃澶辫触");
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && shouldShowLoading) {
           setVideosLoading(false);
         }
       }
@@ -132,7 +135,7 @@ export function BenchmarkDetailPageView() {
         router.push("/benchmarks");
       })
       .catch((error: unknown) => {
-        toast.error(error instanceof ApiError ? error.message : "归档失败，请稍后重试");
+        toast.error(error instanceof ApiError ? error.message : "褰掓。澶辫触锛岃绋嶅悗閲嶈瘯");
       });
   }
 
@@ -143,7 +146,7 @@ export function BenchmarkDetailPageView() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <p className="text-sm text-muted-foreground">{error}</p>
         <Button variant="outline" size="sm" onClick={() => router.push("/benchmarks")}>
-          返回对标账号列表
+          杩斿洖瀵规爣璐﹀彿鍒楄〃
         </Button>
       </div>
     );
@@ -159,23 +162,8 @@ export function BenchmarkDetailPageView() {
           onClick={() => router.push("/benchmarks")}
         >
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-          返回
+          杩斿洖
         </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground/50 shrink-0",
-                  isRefreshing && "animate-spin",
-                )}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>每 60 秒自动刷新</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
 
       <div className="animate-in-up-d1">
@@ -197,7 +185,7 @@ export function BenchmarkDetailPageView() {
       </div>
 
       <div className="animate-in-up-d2 space-y-3">
-        <h3 className="text-lg font-semibold tracking-tight text-foreground/90">视频列表</h3>
+        <h3 className="text-lg font-semibold tracking-tight text-foreground/90">瑙嗛鍒楄〃</h3>
         <BenchmarkVideoList
           videos={videos}
           total={videosTotal}
@@ -216,15 +204,15 @@ export function BenchmarkDetailPageView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认归档</AlertDialogTitle>
+            <AlertDialogTitle>纭褰掓。</AlertDialogTitle>
             <AlertDialogDescription>
-              归档后，该博主的账号和视频数据均保留但会从主列表隐藏。确认归档？
+              褰掓。鍚庯紝璇ュ崥涓荤殑璐﹀彿鍜岃棰戞暟鎹潎淇濈暀浣嗕細浠庝富鍒楄〃闅愯棌銆傜‘璁ゅ綊妗ｏ紵
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>鍙栨秷</AlertDialogCancel>
             <Button variant="destructive" size="sm" onClick={handleConfirmArchive}>
-              确认归档
+              纭褰掓。
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -236,3 +224,4 @@ export function BenchmarkDetailPageView() {
     </div>
   );
 }
+

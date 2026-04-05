@@ -16,7 +16,6 @@ export interface CreateDouyinLoginSessionRecord {
   accountId?: string | null;
   purpose: DouyinLoginSessionPurpose;
   status?: DouyinLoginSessionStatus;
-  tempStatePath?: string | null;
   expiresAt?: Date | null;
 }
 
@@ -81,7 +80,6 @@ class DouyinLoginSessionRepository {
     data: {
       qrcodeDataUrl?: string | null;
       expiresAt?: Date | null;
-      tempStatePath?: string | null;
       errorCode?: string | null;
       errorMessage?: string | null;
     } = {},
@@ -103,7 +101,6 @@ class DouyinLoginSessionRepository {
     data: {
       qrcodeDataUrl: string | null;
       expiresAt: Date | null;
-      tempStatePath?: string | null;
     },
     db: DatabaseClient = prisma,
   ): Promise<DouyinLoginSession> {
@@ -115,7 +112,6 @@ class DouyinLoginSessionRepository {
         status: DouyinLoginSessionStatus.QRCODE_READY,
         qrcodeDataUrl: data.qrcodeDataUrl,
         expiresAt: data.expiresAt,
-        tempStatePath: data.tempStatePath,
         errorCode: null,
         errorMessage: null,
         finishedAt: null,

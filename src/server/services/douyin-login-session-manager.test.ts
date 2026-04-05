@@ -1,4 +1,4 @@
-import { DouyinLoginSessionStatus } from "@prisma/client";
+﻿import { DouyinLoginSessionStatus } from "@prisma/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { launchMock, ensureReadyMock } = vi.hoisted(() => ({
@@ -102,7 +102,7 @@ describe("douyinLoginSessionManager", () => {
     vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("DOUYIN_LOGIN_TIMEOUT_MS", "60000");
-    vi.stubEnv("DOUYIN_LOGIN_PAGE_URL", "https://creator.douyin.com/");
+    vi.stubEnv("DOUYIN_LOGIN_PAGE_URL", "https://www.douyin.com/");
     launchMock.mockReset();
     ensureReadyMock.mockReset();
     ensureReadyMock.mockResolvedValue(undefined);
@@ -118,10 +118,10 @@ describe("douyinLoginSessionManager", () => {
       close: vi.fn(async () => undefined),
     };
     const pageState: MockPageState = {
-      currentUrl: "https://creator.douyin.com/",
+      currentUrl: "https://www.douyin.com/",
       bodyText: "请使用抖音 App 扫码登录",
       closed: false,
-      evaluateQueue: ["data:image/png;base64,qr-ready"],
+      evaluateQueue: ["data:image/png;base64,qr-ready", "data:image/png;base64,qr-ready"],
     };
     const sessionHarness = createBrowserHarness(pageState);
 
@@ -138,7 +138,6 @@ describe("douyinLoginSessionManager", () => {
 
     const expiredSnapshot = await douyinLoginSessionManager.pollSession(
       "login_session_1",
-      "D:/private/tmp/login_session_1.json",
     );
 
     expect(expiredSnapshot.status).toBe(DouyinLoginSessionStatus.EXPIRED);
@@ -155,12 +154,11 @@ describe("douyinLoginSessionManager", () => {
       currentUrl: "https://www.douyin.com/",
       bodyText: "请使用抖音 App 扫码登录",
       closed: false,
-      evaluateQueue: ["data:image/png;base64,qr-ready", true],
+      evaluateQueue: ["data:image/png;base64,qr-ready", "data:image/png;base64,qr-ready"],
     };
     const sessionHarness = createBrowserHarness(pageState);
 
     launchMock.mockResolvedValueOnce(runtimeProbe).mockResolvedValueOnce(sessionHarness.browser);
-    vi.stubEnv("DOUYIN_LOGIN_PAGE_URL", "https://www.douyin.com/");
 
     const { douyinLoginSessionManager } = await import(
       "@/server/services/douyin-login-session-manager"
@@ -172,6 +170,9 @@ describe("douyinLoginSessionManager", () => {
       resourceType: () => "fetch",
       url: () =>
         "https://www.douyin.com/aweme/v1/web/aweme/favorite/?sec_user_id=sec_user_1&max_cursor=0",
+      allHeaders: async () => ({
+        cookie: "sessionid=abc123; uid_tt=xyz456",
+      }),
       headers: () => ({
         cookie: "sessionid=abc123; uid_tt=xyz456",
       }),
@@ -187,45 +188,116 @@ describe("douyinLoginSessionManager", () => {
     });
   });
 
-  it("confirms the session only after persisted state validation succeeds", async () => {
+  it("confirms the session as soon as homepage login state is detected", async () => {
     const runtimeProbe = {
       close: vi.fn(async () => undefined),
     };
     const pageState: MockPageState = {
-      currentUrl: "https://creator.douyin.com/creator-micro/content/upload",
-      bodyText: "创作者中心",
+      currentUrl: "https://www.douyin.com/jingxuan",
+      bodyText: "精选 推荐 搜索 关注 朋友 我的",
       closed: false,
-      evaluateQueue: ["data:image/png;base64,qr-ready"],
-    };
-    const verificationPageState: MockPageState = {
-      currentUrl: "https://creator.douyin.com/creator-micro/content/upload",
-      bodyText: "创作者中心",
-      closed: false,
-      evaluateQueue: [],
+      evaluateQueue: [
+        "data:image/png;base64,qr-ready",
+        "data:image/png;base64,qr-ready",
+        true,
+      ],
     };
     const sessionHarness = createBrowserHarness(pageState);
-    const verificationHarness = createBrowserHarness(verificationPageState);
 
     launchMock
       .mockResolvedValueOnce(runtimeProbe)
-      .mockResolvedValueOnce(sessionHarness.browser)
-      .mockResolvedValueOnce(verificationHarness.browser);
+      .mockResolvedValueOnce(sessionHarness.browser);
 
     const { douyinLoginSessionManager } = await import(
       "@/server/services/douyin-login-session-manager"
     );
 
     await douyinLoginSessionManager.startSession("login_session_3");
-    pageState.currentUrl = "https://creator.douyin.com/creator-micro/content/upload";
 
     const snapshot = await douyinLoginSessionManager.pollSession(
       "login_session_3",
-      "D:/private/tmp/login_session_3.json",
     );
 
     expect(snapshot.status).toBe(DouyinLoginSessionStatus.CONFIRMED);
-    expect(sessionHarness.context.storageState).toHaveBeenCalledWith({
-      path: "D:/private/tmp/login_session_3.json",
+    expect(snapshot.currentStep).toBe("PERSISTING_LOGIN_STATE");
+    expect(sessionHarness.context.storageState).toHaveBeenCalledWith();
+  });
+
+  it("does not log blocked-by-prompt while homepage chrome is already visible", async () => {
+    const runtimeProbe = {
+      close: vi.fn(async () => undefined),
+    };
+    const pageState: MockPageState = {
+      currentUrl: "https://www.douyin.com/jingxuan",
+      bodyText: "精选 推荐 搜索 关注 朋友 我的 扫码登录",
+      closed: false,
+      evaluateQueue: [
+        "data:image/png;base64,qr-ready",
+        "data:image/png;base64,qr-ready",
+        false,
+        "data:image/png;base64,qr-ready",
+      ],
+    };
+    const sessionHarness = createBrowserHarness(pageState);
+    const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    launchMock.mockResolvedValueOnce(runtimeProbe).mockResolvedValueOnce(sessionHarness.browser);
+
+    const { douyinLoginSessionManager } = await import(
+      "@/server/services/douyin-login-session-manager"
+    );
+
+    await douyinLoginSessionManager.startSession("login_session_4");
+    await douyinLoginSessionManager.pollSession("login_session_4");
+
+    expect(consoleLogSpy).not.toHaveBeenCalledWith(
+      "[DouyinLoginSessionManager] isLoggedIn blocked by login prompt",
+      expect.any(Object),
+    );
+    consoleLogSpy.mockRestore();
+  });
+
+  it("does not resolve secUserId when favorite request does not include it", async () => {
+    const runtimeProbe = {
+      close: vi.fn(async () => undefined),
+    };
+    const pageState: MockPageState = {
+      currentUrl: "https://www.douyin.com/user/self",
+      bodyText: "精选 推荐 搜索 关注 朋友 我的",
+      closed: false,
+      evaluateQueue: [
+        "data:image/png;base64,qr-ready",
+        "data:image/png;base64,qr-ready",
+      ],
+    };
+    const sessionHarness = createBrowserHarness(pageState);
+
+    launchMock.mockResolvedValueOnce(runtimeProbe).mockResolvedValueOnce(sessionHarness.browser);
+
+    const { douyinLoginSessionManager } = await import(
+      "@/server/services/douyin-login-session-manager"
+    );
+
+    await douyinLoginSessionManager.startSession("login_session_5");
+
+    sessionHarness.events.request?.[0]?.({
+      resourceType: () => "fetch",
+      url: () => "https://www.douyin.com/aweme/v1/web/aweme/favorite/?max_cursor=0",
+      allHeaders: async () => ({
+        cookie: "sessionid=abc123; uid_tt=xyz456",
+      }),
+      headers: () => ({
+        cookie: "sessionid=abc123; uid_tt=xyz456",
+      }),
+    });
+
+    const identity = await douyinLoginSessionManager.resolveIdentity("login_session_5");
+
+    expect(identity).toEqual({
+      secUserId: null,
+      displayName: null,
+      douyinNumber: null,
+      rawCookie: "sessionid=abc123; uid_tt=xyz456",
     });
   });
 });

@@ -71,8 +71,9 @@ interface CrawlerCollectionResult {
 }
 
 interface FetchCollectionVideosInput {
-  secUserId: string;
   cookieHeader: string;
+  cursor?: number;
+  count?: number;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -174,20 +175,18 @@ class CrawlerService {
   ): Promise<CrawlerCollectionResult> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_user_collection_videos",
-      { sec_user_id: input.secUserId },
       {
-        authSensitive: true,
-        requestHeaders: {
-          Cookie: input.cookieHeader,
-        },
+        cookie: input.cookieHeader,
+        max_cursor: input.cursor ?? 0,
+        count: input.count ?? 30,
       },
+      { authSensitive: true },
     );
     const items = this.pickArray(raw, ["aweme_list", "collect_list", "video_list"]).map((item) => {
       const author = this.pickRecord(item, ["author", "author_info"]) ?? {};
       const collectedAtTimestamp = this.pickNumber(item, [
         "collect_time",
         "favorited_time",
-        "create_time",
       ]);
 
       return {
@@ -254,7 +253,18 @@ class CrawlerService {
           signal: AbortSignal.timeout(30_000),
         });
 
+        let responseText = "";
+
         if (!response.ok) {
+          responseText = await response.text().catch(() => "");
+          console.error("[CrawlerService] crawler http error", {
+            path,
+            url,
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            httpStatus: response.status,
+            responseText,
+          });
           if (options.authSensitive && [401, 403].includes(response.status)) {
             throw new AppError("CRAWLER_AUTH_EXPIRED", "账号登录态已失效，请重新登录", 502);
           }
@@ -264,6 +274,15 @@ class CrawlerService {
 
         const rawJson = (await response.json()) as CrawlerResponse<T>;
         if (options.authSensitive && [401, 403].includes(rawJson.code)) {
+          console.error("[CrawlerService] crawler auth-sensitive business error", {
+            path,
+            url,
+            attempt: attempt + 1,
+            maxRetries: maxRetries + 1,
+            code: rawJson.code,
+            router: rawJson.router ?? null,
+            rawJsonText: JSON.stringify(rawJson),
+          });
           throw new AppError("CRAWLER_AUTH_EXPIRED", "账号登录态已失效，请重新登录", 502);
         }
 
@@ -272,6 +291,16 @@ class CrawlerService {
         if (error instanceof AppError) {
           throw error;
         }
+
+        console.error("[CrawlerService] crawler request attempt failed", {
+          path,
+          url,
+          attempt: attempt + 1,
+          maxRetries: maxRetries + 1,
+          errorName: error instanceof Error ? error.name : typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
 
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)));

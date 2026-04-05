@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createBenchmarkMock,
+  collectionCreateMock,
+  collectionExistsByAwemeIdMock,
+  collectionExistsForAccountMock,
   fetchCollectionVideosMock,
   fetchUserProfileMock,
   fetchVideoListMock,
@@ -10,6 +13,7 @@ const {
   findAllAccountsMock,
   findAllMyAccountsForCollectionMock,
   findAllActiveVideosMock,
+  findAllActiveVideosForSnapshotSyncMock,
   findBySecUserIdIncludingDeletedMock,
   countByAccountIdMock,
   findByVideoIdMock,
@@ -22,6 +26,9 @@ const {
   upsertVideoMock,
 } = vi.hoisted(() => ({
   createBenchmarkMock: vi.fn(),
+  collectionCreateMock: vi.fn(),
+  collectionExistsByAwemeIdMock: vi.fn(),
+  collectionExistsForAccountMock: vi.fn(),
   fetchCollectionVideosMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
   fetchVideoListMock: vi.fn(),
@@ -30,6 +37,7 @@ const {
   findAllAccountsMock: vi.fn(),
   findAllMyAccountsForCollectionMock: vi.fn(),
   findAllActiveVideosMock: vi.fn(),
+  findAllActiveVideosForSnapshotSyncMock: vi.fn(),
   findBySecUserIdIncludingDeletedMock: vi.fn(),
   countByAccountIdMock: vi.fn(),
   findByVideoIdMock: vi.fn(),
@@ -65,11 +73,20 @@ vi.mock("@/server/repositories/douyin-account.repository", () => ({
   },
 }));
 
+vi.mock("@/server/repositories/employee-collection-video.repository", () => ({
+  employeeCollectionVideoRepository: {
+    create: collectionCreateMock,
+    existsByAccountAndAwemeId: collectionExistsByAwemeIdMock,
+    existsForAccount: collectionExistsForAccountMock,
+  },
+}));
+
 vi.mock("@/server/repositories/douyin-video.repository", () => ({
   douyinVideoRepository: {
     countByAccountId: countByAccountIdMock,
     findByVideoId: findByVideoIdMock,
     findAllActive: findAllActiveVideosMock,
+    findAllActiveForSnapshotSync: findAllActiveVideosForSnapshotSyncMock,
     updateStats: updateStatsMock,
     upsertByVideoId: upsertVideoMock,
   },
@@ -90,6 +107,9 @@ vi.mock("@/server/services/storage.service", () => ({
 describe("syncService", () => {
   beforeEach(() => {
     createBenchmarkMock.mockReset();
+    collectionCreateMock.mockReset();
+    collectionExistsByAwemeIdMock.mockReset();
+    collectionExistsForAccountMock.mockReset();
     fetchCollectionVideosMock.mockReset();
     fetchUserProfileMock.mockReset();
     fetchVideoListMock.mockReset();
@@ -98,6 +118,7 @@ describe("syncService", () => {
     findAllAccountsMock.mockReset();
     findAllMyAccountsForCollectionMock.mockReset();
     findAllActiveVideosMock.mockReset();
+    findAllActiveVideosForSnapshotSyncMock.mockReset();
     findBySecUserIdIncludingDeletedMock.mockReset();
     countByAccountIdMock.mockReset();
     findByVideoIdMock.mockReset();
@@ -108,6 +129,9 @@ describe("syncService", () => {
     updateStatsMock.mockReset();
     updateSecUserIdMock.mockReset();
     upsertVideoMock.mockReset();
+    collectionCreateMock.mockResolvedValue(undefined);
+    collectionExistsByAwemeIdMock.mockResolvedValue(false);
+    collectionExistsForAccountMock.mockResolvedValue(false);
   });
 
   it("backfills secUserId and syncs account info for the caller's own account", async () => {
@@ -177,6 +201,7 @@ describe("syncService", () => {
     const result = await syncService.syncAccount("account_1", "user_1", "org_1");
 
     expect(updateSecUserIdMock).toHaveBeenCalledWith("account_1", "sec_123");
+    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_123", 0, 10);
     expect(updateAccountInfoMock).toHaveBeenCalledWith(
       "account_1",
       expect.objectContaining({
@@ -275,6 +300,7 @@ describe("syncService", () => {
     const { syncService } = await import("@/server/services/sync.service");
 
     await expect(syncService.runVideoBatchSync()).resolves.toBeUndefined();
+    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_123", 0, 5);
     expect(upsertVideoMock).not.toHaveBeenCalled();
   });
 
@@ -338,10 +364,12 @@ describe("syncService", () => {
       commentCount: 1,
       shareCount: 2,
     });
-    findAllActiveVideosMock.mockResolvedValue([
+    findAllActiveVideosForSnapshotSyncMock.mockResolvedValue([
       {
         id: "db_video_1",
         videoId: "video_1",
+        publishedAt: new Date("2026-04-03T00:00:00.000Z"),
+        snapshots: [],
       },
     ]);
 
@@ -361,6 +389,95 @@ describe("syncService", () => {
       commentCount: 1,
       shareCount: 2,
     });
+  });
+
+  it("skips or throttles snapshot sync based on video age and last snapshot time", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-05T12:00:00.000Z"));
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    vi.mocked(crawlerService.fetchOneVideo).mockResolvedValue({
+      awemeId: "video_recent_should_sync",
+      playCount: 100,
+      likeCount: 10,
+      commentCount: 1,
+      shareCount: 2,
+    });
+    findAllActiveVideosForSnapshotSyncMock.mockResolvedValue([
+      {
+        id: "video_recent_should_sync",
+        videoId: "video_recent_should_sync",
+        publishedAt: new Date("2026-04-05T11:00:00.000Z"),
+        collectCount: 0,
+        admireCount: 0,
+        recommendCount: 0,
+        snapshots: [
+          {
+            timestamp: new Date("2026-04-05T11:49:00.000Z"),
+          },
+        ],
+      },
+      {
+        id: "video_recent_skip",
+        videoId: "video_recent_skip",
+        publishedAt: new Date("2026-04-05T10:00:00.000Z"),
+        collectCount: 0,
+        admireCount: 0,
+        recommendCount: 0,
+        snapshots: [
+          {
+            timestamp: new Date("2026-04-05T11:55:00.000Z"),
+          },
+        ],
+      },
+      {
+        id: "video_mid_term_should_sync",
+        videoId: "video_mid_term_should_sync",
+        publishedAt: new Date("2026-04-04T06:00:00.000Z"),
+        collectCount: 0,
+        admireCount: 0,
+        recommendCount: 0,
+        snapshots: [
+          {
+            timestamp: new Date("2026-04-05T10:30:00.000Z"),
+          },
+        ],
+      },
+      {
+        id: "video_mid_term_skip",
+        videoId: "video_mid_term_skip",
+        publishedAt: new Date("2026-04-04T07:00:00.000Z"),
+        collectCount: 0,
+        admireCount: 0,
+        recommendCount: 0,
+        snapshots: [
+          {
+            timestamp: new Date("2026-04-05T11:30:00.000Z"),
+          },
+        ],
+      },
+      {
+        id: "video_old_skip",
+        videoId: "video_old_skip",
+        publishedAt: new Date("2026-04-01T07:00:00.000Z"),
+        collectCount: 0,
+        admireCount: 0,
+        recommendCount: 0,
+        snapshots: [],
+      },
+    ]);
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runVideoSnapshotCollection()).resolves.toBeUndefined();
+    expect(crawlerService.fetchOneVideo).toHaveBeenCalledTimes(3);
+    expect(crawlerService.fetchOneVideo).toHaveBeenCalledWith("video_recent_should_sync");
+    expect(crawlerService.fetchOneVideo).toHaveBeenCalledWith("video_recent_skip");
+    expect(crawlerService.fetchOneVideo).toHaveBeenCalledWith("video_mid_term_should_sync");
+    expect(crawlerService.fetchOneVideo).not.toHaveBeenCalledWith("video_mid_term_skip");
+    expect(crawlerService.fetchOneVideo).not.toHaveBeenCalledWith("video_old_skip");
+
+    vi.useRealTimers();
   });
 
   it("selects the first reachable cover and video source before storing resources", async () => {
@@ -434,10 +551,7 @@ describe("syncService", () => {
     );
   });
 
-  it("creates benchmark accounts for recent collection authors and stops at the time window", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-04-03T12:00:00.000Z"));
-
+  it("cold-start collection sync only fetches one page and records ownership", async () => {
     findAllMyAccountsForCollectionMock.mockResolvedValue([
       {
         id: "account_1",
@@ -454,47 +568,80 @@ describe("syncService", () => {
         {
           awemeId: "fav_1",
           authorSecUserId: "author_recent",
-          collectedAt: new Date("2026-04-03T11:30:00.000Z"),
+          collectedAt: null,
         },
         {
           awemeId: "fav_2",
-          authorSecUserId: "author_old",
-          collectedAt: new Date("2026-04-03T10:30:00.000Z"),
+          authorSecUserId: "author_recent_2",
+          collectedAt: null,
         },
       ],
-      hasMore: false,
-      cursor: 0,
+      hasMore: true,
+      cursor: 30,
     });
     findBySecUserIdIncludingDeletedMock.mockResolvedValue(null);
-    fetchUserProfileMock.mockResolvedValue({
-      secUserId: "author_recent",
-      nickname: "对标作者",
-      avatar: "https://cdn.example.com/avatar.jpg",
-      bio: null,
-      signature: null,
-      followersCount: 10,
-      followingCount: 1,
-      likesCount: 20,
-      videosCount: 2,
-      douyinNumber: null,
-      ipLocation: null,
-      age: null,
-      province: null,
-      city: null,
-      verificationLabel: null,
-      verificationIconUrl: null,
-      verificationType: null,
-    });
+    fetchUserProfileMock
+      .mockResolvedValueOnce({
+        secUserId: "author_recent",
+        nickname: "对标作者",
+        avatar: "https://cdn.example.com/avatar.jpg",
+        bio: null,
+        signature: null,
+        followersCount: 10,
+        followingCount: 1,
+        likesCount: 20,
+        videosCount: 2,
+        douyinNumber: null,
+        ipLocation: null,
+        age: null,
+        province: null,
+        city: null,
+        verificationLabel: null,
+        verificationIconUrl: null,
+        verificationType: null,
+      })
+      .mockResolvedValueOnce({
+        secUserId: "author_recent_2",
+        nickname: "对标作者 2",
+        avatar: "https://cdn.example.com/avatar-2.jpg",
+        bio: null,
+        signature: null,
+        followersCount: 10,
+        followingCount: 1,
+        likesCount: 20,
+        videosCount: 2,
+        douyinNumber: null,
+        ipLocation: null,
+        age: null,
+        province: null,
+        city: null,
+        verificationLabel: null,
+        verificationIconUrl: null,
+        verificationType: null,
+      });
     createBenchmarkMock.mockResolvedValue({
       id: "benchmark_1",
     });
+    collectionExistsForAccountMock.mockResolvedValue(false);
 
     const { syncService } = await import("@/server/services/sync.service");
 
     await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
     expect(fetchCollectionVideosMock).toHaveBeenCalledWith({
-      secUserId: "sec_owner_1",
       cookieHeader: "sessionid=abc123; uid_tt=xyz456",
+      cursor: 0,
+      count: 30,
+    });
+    expect(fetchCollectionVideosMock).toHaveBeenCalledTimes(1);
+    expect(collectionCreateMock).toHaveBeenNthCalledWith(1, {
+      accountId: "account_1",
+      awemeId: "fav_1",
+      authorSecUserId: "author_recent",
+    });
+    expect(collectionCreateMock).toHaveBeenNthCalledWith(2, {
+      accountId: "account_1",
+      awemeId: "fav_2",
+      authorSecUserId: "author_recent_2",
     });
     expect(createBenchmarkMock).toHaveBeenCalledWith({
       profileUrl: "https://www.douyin.com/user/author_recent",
@@ -518,9 +665,117 @@ describe("syncService", () => {
       userId: "user_1",
       organizationId: "org_1",
     });
-    expect(fetchUserProfileMock).toHaveBeenCalledTimes(1);
+    expect(fetchUserProfileMock).toHaveBeenCalledTimes(2);
+  });
 
-    vi.useRealTimers();
+  it("continues paging until an existing collection video is encountered", async () => {
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+        loginStatus: "LOGGED_IN",
+        loginStatePath: "D:/private/account-1.json",
+        favoriteCookieHeader: "sessionid=abc123; uid_tt=xyz456",
+      },
+    ]);
+    fetchCollectionVideosMock
+      .mockResolvedValueOnce({
+        items: [
+          {
+            awemeId: "fav_1",
+            authorSecUserId: "author_recent_1",
+            collectedAt: null,
+          },
+          {
+            awemeId: "fav_2",
+            authorSecUserId: "author_recent_2",
+            collectedAt: null,
+          },
+        ],
+        hasMore: true,
+        cursor: 30,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            awemeId: "fav_3",
+            authorSecUserId: "author_seen",
+            collectedAt: null,
+          },
+          {
+            awemeId: "fav_4",
+            authorSecUserId: "author_should_not_run",
+            collectedAt: null,
+          },
+        ],
+        hasMore: true,
+        cursor: 60,
+      });
+    findBySecUserIdIncludingDeletedMock.mockResolvedValue(null);
+    fetchUserProfileMock
+      .mockResolvedValueOnce({
+        secUserId: "author_recent_1",
+        nickname: "对标作者 1",
+        avatar: "https://cdn.example.com/avatar-1.jpg",
+        bio: null,
+        signature: null,
+        followersCount: 10,
+        followingCount: 1,
+        likesCount: 20,
+        videosCount: 2,
+        douyinNumber: null,
+        ipLocation: null,
+        age: null,
+        province: null,
+        city: null,
+        verificationLabel: null,
+        verificationIconUrl: null,
+        verificationType: null,
+      })
+      .mockResolvedValueOnce({
+        secUserId: "author_recent_2",
+        nickname: "对标作者 2",
+        avatar: "https://cdn.example.com/avatar-2.jpg",
+        bio: null,
+        signature: null,
+        followersCount: 10,
+        followingCount: 1,
+        likesCount: 20,
+        videosCount: 2,
+        douyinNumber: null,
+        ipLocation: null,
+        age: null,
+        province: null,
+        city: null,
+        verificationLabel: null,
+        verificationIconUrl: null,
+        verificationType: null,
+      });
+    createBenchmarkMock.mockResolvedValue({ id: "benchmark_1" });
+    collectionExistsForAccountMock.mockResolvedValue(true);
+    collectionExistsByAwemeIdMock
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(fetchCollectionVideosMock).toHaveBeenNthCalledWith(1, {
+      cookieHeader: "sessionid=abc123; uid_tt=xyz456",
+      cursor: 0,
+      count: 30,
+    });
+    expect(fetchCollectionVideosMock).toHaveBeenNthCalledWith(2, {
+      cookieHeader: "sessionid=abc123; uid_tt=xyz456",
+      cursor: 30,
+      count: 30,
+    });
+    expect(fetchCollectionVideosMock).toHaveBeenCalledTimes(2);
+    expect(collectionCreateMock).toHaveBeenCalledTimes(2);
+    expect(findBySecUserIdIncludingDeletedMock).not.toHaveBeenCalledWith("author_should_not_run");
   });
 
   it("skips accounts without login state files instead of marking them expired", async () => {

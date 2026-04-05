@@ -10,10 +10,16 @@ import {
 import { transcriptionRepository } from "@/server/repositories/transcription.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 
-let initialized = false;
+declare global {
+  // Persist worker startup across Next.js dev hot reloads in the same process.
+  var __transcriptionWorkerInitialized: boolean | undefined;
+}
 
 export function startTranscriptionWorker(): void {
-  if (initialized) {
+  if (globalThis.__transcriptionWorkerInitialized) {
+    console.log("[TranscriptionWorker] already started, skipping", {
+      pid: process.pid,
+    });
     return;
   }
 
@@ -22,7 +28,7 @@ export function startTranscriptionWorker(): void {
     return;
   }
 
-  initialized = true;
+  globalThis.__transcriptionWorkerInitialized = true;
   const publisher = createPubSubRedisClient();
 
   const worker = new Worker<TranscriptionJobData>(

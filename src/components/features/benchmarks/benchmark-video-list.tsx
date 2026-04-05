@@ -39,7 +39,7 @@ export function BenchmarkVideoList({
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
@@ -66,7 +66,7 @@ export function BenchmarkVideoList({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
         {videos.map((video) => (
           <BenchmarkVideoGridCard
             key={video.id}

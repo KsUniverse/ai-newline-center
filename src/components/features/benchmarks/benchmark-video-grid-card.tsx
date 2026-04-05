@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { Heart, Film } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Film, Heart } from "lucide-react";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
 import { Badge } from "@/components/ui/badge";
@@ -105,12 +105,14 @@ export function BenchmarkVideoGridCard({
       {/* Bottom gradient overlay */}
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
         <p className="truncate text-sm font-medium text-white text-left">{video.title}</p>
-        <div className="mt-1 flex items-center justify-between text-sm text-white/80">
-          <span className="flex items-center gap-1">
-            <Heart className="h-3.5 w-3.5" />
-            {formatNumber(video.likeCount)}
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-white/80">
+          <span className="flex min-w-0 items-center gap-1 tabular-nums">
+            <Heart className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{formatNumber(video.likeCount)}</span>
           </span>
-          <span className="tabular-nums tracking-tight">{formatDateTime(video.publishedAt)}</span>
+          <span className="shrink-0 tabular-nums tracking-tight">
+            {formatDateTime(video.publishedAt)}
+          </span>
         </div>
       </div>
     </button>

@@ -18,7 +18,10 @@ import { douyinLoginSessionManager } from "@/server/services/douyin-login-sessio
 import { douyinLoginStateStorageService } from "@/server/services/douyin-login-state-storage.service";
 import { syncService } from "@/server/services/sync.service";
 import type { SessionUser } from "@/server/services/user.service";
-import type { DouyinLoginSessionDTO } from "@/types/douyin-account";
+import type {
+  DouyinLoginSessionCurrentStep,
+  DouyinLoginSessionDTO,
+} from "@/types/douyin-account";
 
 interface CreateLoginSessionInput {
   purpose: DouyinLoginSessionPurpose;
@@ -33,6 +36,8 @@ interface ReloginAccountStateSnapshot {
 
 class DouyinAuthService {
   private readonly reloginAccountStateSnapshots = new Map<string, ReloginAccountStateSnapshot>();
+
+  private readonly finalizingSessions = new Map<string, Promise<DouyinLoginSession>>();
 
   async createSession(
     caller: SessionUser,
@@ -54,11 +59,6 @@ class DouyinAuthService {
       purpose: input.purpose,
     });
 
-    const tempStatePath = douyinLoginStateStorageService.getTempStatePath(loginSession.id);
-    await douyinLoginSessionRepository.updateStatus(loginSession.id, DouyinLoginSessionStatus.CREATED, {
-      tempStatePath,
-    });
-
     try {
       if (account) {
         this.rememberReloginAccountSnapshot(loginSession.id, account);
@@ -69,13 +69,11 @@ class DouyinAuthService {
       const updatedSession = await douyinLoginSessionRepository.updateQrcode(loginSession.id, {
         qrcodeDataUrl: runtimeSnapshot.qrcodeDataUrl,
         expiresAt: runtimeSnapshot.expiresAt,
-        tempStatePath,
       });
 
       return this.toDto(updatedSession);
     } catch (error) {
       await this.finishRuntimeSessionQuietly(loginSession.id);
-      await this.deleteStateFileQuietly(tempStatePath);
       await douyinLoginSessionRepository.markFailed(
         loginSession.id,
         error instanceof AppError ? error.code : "LOGIN_SESSION_CREATE_FAILED",
@@ -117,8 +115,6 @@ class DouyinAuthService {
     const updatedSession = await douyinLoginSessionRepository.updateQrcode(loginSession.id, {
       qrcodeDataUrl: runtimeSnapshot.qrcodeDataUrl,
       expiresAt: runtimeSnapshot.expiresAt,
-      tempStatePath:
-        loginSession.tempStatePath ?? douyinLoginStateStorageService.getTempStatePath(loginSession.id),
     });
 
     if (loginSession.accountId) {
@@ -134,7 +130,6 @@ class DouyinAuthService {
     const loginSession = await this.getOwnedSession(caller, id);
     if (!this.isTerminalStatus(loginSession.status)) {
       await douyinLoginSessionManager.cancelSession(loginSession.id);
-      await douyinLoginStateStorageService.deleteStateFile(loginSession.tempStatePath);
     }
 
     const updatedSession =
@@ -154,16 +149,20 @@ class DouyinAuthService {
       return loginSession;
     }
 
-    const tempStatePath =
-      loginSession.tempStatePath ?? douyinLoginStateStorageService.getTempStatePath(loginSession.id);
-    const runtimeSnapshot = await douyinLoginSessionManager.pollSession(loginSession.id, tempStatePath);
+    if (
+      loginSession.status === DouyinLoginSessionStatus.CONFIRMED ||
+      this.finalizingSessions.has(loginSession.id)
+    ) {
+      return this.finalizeConfirmedSessionOnce(loginSession, caller);
+    }
+
+    const runtimeSnapshot = await douyinLoginSessionManager.pollSession(loginSession.id);
 
     switch (runtimeSnapshot.status) {
       case DouyinLoginSessionStatus.QRCODE_READY:
         return douyinLoginSessionRepository.updateQrcode(loginSession.id, {
           qrcodeDataUrl: runtimeSnapshot.qrcodeDataUrl,
           expiresAt: runtimeSnapshot.expiresAt,
-          tempStatePath,
         });
       case DouyinLoginSessionStatus.SCANNED:
         return douyinLoginSessionRepository.updateStatus(
@@ -175,19 +174,13 @@ class DouyinAuthService {
           },
         );
       case DouyinLoginSessionStatus.CONFIRMED:
-        await douyinLoginSessionRepository.updateStatus(
-          loginSession.id,
-          DouyinLoginSessionStatus.CONFIRMED,
-        );
-        return this.finalizeConfirmedSession(loginSession, caller, tempStatePath);
+        return this.finalizeConfirmedSessionOnce(loginSession, caller);
       case DouyinLoginSessionStatus.EXPIRED:
         await this.finishRuntimeSessionQuietly(loginSession.id);
-        await this.deleteStateFileQuietly(tempStatePath);
         await this.restoreAccountStatusAfterAbort(loginSession, true);
         return douyinLoginSessionRepository.markExpired(loginSession.id);
       case DouyinLoginSessionStatus.FAILED:
         await this.finishRuntimeSessionQuietly(loginSession.id);
-        await this.deleteStateFileQuietly(tempStatePath);
         await this.restoreAccountStatusAfterAbort(loginSession);
         return douyinLoginSessionRepository.markFailed(
           loginSession.id,
@@ -202,16 +195,14 @@ class DouyinAuthService {
   private async finalizeConfirmedSession(
     loginSession: DouyinLoginSession,
     caller: SessionUser,
-    tempStatePath: string,
   ): Promise<DouyinLoginSession> {
     try {
       if (loginSession.purpose === DouyinLoginSessionPurpose.CREATE_ACCOUNT) {
-        return await this.finalizeCreateAccount(loginSession, caller, tempStatePath);
+        return await this.finalizeCreateAccount(loginSession, caller);
       }
 
-      return await this.finalizeRelogin(loginSession, tempStatePath);
+      return await this.finalizeRelogin(loginSession);
     } catch (error) {
-      await this.deleteStateFileQuietly(tempStatePath);
       await this.finishRuntimeSessionQuietly(loginSession.id);
       await this.restoreAccountStatusAfterAbort(loginSession);
 
@@ -223,11 +214,41 @@ class DouyinAuthService {
     }
   }
 
+  private async finalizeConfirmedSessionOnce(
+    loginSession: DouyinLoginSession,
+    caller: SessionUser,
+  ): Promise<DouyinLoginSession> {
+    const existingPromise = this.finalizingSessions.get(loginSession.id);
+    if (existingPromise) {
+      console.log("[DouyinAuthService] reuse finalizing session", {
+        loginSessionId: loginSession.id,
+        status: loginSession.status,
+      });
+      return existingPromise;
+    }
+
+    const finalizePromise = (async () => {
+      await douyinLoginSessionRepository.updateStatus(
+        loginSession.id,
+        DouyinLoginSessionStatus.CONFIRMED,
+      );
+      return this.finalizeConfirmedSession(loginSession, caller);
+    })();
+
+    this.finalizingSessions.set(loginSession.id, finalizePromise);
+
+    try {
+      return await finalizePromise;
+    } finally {
+      this.finalizingSessions.delete(loginSession.id);
+    }
+  }
+
   private async finalizeCreateAccount(
     loginSession: DouyinLoginSession,
     caller: SessionUser,
-    tempStatePath: string,
   ): Promise<DouyinLoginSession> {
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "RESOLVING_IDENTITY");
     const identity = await douyinLoginSessionManager.resolveIdentity(loginSession.id);
     await douyinLoginSessionRepository.updateResolvedIdentity(loginSession.id, {
       resolvedSecUserId: identity.secUserId,
@@ -241,6 +262,8 @@ class DouyinAuthService {
       throw new AppError("COOKIE_HEADER_UNRESOLVED", "未能获取收藏同步所需的完整 Cookie，请重试", 409);
     }
 
+    const storageState = this.getRequiredStorageState(loginSession.id);
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "FETCHING_PROFILE");
     const profile = await crawlerService.fetchUserProfile(identity.secUserId);
     const now = new Date();
     const accountId = cuid();
@@ -272,13 +295,16 @@ class DouyinAuthService {
       lastSyncedAt: now,
     };
 
-    const loginStatePath = await douyinLoginStateStorageService.moveTempStateToAccount(tempStatePath, {
+    const loginStatePath = douyinLoginStateStorageService.getAccountStatePath({
       organizationId: caller.organizationId,
       userId: caller.id,
       accountId,
     });
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "PERSISTING_LOGIN_STATE");
+    await douyinLoginStateStorageService.writeStorageState(loginStatePath, storageState);
 
     try {
+      douyinLoginSessionManager.setProgressStep(loginSession.id, "CREATING_ACCOUNT");
       const updatedSession = await prisma.$transaction(async (tx) => {
         const account = await douyinAccountService.createLoggedInAccount(caller, createAccountPayload, {
           accountId,
@@ -290,6 +316,7 @@ class DouyinAuthService {
         return douyinLoginSessionRepository.markSuccess(loginSession.id, tx);
       });
 
+      douyinLoginSessionManager.setProgressStep(loginSession.id, "SYNCING_ACCOUNT");
       await this.finishRuntimeSessionQuietly(loginSession.id);
 
       // 账号创建成功后立即触发一次全量同步（信息 + 视频），不阻塞登录流程
@@ -307,7 +334,6 @@ class DouyinAuthService {
 
   private async finalizeRelogin(
     loginSession: DouyinLoginSession,
-    tempStatePath: string,
   ): Promise<DouyinLoginSession> {
     if (!loginSession.accountId) {
       throw new AppError("ACCOUNT_NOT_FOUND", "重登录目标账号不存在", 404);
@@ -318,9 +344,18 @@ class DouyinAuthService {
       throw new AppError("ACCOUNT_NOT_FOUND", "重登录目标账号不存在", 404);
     }
 
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "RESOLVING_IDENTITY");
     const identity = await douyinLoginSessionManager.resolveIdentity(loginSession.id);
     await douyinLoginSessionRepository.updateResolvedIdentity(loginSession.id, {
       resolvedSecUserId: identity.secUserId,
+    });
+
+    console.log("[DouyinAuthService] relogin resolved identity", {
+      loginSessionId: loginSession.id,
+      accountId: loginSession.accountId,
+      targetSecUserId: account.secUserId,
+      resolvedSecUserId: identity.secUserId,
+      hasRawCookie: Boolean(identity.rawCookie),
     });
 
     if (!account.secUserId) {
@@ -351,13 +386,17 @@ class DouyinAuthService {
       throw new AppError("COOKIE_HEADER_UNRESOLVED", "未能获取收藏同步所需的完整 Cookie，请重试", 409);
     }
 
+    const storageState = this.getRequiredStorageState(loginSession.id);
     const now = new Date();
-    const loginStatePath = await douyinLoginStateStorageService.moveTempStateToAccount(tempStatePath, {
+    const loginStatePath = douyinLoginStateStorageService.getAccountStatePath({
       organizationId: account.organizationId,
       userId: account.userId,
       accountId: account.id,
     });
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "PERSISTING_LOGIN_STATE");
+    await douyinLoginStateStorageService.writeStorageState(loginStatePath, storageState);
 
+    douyinLoginSessionManager.setProgressStep(loginSession.id, "UPDATING_ACCOUNT_LOGIN_STATE");
     await douyinAccountRepository.updateLoginStateBinding(account.id, {
       loginStatus: DouyinAccountLoginStatus.LOGGED_IN,
       loginStatePath,
@@ -417,7 +456,6 @@ class DouyinAuthService {
 
     for (const activeSession of activeSessions) {
       await this.finishRuntimeSessionQuietly(activeSession.id);
-      await this.deleteStateFileQuietly(activeSession.tempStatePath);
       await douyinLoginSessionRepository.markCancelled(activeSession.id);
       await this.restoreAccountStatusAfterAbort(activeSession);
     }
@@ -481,6 +519,15 @@ class DouyinAuthService {
     }
   }
 
+  private getRequiredStorageState(loginSessionId: string) {
+    const storageState = douyinLoginSessionManager.getStorageState(loginSessionId);
+    if (!storageState) {
+      throw new AppError("LOGIN_STATE_UNAVAILABLE", "鏈兘淇濆瓨褰撳墠鐧诲綍鎬侊紝璇烽噸璇?", 409);
+    }
+
+    return storageState;
+  }
+
   private async getOwnedSession(caller: SessionUser, id: string): Promise<DouyinLoginSession> {
     const loginSession = await douyinLoginSessionRepository.findById(id, caller.organizationId);
 
@@ -507,21 +554,69 @@ class DouyinAuthService {
   }
 
   private toDto(loginSession: DouyinLoginSession): DouyinLoginSessionDTO {
+    const currentStep = douyinLoginSessionManager.getProgressStep(loginSession.id, loginSession.status);
+
     return {
       id: loginSession.id,
       purpose: loginSession.purpose,
       status: loginSession.status,
+      currentStep,
       qrcodeDataUrl: loginSession.qrcodeDataUrl,
       expiresAt: loginSession.expiresAt?.toISOString() ?? null,
       resolvedSecUserId: loginSession.resolvedSecUserId,
       accountId: loginSession.accountId,
       errorCode: loginSession.errorCode,
       errorMessage: loginSession.errorMessage,
-      message: this.getStatusMessage(loginSession),
+      message: this.getCurrentStepMessage(loginSession, currentStep),
     };
   }
 
-  private getStatusMessage(loginSession: DouyinLoginSession): string {
+  private getCurrentStepMessage(
+    loginSession: DouyinLoginSession,
+    currentStep: DouyinLoginSessionCurrentStep,
+  ): string {
+    switch (currentStep) {
+      case "PREPARING_BROWSER":
+        return "正在准备登录二维码";
+      case "OPENING_LOGIN_PAGE":
+        return "正在打开抖音登录页面";
+      case "FETCHING_QRCODE":
+        return "正在抓取登录二维码";
+      case "WAITING_FOR_SCAN":
+        return "请使用抖音 App 扫码登录";
+      case "WAITING_FOR_CONFIRM":
+        return "已扫码，请在手机上确认登录";
+      case "PERSISTING_LOGIN_STATE":
+        return "登录已确认，正在保存登录态";
+      case "RESOLVING_IDENTITY":
+        return "正在识别当前扫码账号";
+      case "FETCHING_PROFILE":
+        return "正在同步抖音账号信息";
+      case "CREATING_ACCOUNT":
+        return "登录成功，正在创建账号";
+      case "UPDATING_ACCOUNT_LOGIN_STATE":
+        return "登录成功，正在更新登录态";
+      case "SYNCING_ACCOUNT":
+        return "账号已创建，正在启动首次同步";
+      case "SUCCESS":
+        return loginSession.purpose === DouyinLoginSessionPurpose.CREATE_ACCOUNT
+          ? "登录成功，账号已创建"
+          : "登录成功，登录态已更新";
+      case "EXPIRED":
+        return "二维码已失效，请刷新后重新扫码";
+      case "CANCELLED":
+        return "登录已取消";
+      case "FAILED":
+      default:
+        return loginSession.errorMessage ?? "登录失败，请重试";
+    }
+  }
+
+  private getStatusMessage(
+    loginSession: DouyinLoginSession,
+    _currentStep: DouyinLoginSessionCurrentStep,
+  ): string {
+    void _currentStep;
     switch (loginSession.status) {
       case DouyinLoginSessionStatus.CREATED:
         return "正在准备登录二维码";

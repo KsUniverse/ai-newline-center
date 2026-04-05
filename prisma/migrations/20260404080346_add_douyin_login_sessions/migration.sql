@@ -24,7 +24,6 @@ CREATE TABLE "douyin_login_sessions" (
     "purpose" "DouyinLoginSessionPurpose" NOT NULL,
     "status" "DouyinLoginSessionStatus" NOT NULL DEFAULT 'CREATED',
     "qrcodeDataUrl" TEXT,
-    "tempStatePath" TEXT,
     "resolvedSecUserId" TEXT,
     "expectedProfileUrl" TEXT,
     "resolvedProfileUrl" TEXT,

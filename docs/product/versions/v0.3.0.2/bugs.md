@@ -1,4 +1,4 @@
-# v0.3.0.2 Bug 记录
+﻿# v0.3.0.2 Bug 记录
 
 ## BUG-003 — 定时同步任务未稳定生效
 
@@ -49,3 +49,4 @@
 - 根因: Next.js 15.2.0 中 instrumentation 已默认启用，`register()` 可正常执行。实际根因为 `scheduler.ts` 缺少初始化日志和触发日志，导致无法判断定时器是否真正运行；同时 cron 回调中缺少 `.catch()`，顶层错误（如 DB 连接失败）会被 `void` 静默丢弃而无任何输出。
 - 修复文件: `src/lib/scheduler.ts`
 - 验证: pnpm type-check ✅ / pnpm lint ✅ / pnpm test ✅
+

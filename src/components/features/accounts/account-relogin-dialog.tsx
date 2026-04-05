@@ -69,22 +69,6 @@ export function AccountReloginDialog({
             isRefreshing={isRefreshing}
             isCancelling={isCancelling}
             pollError={pollError}
-            infoTitle="本次重登录说明"
-            infoDescription="本次扫码只会更新当前账号自己的正式登录态，不会影响你名下其他已录入账号。"
-            notes={[
-              {
-                title: "只更新当前账号",
-                description: "重登录成功后，仅覆盖当前账号自己的正式登录态文件。",
-              },
-              {
-                title: "扫错号会拦截",
-                description: "若本次扫码账号与目标 secUserId 不一致，系统会失败并保持原登录态不被覆盖。",
-              },
-              {
-                title: "失败后可重试",
-                description: "二维码过期、手机取消或会话失败时，前端会保留重试、刷新和取消入口。",
-              },
-            ]}
             onRetry={handleRetry}
             onRefresh={handleRefresh}
             onCancel={handleCancel}

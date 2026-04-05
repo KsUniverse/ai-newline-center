@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { access, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { env } from "@/lib/env";
@@ -48,10 +48,6 @@ class DouyinLoginStateStorageService {
     return this.rootDir;
   }
 
-  getTempStatePath(loginSessionId: string): string {
-    return path.join(this.rootDir, "tmp", `${loginSessionId}.json`);
-  }
-
   getAccountStatePath(params: AccountStoragePathParams): string {
     return path.join(
       this.rootDir,
@@ -72,19 +68,18 @@ class DouyinLoginStateStorageService {
     return this.readyPromise;
   }
 
-  async moveTempStateToAccount(
-    tempStatePath: string,
-    params: AccountStoragePathParams,
-  ): Promise<string> {
+  async writeStorageState(filePath: string, storageState: DouyinStorageState): Promise<void> {
     await this.ensureReady();
-    this.ensureInsideRoot(tempStatePath);
-
-    const targetPath = this.getAccountStatePath(params);
-    this.ensureInsideRoot(targetPath);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await rename(tempStatePath, targetPath);
-
-    return targetPath;
+    this.ensureInsideRoot(filePath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        cookies: storageState.cookies,
+        origins: storageState.origins ?? [],
+      }),
+      "utf8",
+    );
   }
 
   async deleteStateFile(filePath: string | null | undefined): Promise<void> {
@@ -128,10 +123,9 @@ class DouyinLoginStateStorageService {
     this.ensurePrivateRoot();
 
     await mkdir(this.rootDir, { recursive: true });
-    await mkdir(path.join(this.rootDir, "tmp"), { recursive: true });
     await access(this.rootDir, fsConstants.R_OK | fsConstants.W_OK);
 
-    const probeFilePath = path.join(this.rootDir, "tmp", ".write-probe");
+    const probeFilePath = path.join(this.rootDir, ".write-probe");
     await writeFile(probeFilePath, "ok", "utf8");
     await rm(probeFilePath, { force: true });
   }

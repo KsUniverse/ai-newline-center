@@ -47,14 +47,14 @@ export function BenchmarkCard({
       />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-foreground/90">{account.nickname}</p>
-        <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="tabular-nums tracking-tight">
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap tabular-nums tracking-tight">
             <span className="text-foreground/80 font-medium">
               {formatNumber(account.followersCount)}
             </span>{" "}
             粉丝
           </span>
-          <span className="tabular-nums tracking-tight">
+          <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap tabular-nums tracking-tight">
             <span className="text-foreground/80 font-medium">
               {formatNumber(account.videosCount)}
             </span>{" "}

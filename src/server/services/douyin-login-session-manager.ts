@@ -1,19 +1,30 @@
-import { DouyinLoginSessionStatus } from "@prisma/client";
+﻿import { DouyinLoginSessionStatus } from "@prisma/client";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
-import { douyinLoginStateStorageService } from "@/server/services/douyin-login-state-storage.service";
+import {
+  douyinLoginStateStorageService,
+  type DouyinStorageState,
+} from "@/server/services/douyin-login-state-storage.service";
+import type { DouyinLoginSessionCurrentStep } from "@/types/douyin-account";
 
 const LOGIN_PROMPT_KEYWORDS = ["扫码登录", "手机号登录", "验证码登录", "打开抖音扫码"];
 const LOGIN_EXPIRED_KEYWORDS = ["二维码已失效", "二维码过期", "刷新二维码"];
 const LOGIN_SCANNED_KEYWORDS = ["已扫码", "请在手机上确认", "在手机上确认", "扫码成功"];
-const DOUYIN_CREATOR_UPLOAD_URL = "https://creator.douyin.com/creator-micro/content/upload";
-const DOUYIN_CREATOR_HOME_URL_PREFIX = "https://creator.douyin.com/creator-micro/home";
 const DOUYIN_HOMEPAGE_URL_PREFIX = "https://www.douyin.com/";
 const LOGIN_QRCODE_WAIT_MS = 30_000;
+const LOGIN_QRCODE_SOFT_RECOVERY_WAIT_MS = 8_000;
 const POLL_QRCODE_WAIT_MS = 200;
+const FAVORITE_SNAPSHOT_WAIT_MS = 15_000;
+const FAVORITE_SNAPSHOT_POLL_INTERVAL_MS = 500;
 const TERMINAL_SNAPSHOT_RETENTION_MS = 10 * 60 * 1000;
+
+interface FavoriteSnapshot {
+  requestUrl: string;
+  requestCookie: string | null;
+  secUserId: string | null;
+}
 
 interface ManagedLoginSession {
   browser: Browser;
@@ -23,12 +34,8 @@ interface ManagedLoginSession {
   lastQrcodeDataUrl: string | null;
   expirationTimer: ReturnType<typeof setTimeout> | null;
   favoriteSnapshot: FavoriteSnapshot | null;
-}
-
-interface FavoriteSnapshot {
-  requestUrl: string;
-  requestCookie: string | null;
-  secUserId: string | null;
+  storageStateSnapshot: DouyinStorageState | null;
+  currentStep: DouyinLoginSessionCurrentStep;
 }
 
 interface ManagedTerminalLoginSession {
@@ -38,6 +45,7 @@ interface ManagedTerminalLoginSession {
 
 export interface LoginSessionRuntimeSnapshot {
   status: DouyinLoginSessionStatus;
+  currentStep: DouyinLoginSessionCurrentStep;
   qrcodeDataUrl: string | null;
   expiresAt: Date | null;
   currentUrl: string | null;
@@ -69,7 +77,7 @@ class DouyinLoginSessionManager {
     let browser: Browser | null = null;
 
     try {
-      browser = await chromium.launch({ headless: true });
+      browser = await chromium.launch(this.getBrowserLaunchOptions({ headless: true }));
       this.runtimeValidatedAt = Date.now();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -103,9 +111,17 @@ class DouyinLoginSessionManager {
     let sessionRegistered = false;
 
     try {
-      browser = await chromium.launch({ headless: true });
+      console.log("[DouyinLoginSessionManager] startSession launching headed Chromium", {
+        loginSessionId,
+        pid: process.pid,
+        loginPageUrl: env.DOUYIN_LOGIN_PAGE_URL,
+        openDevtools: env.DOUYIN_LOGIN_OPEN_DEVTOOLS,
+      });
+
+      browser = await chromium.launch(this.getBrowserLaunchOptions({ headless: false }));
       context = await browser.newContext();
       page = await context.newPage();
+      this.attachPageDiagnostics(page, loginSessionId);
 
       await page.goto(env.DOUYIN_LOGIN_PAGE_URL, { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
@@ -113,10 +129,13 @@ class DouyinLoginSessionManager {
 
       let qrcodeDataUrl = await this.extractQrcodeDataUrl(page, LOGIN_QRCODE_WAIT_MS);
       if (!qrcodeDataUrl) {
-        await page.reload({ waitUntil: "domcontentloaded" });
-        await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => undefined);
+        console.warn("[DouyinLoginSessionManager] qrcode missing after initial wait, retrying without reload", {
+          loginSessionId,
+          pid: process.pid,
+          currentUrl: page.url(),
+        });
         await this.ensureLoginEntryReady(page);
-        qrcodeDataUrl = await this.extractQrcodeDataUrl(page, LOGIN_QRCODE_WAIT_MS);
+        qrcodeDataUrl = await this.extractQrcodeDataUrl(page, LOGIN_QRCODE_SOFT_RECOVERY_WAIT_MS);
       }
 
       if (!qrcodeDataUrl) {
@@ -131,27 +150,80 @@ class DouyinLoginSessionManager {
         lastQrcodeDataUrl: qrcodeDataUrl,
         expirationTimer: null,
         favoriteSnapshot: null,
+        storageStateSnapshot: null,
+        currentStep: "WAITING_FOR_SCAN",
       };
 
-      page.on("request", (request) => {
+      page.on("request", async (request) => {
         const resourceType = request.resourceType();
+        const requestUrl = request.url();
+        const isFavoriteRequest = requestUrl.includes("/aweme/") && requestUrl.includes("favorite");
+        const isCandidateRequest =
+          requestUrl.includes("/aweme/") &&
+          (requestUrl.includes("favorite") || requestUrl.includes("collect") || requestUrl.includes("like"));
+
+        if (isCandidateRequest) {
+          console.log("[DouyinLoginSessionManager] observed candidate request", {
+            loginSessionId,
+            pid: process.pid,
+            currentUrl: managedSession.page.url(),
+            resourceType,
+            requestUrl,
+          });
+        }
+
         if (resourceType !== "xhr" && resourceType !== "fetch") {
+          if (isFavoriteRequest) {
+            console.warn("[DouyinLoginSessionManager] favorite request ignored by resource type", {
+              loginSessionId,
+              pid: process.pid,
+              resourceType,
+              requestUrl,
+            });
+          }
           return;
         }
 
-        const requestUrl = request.url();
-        if (!requestUrl.includes("/aweme/") || !requestUrl.includes("favorite")) {
+        if (!isFavoriteRequest) {
           return;
         }
 
         try {
           const parsedUrl = new URL(requestUrl);
+          const headers = await request.allHeaders().catch(() => request.headers());
+          const secUserId = parsedUrl.searchParams.get("sec_user_id");
+          const requestCookie = headers["cookie"] ?? null;
           managedSession.favoriteSnapshot = {
             requestUrl,
-            requestCookie: request.headers()["cookie"] ?? null,
-            secUserId: parsedUrl.searchParams.get("sec_user_id"),
+            requestCookie,
+            secUserId,
           };
-        } catch {
+          console.log("[DouyinLoginSessionManager] captured favorite request snapshot", {
+            loginSessionId,
+            pid: process.pid,
+            secUserId,
+            hasCookie: Boolean(requestCookie),
+          });
+
+          if (!secUserId || !requestCookie) {
+            console.warn("[DouyinLoginSessionManager] favorite request missing identity fields", {
+              loginSessionId,
+              pid: process.pid,
+              requestUrl,
+              secUserId,
+              hasCookie: Boolean(requestCookie),
+              query: parsedUrl.search,
+              headerKeys: Object.keys(headers),
+              currentUrl: managedSession.page.url(),
+            });
+          }
+        } catch (error) {
+          console.warn("[DouyinLoginSessionManager] favorite request parse failed", {
+            loginSessionId,
+            pid: process.pid,
+            requestUrl,
+            error: error instanceof Error ? error.message : String(error),
+          });
           managedSession.favoriteSnapshot = null;
         }
       });
@@ -162,6 +234,7 @@ class DouyinLoginSessionManager {
 
       return {
         status: DouyinLoginSessionStatus.QRCODE_READY,
+        currentStep: managedSession.currentStep,
         qrcodeDataUrl,
         expiresAt: managedSession.expiresAt,
         currentUrl: page.url(),
@@ -177,6 +250,48 @@ class DouyinLoginSessionManager {
 
       throw error;
     }
+  }
+
+  private getBrowserLaunchOptions(options: { headless: boolean }): Parameters<typeof chromium.launch>[0] {
+    const args =
+      !options.headless && env.DOUYIN_LOGIN_OPEN_DEVTOOLS
+        ? ["--auto-open-devtools-for-tabs"]
+        : [];
+
+    return {
+      headless: options.headless,
+      args,
+    };
+  }
+
+  private attachPageDiagnostics(page: Page, loginSessionId: string): void {
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) {
+        return;
+      }
+
+      console.log("[DouyinLoginSessionManager] page framenavigated", {
+        loginSessionId,
+        pid: process.pid,
+        url: frame.url(),
+      });
+    });
+
+    page.on("domcontentloaded", () => {
+      console.log("[DouyinLoginSessionManager] page domcontentloaded", {
+        loginSessionId,
+        pid: process.pid,
+        url: page.url(),
+      });
+    });
+
+    page.on("load", () => {
+      console.log("[DouyinLoginSessionManager] page load", {
+        loginSessionId,
+        pid: process.pid,
+        url: page.url(),
+      });
+    });
   }
 
   async refreshSession(loginSessionId: string): Promise<LoginSessionRuntimeSnapshot> {
@@ -198,10 +313,12 @@ class DouyinLoginSessionManager {
 
       session.lastQrcodeDataUrl = qrcodeDataUrl;
       session.expiresAt = new Date(Date.now() + env.DOUYIN_LOGIN_TIMEOUT_MS);
+      session.currentStep = "WAITING_FOR_SCAN";
       this.scheduleExpiry(loginSessionId);
 
       return {
         status: DouyinLoginSessionStatus.QRCODE_READY,
+        currentStep: session.currentStep,
         qrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl: session.page.url(),
@@ -212,10 +329,7 @@ class DouyinLoginSessionManager {
     }
   }
 
-  async pollSession(
-    loginSessionId: string,
-    tempStatePath: string,
-  ): Promise<LoginSessionRuntimeSnapshot> {
+  async pollSession(loginSessionId: string): Promise<LoginSessionRuntimeSnapshot> {
     const terminalSnapshot = this.terminalSnapshots.get(loginSessionId);
     if (terminalSnapshot) {
       return terminalSnapshot.snapshot;
@@ -225,6 +339,7 @@ class DouyinLoginSessionManager {
     if (!session) {
       return {
         status: DouyinLoginSessionStatus.FAILED,
+        currentStep: "FAILED",
         qrcodeDataUrl: null,
         expiresAt: null,
         currentUrl: null,
@@ -236,6 +351,7 @@ class DouyinLoginSessionManager {
     if (session.page.isClosed()) {
       return {
         status: DouyinLoginSessionStatus.FAILED,
+        currentStep: "FAILED",
         qrcodeDataUrl: session.lastQrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl: null,
@@ -247,6 +363,7 @@ class DouyinLoginSessionManager {
     if (Date.now() >= session.expiresAt.getTime()) {
       return {
         status: DouyinLoginSessionStatus.EXPIRED,
+        currentStep: "EXPIRED",
         qrcodeDataUrl: session.lastQrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl: session.page.url(),
@@ -256,9 +373,10 @@ class DouyinLoginSessionManager {
     const currentUrl = session.page.url();
     const bodyText = await this.readBodyText(session.page);
 
-    if (await this.isLoggedIn(session, bodyText, tempStatePath)) {
+    if (await this.isLoggedIn(session, bodyText)) {
       return {
         status: DouyinLoginSessionStatus.CONFIRMED,
+        currentStep: session.currentStep,
         qrcodeDataUrl: session.lastQrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl,
@@ -268,6 +386,7 @@ class DouyinLoginSessionManager {
     if (this.containsKeywords(bodyText, LOGIN_EXPIRED_KEYWORDS)) {
       return {
         status: DouyinLoginSessionStatus.EXPIRED,
+        currentStep: "EXPIRED",
         qrcodeDataUrl: session.lastQrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl,
@@ -280,8 +399,10 @@ class DouyinLoginSessionManager {
       bodyText.includes("取消登录") ||
       bodyText.includes("在手机上确认")
     ) {
+      session.currentStep = "WAITING_FOR_CONFIRM";
       return {
         status: DouyinLoginSessionStatus.SCANNED,
+        currentStep: session.currentStep,
         qrcodeDataUrl: session.lastQrcodeDataUrl,
         expiresAt: session.expiresAt,
         currentUrl,
@@ -291,9 +412,11 @@ class DouyinLoginSessionManager {
     const qrcodeDataUrl =
       (await this.extractQrcodeDataUrl(session.page, POLL_QRCODE_WAIT_MS)) ?? session.lastQrcodeDataUrl;
     session.lastQrcodeDataUrl = qrcodeDataUrl;
+    session.currentStep = "WAITING_FOR_SCAN";
 
     return {
       status: DouyinLoginSessionStatus.QRCODE_READY,
+      currentStep: session.currentStep,
       qrcodeDataUrl,
       expiresAt: session.expiresAt,
       currentUrl,
@@ -317,21 +440,76 @@ class DouyinLoginSessionManager {
     await this.disposeSession(loginSessionId);
   }
 
+  setProgressStep(loginSessionId: string, currentStep: DouyinLoginSessionCurrentStep): void {
+    const session = this.sessions.get(loginSessionId);
+    if (!session) {
+      return;
+    }
+
+    session.currentStep = currentStep;
+  }
+
+  getStorageState(loginSessionId: string): DouyinStorageState | null {
+    return this.sessions.get(loginSessionId)?.storageStateSnapshot ?? null;
+  }
+
+  getProgressStep(
+    loginSessionId: string,
+    fallbackStatus: DouyinLoginSessionStatus,
+  ): DouyinLoginSessionCurrentStep {
+    const terminalSnapshot = this.terminalSnapshots.get(loginSessionId);
+    if (terminalSnapshot) {
+      return terminalSnapshot.snapshot.currentStep;
+    }
+
+    const session = this.sessions.get(loginSessionId);
+    if (session) {
+      return session.currentStep;
+    }
+
+    return this.mapStatusToCurrentStep(fallbackStatus);
+  }
+
   private async resolveIdentityFromCapturedFavorite(
     session: ManagedLoginSession,
   ): Promise<LoginSessionResolvedIdentity> {
-    for (let attempt = 0; attempt < 6; attempt += 1) {
+    const resolveStartAt = Date.now();
+    const resolveDeadline = Math.min(
+      session.expiresAt.getTime(),
+      resolveStartAt + FAVORITE_SNAPSHOT_WAIT_MS,
+    );
+
+    for (let attempt = 0; Date.now() < resolveDeadline; attempt += 1) {
       const identity = this.resolveIdentityFromFavoriteSnapshot(session.favoriteSnapshot);
+      console.log("[DouyinLoginSessionManager] resolveIdentity attempt", {
+        pid: process.pid,
+        attempt: attempt + 1,
+        currentUrl: session.page.url(),
+        hasFavoriteSnapshot: Boolean(session.favoriteSnapshot),
+        favoriteSecUserId: session.favoriteSnapshot?.secUserId ?? null,
+        hasFavoriteCookie: Boolean(session.favoriteSnapshot?.requestCookie),
+        waitRemainingMs: Math.max(resolveDeadline - Date.now(), 0),
+      });
+
       if (identity.secUserId && identity.rawCookie) {
         return identity;
       }
 
-      if (attempt === 0) {
+      if (attempt === 0 && !session.favoriteSnapshot) {
         await this.triggerFavoriteRequest(session.page);
       }
 
-      await session.page.waitForTimeout(300);
+      await session.page.waitForTimeout(FAVORITE_SNAPSHOT_POLL_INTERVAL_MS);
     }
+
+    console.warn("[DouyinLoginSessionManager] resolveIdentity unresolved after retries", {
+      pid: process.pid,
+      currentUrl: session.page.url(),
+      favoriteSecUserId: session.favoriteSnapshot?.secUserId ?? null,
+      hasFavoriteCookie: Boolean(session.favoriteSnapshot?.requestCookie),
+      favoriteRequestUrl: session.favoriteSnapshot?.requestUrl ?? null,
+      waitedMs: Date.now() - resolveStartAt,
+    });
 
     return this.emptyIdentity(session.favoriteSnapshot?.requestCookie ?? null);
   }
@@ -366,7 +544,7 @@ class DouyinLoginSessionManager {
     }
 
     try {
-      await page.evaluate(() => {
+      const triggerStep = await page.evaluate(() => {
         const isVisible = (element: Element) => {
           const htmlElement = element as HTMLElement;
           const style = window.getComputedStyle(htmlElement);
@@ -380,40 +558,70 @@ class DouyinLoginSessionManager {
           );
         };
 
-        const normalizeText = (value: string) => value.replace(/\s+/g, "");
-        const candidates = Array.from(document.querySelectorAll("a, button, div, span")).filter(
-          (element) => normalizeText((element.textContent ?? "").trim()) === "我的" && isVisible(element),
-        );
+        const headerRoot = document.querySelector("#douyin-header-menuCt");
+        if (!headerRoot) {
+          return "no-header";
+        }
 
-        const target = candidates[0] as HTMLElement | undefined;
-        target?.click();
+        const avatarImage = headerRoot.querySelector("img");
+        if (avatarImage && isVisible(avatarImage)) {
+          const clickableParent = avatarImage.closest("a, button, [role='button']") as HTMLElement | null;
+          if (clickableParent && isVisible(clickableParent)) {
+            clickableParent.click();
+            return "header-avatar";
+          }
+
+          if (avatarImage instanceof HTMLElement && isVisible(avatarImage)) {
+            avatarImage.click();
+            return "avatar-image";
+          }
+        }
+        return "none";
       });
+
+      console.log("[DouyinLoginSessionManager] triggerFavoriteRequest step", {
+        pid: process.pid,
+        currentUrl: page.url(),
+        triggerStep,
+      });
+
       await page.waitForTimeout(1_200);
+
+      console.log("[DouyinLoginSessionManager] triggerFavoriteRequest waiting for favorite", {
+        pid: process.pid,
+        currentUrl: page.url(),
+      });
     } catch {
       return;
     }
   }
 
-  private async isLoggedIn(
-    session: ManagedLoginSession,
-    bodyText: string,
-    tempStatePath: string,
-  ): Promise<boolean> {
-    if (this.containsKeywords(bodyText, LOGIN_PROMPT_KEYWORDS)) {
-      return false;
-    }
-
+  private async isLoggedIn(session: ManagedLoginSession, bodyText: string): Promise<boolean> {
     const currentUrl = session.page.url();
-    const looksAuthenticated =
-      this.isCreatorAuthenticatedUrl(currentUrl) || (await this.isDouyinHomepageLoggedIn(session.page));
 
-    if (!looksAuthenticated) {
+    if (await this.isDouyinHomepageLoggedIn(session.page)) {
+      console.log("[DouyinLoginSessionManager] isLoggedIn matched homepage header state", {
+        pid: process.pid,
+        currentUrl,
+      });
+      session.storageStateSnapshot = (await session.context.storageState()) as DouyinStorageState;
+      session.currentStep = "PERSISTING_LOGIN_STATE";
+      return true;
+    }
+
+    if (
+      !currentUrl.startsWith(DOUYIN_HOMEPAGE_URL_PREFIX) &&
+      this.containsKeywords(bodyText, LOGIN_PROMPT_KEYWORDS)
+    ) {
+      console.log("[DouyinLoginSessionManager] isLoggedIn blocked by login prompt", {
+        pid: process.pid,
+        currentUrl,
+        bodyTextPreview: bodyText.slice(0, 120),
+      });
       return false;
     }
 
-    await douyinLoginStateStorageService.ensureReady();
-    await session.context.storageState({ path: tempStatePath });
-    return this.verifyPersistedLoginState(tempStatePath);
+    return false;
   }
 
   private async isDouyinHomepageLoggedIn(page: Page): Promise<boolean> {
@@ -456,34 +664,6 @@ class DouyinLoginSessionManager {
       });
     } catch {
       return false;
-    }
-  }
-
-  private async verifyPersistedLoginState(tempStatePath: string): Promise<boolean> {
-    let browser: Browser | null = null;
-    let context: BrowserContext | null = null;
-    let page: Page | null = null;
-
-    try {
-      browser = await chromium.launch({ headless: true });
-      context = await browser.newContext({ storageState: tempStatePath });
-      page = await context.newPage();
-
-      await page.goto(DOUYIN_CREATOR_UPLOAD_URL, { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
-
-      const bodyText = await this.readBodyText(page);
-      if (this.containsKeywords(bodyText, LOGIN_PROMPT_KEYWORDS)) {
-        return false;
-      }
-
-      return page.url().startsWith(DOUYIN_CREATOR_UPLOAD_URL) || this.isLoggedInUrl(page.url());
-    } catch {
-      return false;
-    } finally {
-      await page?.close().catch(() => undefined);
-      await context?.close().catch(() => undefined);
-      await browser?.close().catch(() => undefined);
     }
   }
 
@@ -553,10 +733,7 @@ class DouyinLoginSessionManager {
     page: Page,
     waitForVisibleMs: number,
   ): Promise<string | null> {
-    const selectors = [
-      "#douyin_login_comp_scan_code img",
-      "#douyin_login_comp_flat_panel img",
-    ];
+    const selectors = ["#douyin_login_comp_scan_code img", "#douyin_login_comp_flat_panel img"];
 
     for (const selector of selectors) {
       try {
@@ -623,6 +800,8 @@ class DouyinLoginSessionManager {
 
     try {
       const clicked = await page.evaluate(() => {
+        const root = document.querySelector("#douyin-header-menuCt") ?? document;
+
         const isVisible = (element: Element) => {
           const htmlElement = element as HTMLElement;
           const style = window.getComputedStyle(htmlElement);
@@ -637,9 +816,19 @@ class DouyinLoginSessionManager {
         };
 
         const normalizeText = (value: string) => value.replace(/\s+/g, "");
-        const candidates = Array.from(document.querySelectorAll("button, a, div, span")).filter(
+        const candidates = Array.from(root.querySelectorAll("button, a, div, span")).filter(
           (element) => normalizeText((element.textContent ?? "").trim()) === "登录" && isVisible(element),
         );
+
+        candidates.sort((a, b) => {
+          const rectA = (a as HTMLElement).getBoundingClientRect();
+          const rectB = (b as HTMLElement).getBoundingClientRect();
+          if (rectA.top !== rectB.top) {
+            return rectA.top - rectB.top;
+          }
+
+          return rectB.left - rectA.left;
+        });
 
         const target = candidates[0] as HTMLElement | undefined;
         target?.click();
@@ -656,41 +845,15 @@ class DouyinLoginSessionManager {
 
   private async readBodyText(page: Page): Promise<string> {
     try {
-      const text = await page.locator("body").innerText({ timeout: 2_000 });
-      return text.toLowerCase();
+      return await page.locator("body").innerText({ timeout: 2_000 });
     } catch {
       return "";
     }
   }
 
   private containsKeywords(bodyText: string, keywords: string[]): boolean {
-    return keywords.some((keyword) => bodyText.includes(keyword.toLowerCase()));
-  }
-
-  private isLoggedInUrl(url: string | null): boolean {
-    if (!url) {
-      return false;
-    }
-
-    return this.isCreatorAuthenticatedUrl(url);
-  }
-
-  private isCreatorAuthenticatedUrl(url: string): boolean {
-    try {
-      if (url.startsWith(DOUYIN_CREATOR_HOME_URL_PREFIX)) {
-        return true;
-      }
-
-      const parsedUrl = new URL(url);
-      if (parsedUrl.hostname.toLowerCase() !== "creator.douyin.com") {
-        return false;
-      }
-
-      const normalizedPath = parsedUrl.pathname.toLowerCase();
-      return normalizedPath.startsWith("/creator-micro/") && !normalizedPath.includes("login");
-    } catch {
-      return false;
-    }
+    const normalizedBodyText = bodyText.toLowerCase();
+    return keywords.some((keyword) => normalizedBodyText.includes(keyword.toLowerCase()));
   }
 
   private scheduleExpiry(loginSessionId: string): void {
@@ -717,6 +880,7 @@ class DouyinLoginSessionManager {
 
     this.cacheTerminalSnapshot(loginSessionId, {
       status: DouyinLoginSessionStatus.EXPIRED,
+      currentStep: "EXPIRED",
       qrcodeDataUrl: session.lastQrcodeDataUrl,
       expiresAt: session.expiresAt,
       currentUrl: session.page.url(),
@@ -767,6 +931,30 @@ class DouyinLoginSessionManager {
     await session.page.close().catch(() => undefined);
     await session.context.close().catch(() => undefined);
     await session.browser.close().catch(() => undefined);
+  }
+
+  private mapStatusToCurrentStep(
+    status: DouyinLoginSessionStatus,
+  ): DouyinLoginSessionCurrentStep {
+    switch (status) {
+      case DouyinLoginSessionStatus.CREATED:
+        return "PREPARING_BROWSER";
+      case DouyinLoginSessionStatus.QRCODE_READY:
+        return "WAITING_FOR_SCAN";
+      case DouyinLoginSessionStatus.SCANNED:
+        return "WAITING_FOR_CONFIRM";
+      case DouyinLoginSessionStatus.CONFIRMED:
+        return "PERSISTING_LOGIN_STATE";
+      case DouyinLoginSessionStatus.SUCCESS:
+        return "SUCCESS";
+      case DouyinLoginSessionStatus.EXPIRED:
+        return "EXPIRED";
+      case DouyinLoginSessionStatus.CANCELLED:
+        return "CANCELLED";
+      case DouyinLoginSessionStatus.FAILED:
+      default:
+        return "FAILED";
+    }
   }
 }
 

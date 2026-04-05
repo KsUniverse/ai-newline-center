@@ -1,10 +1,29 @@
-export async function register() {
-  // NEXT_RUNTIME and NODE_ENV are Next.js internal / Node.js globals used here
-  // before env.ts is loaded — direct process.env access is intentional and safe.
-  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NODE_ENV !== "test") {
+﻿export async function register() {
+  console.log("[Instrumentation] register called", {
+    nodeEnv: process.env.NODE_ENV ?? null,
+    nextRuntime: process.env.NEXT_RUNTIME ?? null,
+    pid: process.pid,
+  });
+
+  if (process.env.NODE_ENV === "test") {
+    console.log("[Instrumentation] skip background bootstrap in test mode");
+    return;
+  }
+
+  try {
     const { startScheduler } = await import("./src/lib/scheduler");
     const { startTranscriptionWorker } = await import("./src/lib/transcription-worker");
+
+    console.log("[Instrumentation] starting scheduler and transcription worker", {
+      pid: process.pid,
+    });
     startScheduler();
     startTranscriptionWorker();
+  } catch (error) {
+    console.error("[Instrumentation] background bootstrap failed", {
+      pid: process.pid,
+      error,
+    });
+    throw error;
   }
 }

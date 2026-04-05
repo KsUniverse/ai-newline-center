@@ -319,6 +319,24 @@ class DouyinAccountRepository {
     return accounts.map((account) => account.id);
   }
 
+  async findMyAccountIdsByUserId(userId: string, db: DatabaseClient = prisma): Promise<string[]> {
+    const accounts = await db.douyinAccount.findMany({
+      where: this.buildWhere({
+        userId,
+        type: DouyinAccountType.MY_ACCOUNT,
+        archiveFilter: "active",
+      }),
+      select: {
+        id: true,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return accounts.map((account) => account.id);
+  }
+
   async findIdsByOrganizationId(
     organizationId: string,
     db: DatabaseClient = prisma,

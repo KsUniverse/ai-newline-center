@@ -126,6 +126,7 @@ model DouyinAccount {
   organizationId String
   organization   Organization      @relation(fields: [organizationId], references: [id])
   videos         DouyinVideo[]
+  collectionVideos EmployeeCollectionVideo[]
   loginSessions  DouyinLoginSession[]
   lastSyncedAt   DateTime?
   createdAt      DateTime          @default(now())
@@ -135,6 +136,19 @@ model DouyinAccount {
   @@index([userId])
   @@index([organizationId])
   @@map("douyin_accounts")
+}
+
+model EmployeeCollectionVideo {
+  id              String        @id @default(cuid())
+  accountId       String
+  account         DouyinAccount @relation(fields: [accountId], references: [id])
+  awemeId         String
+  authorSecUserId String?
+  createdAt       DateTime      @default(now())
+
+  @@unique([accountId, awemeId])
+  @@index([accountId, createdAt])
+  @@map("employee_collection_videos")
 }
 
 model DouyinLoginSession {
@@ -148,7 +162,6 @@ model DouyinLoginSession {
   purpose            DouyinLoginSessionPurpose
   status             DouyinLoginSessionStatus @default(CREATED)
   qrcodeDataUrl      String?
-  tempStatePath      String?
   resolvedSecUserId  String?
   errorCode          String?
   errorMessage       String?

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { ensureServerBootstrap } from "@/lib/server-bootstrap";
 import { userRepository } from "@/server/repositories/user.repository";
 import { userService } from "@/server/services/user.service";
 
@@ -21,7 +22,7 @@ const sessionTokenSchema = z.object({
   organizationId: z.string(),
 });
 
-export const { auth, handlers, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   secret: env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
@@ -97,3 +98,12 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     },
   },
 });
+
+const baseAuth = nextAuth.auth;
+
+export const { handlers, signIn, signOut } = nextAuth;
+
+export const auth = (async (...args: Parameters<typeof baseAuth>) => {
+  await ensureServerBootstrap();
+  return baseAuth(...args);
+}) as unknown as typeof baseAuth;

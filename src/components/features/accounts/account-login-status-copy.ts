@@ -1,5 +1,6 @@
 import type {
   DouyinAccountLoginStatus,
+  DouyinLoginSessionCurrentStep,
   DouyinLoginSessionDTO,
   DouyinLoginSessionPurpose,
   DouyinLoginSessionStatus,
@@ -26,6 +27,81 @@ interface AccountLoginStatusMeta {
   dotClassName: string;
 }
 
+export interface AccountLoginProcessStep {
+  key: string;
+  label: string;
+  state: "done" | "active" | "upcoming" | "failed";
+}
+
+interface LoginProcessStepDefinition {
+  key: string;
+  label: string;
+  activeSteps: DouyinLoginSessionCurrentStep[];
+}
+
+const BASE_PROCESS_STEPS: LoginProcessStepDefinition[] = [
+  {
+    key: "browser",
+    label: "启动浏览器",
+    activeSteps: ["PREPARING_BROWSER", "OPENING_LOGIN_PAGE", "FETCHING_QRCODE"],
+  },
+  {
+    key: "qrcode",
+    label: "二维码待扫码",
+    activeSteps: ["WAITING_FOR_SCAN"],
+  },
+  {
+    key: "confirm",
+    label: "手机确认登录",
+    activeSteps: ["WAITING_FOR_CONFIRM"],
+  },
+  {
+    key: "identity",
+    label: "识别账号身份",
+    activeSteps: ["PERSISTING_LOGIN_STATE", "RESOLVING_IDENTITY", "FETCHING_PROFILE"],
+  },
+];
+
+const CREATE_ACCOUNT_FINAL_STEP: LoginProcessStepDefinition = {
+  key: "finalize",
+  label: "创建账号并同步",
+  activeSteps: ["CREATING_ACCOUNT", "SYNCING_ACCOUNT", "SUCCESS"],
+};
+
+const RELOGIN_FINAL_STEP: LoginProcessStepDefinition = {
+  key: "finalize",
+  label: "更新登录态",
+  activeSteps: ["UPDATING_ACCOUNT_LOGIN_STATE", "SUCCESS"],
+};
+
+function getProcessStepDefinitions(
+  purpose: DouyinLoginSessionPurpose,
+): LoginProcessStepDefinition[] {
+  return [
+    ...BASE_PROCESS_STEPS,
+    purpose === "CREATE_ACCOUNT" ? CREATE_ACCOUNT_FINAL_STEP : RELOGIN_FINAL_STEP,
+  ];
+}
+
+function getCurrentProcessIndex(
+  currentStep: DouyinLoginSessionCurrentStep,
+  definitions: LoginProcessStepDefinition[],
+): number {
+  const index = definitions.findIndex((definition) =>
+    definition.activeSteps.includes(currentStep),
+  );
+
+  if (index >= 0) {
+    return index;
+  }
+
+  if (currentStep === "FAILED" || currentStep === "EXPIRED" || currentStep === "CANCELLED") {
+    return definitions.findIndex((definition) => definition.key === "finalize");
+  }
+
+  return 0;
+}
+
 export function isDouyinLoginSessionTerminal(status: DouyinLoginSessionStatus): boolean {
   return (
     status === "SUCCESS" ||
@@ -33,6 +109,33 @@ export function isDouyinLoginSessionTerminal(status: DouyinLoginSessionStatus): 
     status === "EXPIRED" ||
     status === "CANCELLED"
   );
+}
+
+export function getAccountLoginProcessSteps(
+  purpose: DouyinLoginSessionPurpose,
+  session: DouyinLoginSessionDTO | null,
+): AccountLoginProcessStep[] {
+  const definitions = getProcessStepDefinitions(purpose);
+  const currentStep = session?.currentStep ?? "PREPARING_BROWSER";
+  const currentIndex = getCurrentProcessIndex(currentStep, definitions);
+  const isFailed =
+    currentStep === "FAILED" || currentStep === "EXPIRED" || currentStep === "CANCELLED";
+
+  return definitions.map((definition, index) => {
+    if (isFailed && index === currentIndex) {
+      return { key: definition.key, label: definition.label, state: "failed" };
+    }
+
+    if (index < currentIndex) {
+      return { key: definition.key, label: definition.label, state: "done" };
+    }
+
+    if (index === currentIndex) {
+      return { key: definition.key, label: definition.label, state: "active" };
+    }
+
+    return { key: definition.key, label: definition.label, state: "upcoming" };
+  });
 }
 
 export function mapLoginSessionToViewState(

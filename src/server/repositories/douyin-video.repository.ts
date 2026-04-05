@@ -35,6 +35,17 @@ export type DouyinVideoWithAccountOrganization = Prisma.DouyinVideoGetPayload<{
   };
 }>;
 
+export type DouyinVideoWithLatestSnapshot = Prisma.DouyinVideoGetPayload<{
+  include: {
+    snapshots: {
+      orderBy: {
+        timestamp: "desc";
+      };
+      take: 1;
+    };
+  };
+}>;
+
 class DouyinVideoRepository {
   async upsertByVideoId(
     data: {
@@ -119,6 +130,30 @@ class DouyinVideoRepository {
         deletedAt: null,
         account: {
           deletedAt: null,
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+  }
+
+  async findAllActiveForSnapshotSync(
+    db: DatabaseClient = prisma,
+  ): Promise<DouyinVideoWithLatestSnapshot[]> {
+    return db.douyinVideo.findMany({
+      where: {
+        deletedAt: null,
+        account: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        snapshots: {
+          orderBy: {
+            timestamp: "desc",
+          },
+          take: 1,
         },
       },
       orderBy: {

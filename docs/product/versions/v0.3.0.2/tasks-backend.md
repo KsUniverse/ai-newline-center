@@ -1,4 +1,4 @@
-# v0.3.0.2 后端任务清单
+﻿# v0.3.0.2 后端任务清单
 
 ## 必读文档
 
@@ -63,10 +63,10 @@
 - src/lib/env.ts
 
 详情：
-- 统一管理临时 / 正式 storageState 路径。
+- 统一管理临时 / 正式 storageState 路径，并以 www.douyin.com 主站会话为唯一登录来源。
 - 为每个 loginSessionId 维护独立 Browser Context。
 - 在首次创建登录会话前校验 Chromium 可启动、私有目录存在且可写。
-- 默认登录入口走 creator.douyin.com。
+- 默认登录入口走 www.douyin.com 主站登录弹框。
 
 验收：
 1. 每个 loginSessionId 只对应一个独立 Browser Context。
@@ -126,7 +126,7 @@
 - src/server/services/douyin-login-session-manager.ts
 
 详情：
-- 登录成功时监听 aweme/favorite 请求，直接提取 request header 中的完整 cookie 原值。
+- 登录成功时仅监听 www.douyin.com 主站内触发的 aweme/favorite 请求，直接提取 request header 中的完整 cookie 原值。
 - crawlerService.fetchCollectionVideos 的服务层签名固定为 fetchCollectionVideos({ secUserId, cookieHeader })。
 - crawler 不接收 storageState 文件、文件路径或文件内容对象。
 
@@ -234,7 +234,7 @@
 - `AccountDetailPageView`：使用真实 `apiClient.get` 调用 `/douyin-accounts/{id}`，无 mock ✅
 - `AccountReloginDialog`：已提升至页面级（`account-detail-page.tsx`），由 `reloginOpen` state 管理 ✅
 - `AccountDetailHeader`：通过 `onReloginOpen` 回调委托，自身不持有 relogin 状态 ✅
-- `AccountLoginStatusCard`：对应组件文件标注为废弃，`index.ts` 不导出，符合设计 ✅
+- 账号详情页右侧登录状态卡片已移除，不再参与详情页布局；头部状态徽标与“更新登录”入口保留 ✅
 
 ### 6. 修复记录
 
@@ -268,3 +268,6 @@
 |------|------------|
 | `docs/architecture/backend.md` | 在"数据安全"或"DTO 规范"节补充：凭证类字段（Cookie header、storageState 路径等）只允许在 Service/Repository 层流转，禁止映射到对外 DTO。 |
 | `docs/standards/coding-standards.md` | 补充条目：`favoriteCookieHeader`、`loginStatePath` 等服务端内部字段不得出现在 `*DTO` 类型定义中。 |
+
+
+

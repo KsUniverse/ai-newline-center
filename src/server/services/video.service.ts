@@ -67,7 +67,7 @@ class VideoService {
   private async resolveVisibleAccountIds(caller: SessionUser): Promise<string[] | undefined> {
     switch (caller.role) {
       case UserRole.EMPLOYEE:
-        return douyinAccountRepository.findIdsByUserId(caller.id);
+        return douyinAccountRepository.findMyAccountIdsByUserId(caller.id);
       case UserRole.BRANCH_MANAGER:
         return douyinAccountRepository.findIdsByOrganizationId(caller.organizationId);
       case UserRole.SUPER_ADMIN:

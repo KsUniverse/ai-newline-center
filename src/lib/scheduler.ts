@@ -3,19 +3,25 @@ import cron from "node-cron";
 import { env } from "@/lib/env";
 import { syncService } from "@/server/services/sync.service";
 
-let initialized = false;
+declare global {
+  // Persist scheduler registration across Next.js dev hot reloads in the same process.
+  var __schedulerInitialized: boolean | undefined;
+}
 
 export function startScheduler(): void {
-  if (initialized) {
+  if (globalThis.__schedulerInitialized) {
+    console.log("[Scheduler] already initialized, skipping", {
+      pid: process.pid,
+    });
     return;
   }
 
-  initialized = true;
+  globalThis.__schedulerInitialized = true;
 
-  const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "0 */1 * * *";
+  const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "3 * * * *";
   const videoSyncCron = env.VIDEO_SYNC_CRON ?? "*/10 * * * *";
   const videoSnapshotCron = env.VIDEO_SNAPSHOT_CRON ?? "*/10 * * * *";
-  const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/5 * * * *";
+  const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/15 * * * *";
   let accountSyncRunning = false;
   let videoSyncRunning = false;
   let videoSnapshotRunning = false;

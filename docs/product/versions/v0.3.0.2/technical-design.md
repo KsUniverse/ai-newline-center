@@ -1,4 +1,4 @@
-# v0.3.0.2 技术设计方案
+﻿# v0.3.0.2 技术设计方案
 
 > 版本: v0.3.0.2  
 > 设计日期: 2026-04-04  
@@ -35,7 +35,7 @@
 
 ### 本版目标
 
-- 在系统网页内发起抖音扫码登录，前端通过轮询获取二维码与状态变化。
+- 在 www.douyin.com 主站登录弹框内发起抖音扫码登录，前端通过轮询获取二维码与状态变化。
 - 登录成功后，服务端以账号维度保存正式 storageState，并可识别其登录状态。
 - CREATE_ACCOUNT 场景下，服务端在登录成功后解析 secUserId，解析成功则自动创建 MY_ACCOUNT。
 - 已存在账号支持重新登录，登录成功后只重绑该账号自己的登录态。
@@ -159,12 +159,12 @@ EXPIRED -> PENDING
 职责：
 - 为每个 loginSessionId 创建独立 Browser Context。
 - 获取二维码、监听扫码和确认状态。
-- 监听 aweme/favorite 请求并捕获 sec_user_id 与 cookie。
-- 登录确认后把 storageState 落到临时文件，并用新 Context 做一次持久化校验。
+- 监听 www.douyin.com 主站内的 aweme/favorite 请求并捕获 sec_user_id 与 cookie。
+- 登录确认后把 storageState 落到临时文件，并用新的主站 Context 访问 jingxuan 做一次持久化校验。
 - 会话结束后统一清理 browser / context / page。
 
 关键策略：
-- 默认登录入口使用 creator.douyin.com。
+- 默认登录入口使用 www.douyin.com 主站登录弹框。
 - 只保留必要的二维码提取逻辑和登录确认逻辑。
 - 超时会话由服务端 TTL 主动回收，而不是依赖前端持续轮询。
 
@@ -269,3 +269,5 @@ EXPIRED -> PENDING
 4. DouyinAuthService + API：实现创建 / 轮询 / 刷新 / 取消 / 重登录。
 5. 自动建号：接入 DouyinAccountService 的账号创建与正式文件迁移。
 6. Crawler + Sync：完成 Cookie header 透传与收藏同步改造。
+
+

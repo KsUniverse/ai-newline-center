@@ -1,23 +1,16 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api-client";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
-import { cn } from "@/lib/utils";
 import type { PaginatedData } from "@/types/api";
 import type { DouyinAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 import { AccountDetailHeader } from "./account-detail-header";
 import { AccountReloginDialog } from "./account-relogin-dialog";
@@ -42,7 +35,9 @@ export function AccountDetailPageView() {
   const [reloginOpen, setReloginOpen] = useState(false);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
-  const { isRefreshing } = useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
+  const hasLoadedAccountRef = useRef(false);
+  const hasLoadedVideosRef = useRef(false);
+  useAutoRefresh(60_000, () => setRefreshKey((k) => k + 1));
 
   const accountId = params.id;
   const canRelogin = session?.user?.role === "EMPLOYEE";
@@ -55,21 +50,25 @@ export function AccountDetailPageView() {
     let cancelled = false;
 
     async function loadAccount() {
+      const shouldShowLoading = !hasLoadedAccountRef.current;
       try {
-        setLoading(true);
+        if (shouldShowLoading) {
+          setLoading(true);
+        }
         const result = await apiClient.get<DouyinAccountDetailDTO>(`/douyin-accounts/${accountId}`);
         if (!cancelled) {
           setAccount(result);
           setError("");
+          hasLoadedAccountRef.current = true;
         }
       } catch (error) {
         if (!cancelled) {
-          const message = error instanceof ApiError ? error.message : "加载账号信息失败";
+          const message = error instanceof ApiError ? error.message : "鍔犺浇璐﹀彿淇℃伅澶辫触";
           setError(message);
           toast.error(message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && shouldShowLoading) {
           setLoading(false);
         }
       }
@@ -89,21 +88,25 @@ export function AccountDetailPageView() {
     let cancelled = false;
 
     async function loadVideos() {
+      const shouldShowLoading = !hasLoadedVideosRef.current;
       try {
-        setVideosLoading(true);
+        if (shouldShowLoading) {
+          setVideosLoading(true);
+        }
         const result = await apiClient.get<PaginatedData<DouyinVideoDTO>>(
           `/douyin-accounts/${accountId}/videos?page=${videoPage}&limit=${VIDEOS_PER_PAGE}`,
         );
         if (!cancelled) {
           setVideos(result.items);
           setVideosTotal(result.total);
+          hasLoadedVideosRef.current = true;
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "加载视频列表失败");
+          toast.error(error instanceof ApiError ? error.message : "鍔犺浇瑙嗛鍒楄〃澶辫触");
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && shouldShowLoading) {
           setVideosLoading(false);
         }
       }
@@ -139,7 +142,7 @@ export function AccountDetailPageView() {
       <div className="flex flex-1 flex-col items-center justify-center gap-4">
         <p className="text-sm text-muted-foreground">{error}</p>
         <Button variant="outline" size="sm" onClick={() => router.push("/accounts")}>
-          返回账号列表
+          杩斿洖璐﹀彿鍒楄〃
         </Button>
       </div>
     );
@@ -155,23 +158,8 @@ export function AccountDetailPageView() {
           onClick={() => router.push("/accounts")}
         >
           <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-          返回
+          杩斿洖
         </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground/50 shrink-0",
-                  isRefreshing && "animate-spin",
-                )}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>每 60 秒自动刷新</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
 
       <div className="animate-in-up-d1">
@@ -195,7 +183,7 @@ export function AccountDetailPageView() {
 
       <div className="animate-in-up-d2 min-w-0 space-y-3">
         <div className="min-w-0 flex-1 space-y-3">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground/90">视频列表</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground/90">瑙嗛鍒楄〃</h3>
           <VideoList
             videos={videos}
             total={videosTotal}
@@ -229,3 +217,4 @@ export function AccountDetailPageView() {
     </div>
   );
 }
+

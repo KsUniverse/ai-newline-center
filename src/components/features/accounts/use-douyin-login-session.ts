@@ -20,12 +20,15 @@ interface UseDouyinLoginSessionOptions {
   purpose: DouyinLoginSessionPurpose;
   accountId?: string;
   autoStartKey?: string | null;
-  pollIntervalMs?: number;
   onSuccess?: (session: DouyinLoginSessionDTO) => void;
 }
 
 interface CancelSessionOptions {
   silent?: boolean;
+}
+
+interface SessionStreamPayload {
+  session: DouyinLoginSessionDTO;
 }
 
 function getApiErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -36,7 +39,6 @@ export function useDouyinLoginSession({
   purpose,
   accountId,
   autoStartKey = null,
-  pollIntervalMs = 5000,
   onSuccess,
 }: UseDouyinLoginSessionOptions) {
   const [session, setSession] = useState<DouyinLoginSessionDTO | null>(null);
@@ -49,8 +51,12 @@ export function useDouyinLoginSession({
   const sessionRef = useRef<DouyinLoginSessionDTO | null>(null);
   const autoStartedKeyRef = useRef<string | null>(null);
   const successHandledRef = useRef(false);
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isPollingRef = useRef(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const onSuccessRef = useRef(onSuccess);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   const applySession = useCallback(
     (nextSession: DouyinLoginSessionDTO | null, creatingSession: boolean = false) => {
@@ -61,42 +67,43 @@ export function useDouyinLoginSession({
       if (nextSession?.status === "SUCCESS") {
         if (!successHandledRef.current) {
           successHandledRef.current = true;
-          onSuccess?.(nextSession);
+          onSuccessRef.current?.(nextSession);
         }
         return;
       }
 
       successHandledRef.current = false;
     },
-    [onSuccess],
+    [],
   );
 
-  const clearPollTimer = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
+  const closeEventSource = useCallback(() => {
+    if (!eventSourceRef.current) {
+      return;
     }
+
+    eventSourceRef.current.close();
+    eventSourceRef.current = null;
   }, []);
 
   const reset = useCallback(() => {
-    clearPollTimer();
+    closeEventSource();
     sessionRef.current = null;
     successHandledRef.current = false;
-    isPollingRef.current = false;
     setSession(null);
     setViewState("IDLE");
     setIsStarting(false);
     setIsRefreshing(false);
     setIsCancelling(false);
     setPollError(null);
-  }, [clearPollTimer]);
+  }, [closeEventSource]);
 
   const startSession = useCallback(async () => {
     if (isStarting) {
       return;
     }
 
-    clearPollTimer();
+    closeEventSource();
     setPollError(null);
     setIsStarting(true);
     applySession(null, true);
@@ -122,7 +129,7 @@ export function useDouyinLoginSession({
     } finally {
       setIsStarting(false);
     }
-  }, [accountId, applySession, clearPollTimer, isStarting, purpose]);
+  }, [accountId, applySession, closeEventSource, isStarting, purpose]);
 
   const refreshSession = useCallback(async () => {
     const currentSession = sessionRef.current;
@@ -158,6 +165,7 @@ export function useDouyinLoginSession({
       try {
         const nextSession = await douyinLoginSessionClient.cancelSession(currentSession.id);
         applySession(nextSession);
+        closeEventSource();
       } catch (error) {
         if (!options?.silent) {
           setPollError(getApiErrorMessage(error, "取消登录失败，请稍后重试"));
@@ -166,7 +174,7 @@ export function useDouyinLoginSession({
         setIsCancelling(false);
       }
     },
-    [applySession],
+    [applySession, closeEventSource],
   );
 
   useEffect(() => {
@@ -187,35 +195,91 @@ export function useDouyinLoginSession({
     const currentSession = sessionRef.current;
 
     if (!currentSession?.id || isStarting || isDouyinLoginSessionTerminal(currentSession.status)) {
-      clearPollTimer();
+      closeEventSource();
       return;
     }
 
-    pollTimerRef.current = setTimeout(() => {
-      if (isPollingRef.current) {
+    const source = new EventSource(
+      `/api/douyin-account-login-sessions/${currentSession.id}/sse`,
+    );
+    eventSourceRef.current = source;
+
+    const handlePayload = (event: MessageEvent) => {
+      const payload = JSON.parse(event.data as string) as SessionStreamPayload;
+      setPollError(null);
+      applySession(payload.session);
+
+      if (isDouyinLoginSessionTerminal(payload.session.status)) {
+        source.close();
+        if (eventSourceRef.current === source) {
+          eventSourceRef.current = null;
+        }
+      }
+    };
+
+    source.addEventListener("status", handlePayload);
+    source.addEventListener("done", (event: Event) => {
+      if (event instanceof MessageEvent) {
+        handlePayload(event);
+      }
+      source.close();
+      if (eventSourceRef.current === source) {
+        eventSourceRef.current = null;
+      }
+    });
+    source.addEventListener("session-error", (event: Event) => {
+      if (event instanceof MessageEvent) {
+        try {
+          const payload = JSON.parse(event.data as string) as SessionStreamPayload;
+          applySession(payload.session);
+        } catch {
+          setPollError("登录状态同步失败，请稍后重试");
+        }
+        source.close();
+        if (eventSourceRef.current === source) {
+          eventSourceRef.current = null;
+        }
+      }
+    });
+    source.onerror = (event: Event) => {
+      if (event instanceof MessageEvent) {
         return;
       }
 
-      isPollingRef.current = true;
+      const currentSessionId = sessionRef.current?.id;
+      if (!currentSessionId) {
+        return;
+      }
 
       void douyinLoginSessionClient
-        .getSession(currentSession.id)
+        .getSession(currentSessionId)
         .then((nextSession) => {
           setPollError(null);
           applySession(nextSession);
+
+          if (isDouyinLoginSessionTerminal(nextSession.status)) {
+            source.close();
+            if (eventSourceRef.current === source) {
+              eventSourceRef.current = null;
+            }
+          }
         })
         .catch((error: unknown) => {
-          setPollError(getApiErrorMessage(error, "登录状态刷新失败，请检查网络后重试"));
-        })
-        .finally(() => {
-          isPollingRef.current = false;
+          setPollError(
+            getApiErrorMessage(error, "登录状态订阅已中断，请刷新二维码后重试"),
+          );
         });
-    }, pollIntervalMs);
+    };
 
-    return clearPollTimer;
-  }, [applySession, clearPollTimer, isStarting, pollIntervalMs, session]);
+    return () => {
+      source.close();
+      if (eventSourceRef.current === source) {
+        eventSourceRef.current = null;
+      }
+    };
+  }, [applySession, closeEventSource, isStarting, session?.id]);
 
-  useEffect(() => clearPollTimer, [clearPollTimer]);
+  useEffect(() => closeEventSource, [closeEventSource]);
 
   return {
     session,

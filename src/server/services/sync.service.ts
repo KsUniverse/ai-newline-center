@@ -3,13 +3,18 @@
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
+import { employeeCollectionVideoRepository } from "@/server/repositories/employee-collection-video.repository";
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { crawlerService } from "@/server/services/crawler.service";
 import { storageService } from "@/server/services/storage.service";
 
 const INITIAL_SYNC_LIMIT = 10;
-const INCREMENTAL_BATCH_SIZE = 4;
+const INCREMENTAL_BATCH_SIZE = 5;
 const MAX_INCREMENTAL_BATCHES = 10;
+const COLLECTION_BATCH_SIZE = 30;
+const RECENT_VIDEO_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MID_TERM_VIDEO_WINDOW_MS = 72 * 60 * 60 * 1000;
+const MID_TERM_VIDEO_SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
 class SyncService {
   async runAccountInfoBatchSync(): Promise<void> {
@@ -49,9 +54,15 @@ class SyncService {
   }
 
   async runVideoSnapshotCollection(): Promise<void> {
-    const videos = await douyinVideoRepository.findAllActive();
+    const videos = await douyinVideoRepository.findAllActiveForSnapshotSync();
+    const now = Date.now();
 
     for (const video of videos) {
+      const latestSnapshotAt = video.snapshots[0]?.timestamp ?? null;
+      if (!this.shouldSyncVideoSnapshot(video.publishedAt, latestSnapshotAt, now)) {
+        continue;
+      }
+
       try {
         const detail = await crawlerService.fetchOneVideo(video.videoId);
 
@@ -79,6 +90,31 @@ class SyncService {
         });
       }
     }
+  }
+
+  private shouldSyncVideoSnapshot(
+    publishedAt: Date | null,
+    lastSnapshotAt: Date | null,
+    nowMs: number,
+  ): boolean {
+    if (!publishedAt) {
+      return true;
+    }
+
+    const ageMs = nowMs - publishedAt.getTime();
+    if (ageMs <= RECENT_VIDEO_WINDOW_MS) {
+      return true;
+    }
+
+    if (ageMs > MID_TERM_VIDEO_WINDOW_MS) {
+      return false;
+    }
+
+    if (!lastSnapshotAt) {
+      return true;
+    }
+
+    return nowMs - lastSnapshotAt.getTime() >= MID_TERM_VIDEO_SYNC_INTERVAL_MS;
   }
 
   async syncAccount(
@@ -113,7 +149,6 @@ class SyncService {
   async runCollectionSync(): Promise<void> {
     try {
       const accounts = await douyinAccountRepository.findAllMyAccountsForCollection();
-      const windowStart = new Date(Date.now() - 60 * 60 * 1000);
 
       console.log(`[CollectionSync] 开始，共扫描 ${accounts.length} 个员工账号`);
 
@@ -130,85 +165,122 @@ class SyncService {
             );
             continue;
           }
-          const result = await crawlerService.fetchCollectionVideos({
-            // query includes requireSecUserId: true, so secUserId is non-null here
-            secUserId: account.secUserId as string,
-            cookieHeader: account.favoriteCookieHeader,
-          });
 
-          for (const item of result.items) {
-            // collectedAt 为 null（爬虫未返回字段）→ 视为状态未知，继续处理（由 findBySecUserIdIncludingDeleted 去重）
-            // collectedAt 有值但早于时间窗口 → 跳过（continue，不 break，防止 API 返回乱序）
-            if (item.collectedAt !== null && item.collectedAt < windowStart) {
-              continue;
-            }
+          const hasCollectionBaseline = await employeeCollectionVideoRepository.existsForAccount(
+            account.id,
+          );
+          let cursor = 0;
+          let shouldContinuePaging = true;
 
-            if (!item.authorSecUserId) {
-              console.warn("[CollectionSync] 跳过无 authorSecUserId 的 item", {
-                accountId: account.id,
-                awemeId: item.awemeId,
-              });
-              continue;
-            }
+          while (shouldContinuePaging) {
+            const result = await crawlerService.fetchCollectionVideos({
+              cookieHeader: account.favoriteCookieHeader,
+              cursor,
+              count: COLLECTION_BATCH_SIZE,
+            });
 
-            const existing = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
-              item.authorSecUserId,
-            );
-            if (existing) {
-              continue;
-            }
+            let pageHitExistingCollection = false;
 
-            try {
-              console.log(
-                `[CollectionSync] 发现新博主 secUserId=${item.authorSecUserId}，准备创建 BENCHMARK_ACCOUNT`,
-              );
-              const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
-
-              const created = await douyinAccountRepository.createBenchmark({
-                profileUrl:
-                  profile.secUserId
-                    ? `https://www.douyin.com/user/${profile.secUserId}`
-                    : `https://www.douyin.com/user/${item.authorSecUserId}`,
-                secUserId: item.authorSecUserId,
-                nickname: profile.nickname,
-                avatar: profile.avatar,
-                bio: profile.bio,
-                signature: profile.signature,
-                followersCount: profile.followersCount,
-                followingCount: profile.followingCount,
-                likesCount: profile.likesCount,
-                videosCount: profile.videosCount,
-                douyinNumber: profile.douyinNumber,
-                ipLocation: profile.ipLocation,
-                age: profile.age,
-                province: profile.province,
-                city: profile.city,
-                verificationLabel: profile.verificationLabel,
-                verificationIconUrl: profile.verificationIconUrl,
-                verificationType: profile.verificationType,
-                userId: account.userId,
-                organizationId: account.organizationId,
-              });
-              console.log(
-                `[CollectionSync] BENCHMARK_ACCOUNT 创建成功 secUserId=${item.authorSecUserId} id=${created.id}`,
-              );
-            } catch (error) {
-              if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === "P2002"
-              ) {
-                console.log(
-                  `[CollectionSync] secUserId=${item.authorSecUserId} 已存在（并发写冲突），跳过`,
-                );
+            for (const item of result.items) {
+              if (!item.awemeId) {
+                console.warn("[CollectionSync] 跳过无 awemeId 的收藏 item", {
+                  accountId: account.id,
+                  authorSecUserId: item.authorSecUserId,
+                });
                 continue;
               }
 
-              console.error("[CollectionSync] 创建 BENCHMARK_ACCOUNT 失败", {
+              const existingCollection = await employeeCollectionVideoRepository.existsByAccountAndAwemeId(
+                account.id,
+                item.awemeId,
+              );
+
+              if (hasCollectionBaseline && existingCollection) {
+                pageHitExistingCollection = true;
+                shouldContinuePaging = false;
+                break;
+              }
+
+              await employeeCollectionVideoRepository.create({
                 accountId: account.id,
+                awemeId: item.awemeId,
                 authorSecUserId: item.authorSecUserId,
-                error,
               });
+
+              if (!item.authorSecUserId) {
+                console.warn("[CollectionSync] 跳过无 authorSecUserId 的 item", {
+                  accountId: account.id,
+                  awemeId: item.awemeId,
+                });
+                continue;
+              }
+
+              const existing = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
+                item.authorSecUserId,
+              );
+              if (existing) {
+                continue;
+              }
+
+              try {
+                console.log(
+                  `[CollectionSync] 发现新博主 secUserId=${item.authorSecUserId}，准备创建 BENCHMARK_ACCOUNT`,
+                );
+                const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
+
+                const created = await douyinAccountRepository.createBenchmark({
+                  profileUrl:
+                    profile.secUserId
+                      ? `https://www.douyin.com/user/${profile.secUserId}`
+                      : `https://www.douyin.com/user/${item.authorSecUserId}`,
+                  secUserId: item.authorSecUserId,
+                  nickname: profile.nickname,
+                  avatar: profile.avatar,
+                  bio: profile.bio,
+                  signature: profile.signature,
+                  followersCount: profile.followersCount,
+                  followingCount: profile.followingCount,
+                  likesCount: profile.likesCount,
+                  videosCount: profile.videosCount,
+                  douyinNumber: profile.douyinNumber,
+                  ipLocation: profile.ipLocation,
+                  age: profile.age,
+                  province: profile.province,
+                  city: profile.city,
+                  verificationLabel: profile.verificationLabel,
+                  verificationIconUrl: profile.verificationIconUrl,
+                  verificationType: profile.verificationType,
+                  userId: account.userId,
+                  organizationId: account.organizationId,
+                });
+                console.log(
+                  `[CollectionSync] BENCHMARK_ACCOUNT 创建成功 secUserId=${item.authorSecUserId} id=${created.id}`,
+                );
+              } catch (error) {
+                if (
+                  error instanceof Prisma.PrismaClientKnownRequestError &&
+                  error.code === "P2002"
+                ) {
+                  console.log(
+                    `[CollectionSync] secUserId=${item.authorSecUserId} 已存在（并发写冲突），跳过`,
+                  );
+                  continue;
+                }
+
+                console.error("[CollectionSync] 创建 BENCHMARK_ACCOUNT 失败", {
+                  accountId: account.id,
+                  authorSecUserId: item.authorSecUserId,
+                  error,
+                });
+              }
             }
+
+            if (!hasCollectionBaseline || pageHitExistingCollection || !result.hasMore) {
+              shouldContinuePaging = false;
+              continue;
+            }
+
+            cursor = result.cursor;
           }
         } catch (error) {
           if (error instanceof AppError && error.code === "CRAWLER_AUTH_EXPIRED") {

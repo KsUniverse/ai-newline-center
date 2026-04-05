@@ -30,6 +30,23 @@ export type DouyinLoginSessionStatus =
   | "EXPIRED"
   | "CANCELLED";
 
+export type DouyinLoginSessionCurrentStep =
+  | "PREPARING_BROWSER"
+  | "OPENING_LOGIN_PAGE"
+  | "FETCHING_QRCODE"
+  | "WAITING_FOR_SCAN"
+  | "WAITING_FOR_CONFIRM"
+  | "PERSISTING_LOGIN_STATE"
+  | "RESOLVING_IDENTITY"
+  | "FETCHING_PROFILE"
+  | "CREATING_ACCOUNT"
+  | "UPDATING_ACCOUNT_LOGIN_STATE"
+  | "SYNCING_ACCOUNT"
+  | "SUCCESS"
+  | "FAILED"
+  | "EXPIRED"
+  | "CANCELLED";
+
 export interface DouyinAccountDTO {
   id: string;
   profileUrl: string;
@@ -130,6 +147,7 @@ export interface DouyinLoginSessionDTO {
   id: string;
   purpose: DouyinLoginSessionPurpose;
   status: DouyinLoginSessionStatus;
+  currentStep: DouyinLoginSessionCurrentStep;
   qrcodeDataUrl: string | null;
   expiresAt: string | null;
   resolvedSecUserId: string | null;

@@ -134,7 +134,8 @@ describe("parseEnv", () => {
       NODE_ENV: "development",
     });
 
-    expect(result.DOUYIN_LOGIN_PAGE_URL).toBe("https://creator.douyin.com/");
+    expect(result.DOUYIN_LOGIN_PAGE_URL).toBe("https://www.douyin.com/");
+    expect(result.DOUYIN_LOGIN_OPEN_DEVTOOLS).toBe(false);
     expect(result.DOUYIN_LOGIN_TIMEOUT_MS).toBe(180000);
     expect(result.DOUYIN_LOGIN_STATE_DIR).toBeUndefined();
   });
