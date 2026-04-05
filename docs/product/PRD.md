@@ -98,7 +98,7 @@
 
 - **描述**: 员工添加自己管理的抖音账号
 - **交互**: 我的账号页 → 点击添加 → 输入抖音主页链接 → 提交 → 调用爬虫获取账号基本信息 → 展示确认
-- **数据**: DouyinAccount (主页链接、secUserId、账号昵称、头像、粉丝数、作品数、简介、归属员工ID、类型=MY_ACCOUNT)
+- **数据**: DouyinAccount (主页链接、secUserId、账号昵称、头像、粉丝数、作品数、简介、归属员工ID)
 - **爬虫对接（两步流程）**:
   1. **URL → secUserId**: 调用 `/api/douyin/web/get_sec_user_id`，传入 profileUrl，获取 `sec_user_id`
   2. **secUserId → 账号信息**: 调用 `/api/douyin/web/handler_user_profile`，传入 sec_user_id，获取昵称、头像、粉丝数、作品数、简介等
@@ -116,11 +116,11 @@
 
 - **描述**: 通过全局定时任务扫描所有账号，分别同步账号基础信息和视频列表
 - **交互**: 系统定时任务自动执行；用户可在账号详情页手动触发同步
-- **数据**: DouyinAccount (更新字段) + DouyinVideo (视频ID、标题、封面、发布时间、播放量、点赞数、评论数、转发数、视频链接)
+- **数据**: 我的账号使用 DouyinAccount + DouyinVideo；对标账号使用 BenchmarkAccount + BenchmarkVideo
 - **定时器拆分**: 本功能包含三个独立定时器，各自配置运行间隔：
-  - **账号信息同步定时器**: 全局扫描所有 DouyinAccount（含 MY_ACCOUNT 和 BENCHMARK_ACCOUNT），更新粉丝数、作品数等基础信息。频率较低（默认 1 小时）
-  - **视频同步定时器**: 全局扫描所有 DouyinAccount，增量抓取新发布视频 + 更新已有视频的数据指标。频率较高（默认 10 分钟）
-  - **视频快照定时器**: 全局扫描所有 DouyinVideo，通过 `/api/douyin/web/fetch_one_video` 逐条采集最新播放数据，写入 VideoSnapshot 记录。频率最高（默认 10 分钟）
+  - **账号信息同步定时器**: 全局扫描 DouyinAccount（我的账号）与 BenchmarkAccount（对标账号），更新粉丝数、作品数等基础信息；同一 secUserId 在单次任务内去重请求爬虫。频率较低（默认 1 小时）
+  - **视频同步定时器**: 全局扫描 DouyinAccount 与 BenchmarkAccount，分别增量抓取到 DouyinVideo 与 BenchmarkVideo；同一 secUserId 在单次任务内复用 crawler 结果。频率较高（默认 10 分钟）
+  - **视频快照定时器**: 全局扫描 DouyinVideo 与 BenchmarkVideo，通过 `/api/douyin/web/fetch_one_video` 逐条采集最新播放数据，分别写入 VideoSnapshot 与 BenchmarkVideoSnapshot；同一 awemeId 在单次任务内去重请求。频率最高（默认 10 分钟）
 - **爬虫对接**:
   - **账号信息同步**: 调用 `/api/douyin/web/handler_user_profile`（secUserId），更新账号基础信息
   - **视频列表同步**: 通过 secUserId 获取视频列表。首次同步取前 10 条；后续增量同步取最新 5 条，遇到 DB 已存在的 videoId 即停止
@@ -156,10 +156,10 @@
 
 ### 概述
 
-员工在抖音 App 收藏视频后，平台定时爬取收藏列表，自动发现对标博主。这是输入端——提供爆款内容作为 AI 拆解素材。数据结构与"我的账号"几乎一致（复用 DouyinAccount + DouyinVideo），但 type 为 BENCHMARK_ACCOUNT，业务上独立管理。
+员工在抖音 App 收藏视频后，平台定时爬取收藏列表，自动发现对标博主。这是输入端——提供爆款内容作为 AI 拆解素材。对标域使用独立的 BenchmarkAccount、BenchmarkAccountMember、BenchmarkVideo 存储，业务上与"我的账号"完全解耦，但继续复用现有 API 路径与前端 DTO。
 
 **对标账号触发链规则**:
-- 收藏同步定时器扫描员工的 **MY_ACCOUNT** 账号收藏列表 → 识别视频所属博主 → 自动创建对标账号（`type=BENCHMARK_ACCOUNT`）
+- 收藏同步定时器扫描员工的 MY_ACCOUNT 账号收藏列表 → 识别视频所属博主 → 自动创建或关联组织内对标账号（BenchmarkAccount + BenchmarkAccountMember）
 - 对标账号被创建后，自动纳入 F-001-2 的全局扫描范围（账号信息同步 + 视频同步）
 - **不递归触发收藏同步**：对标账号只同步其账号信息和视频，不爬取其收藏列表，避免无限扩散
 - 所有定时器均采用**全局扫描模式**（按配置间隔扫描所有符合条件的账号），非按账号独立注册
@@ -168,14 +168,14 @@
 
 - **描述**: 平台定时爬取员工抖音账号的收藏列表，自动发现新收藏的视频
 - **交互**: 系统自动执行。员工在"对标账号"页面看到自动同步的结果
-- **数据**: 从员工的 MY_ACCOUNT 抖音号获取收藏列表 → 识别视频 → 自动创建对标账号 (DouyinAccount, 类型=BENCHMARK_ACCOUNT)
+- **数据**: 从员工的 MY_ACCOUNT 抖音号获取收藏列表 → 识别视频作者 → 自动创建或补充组织内对标账号成员关系
 - **爬虫对接**: 调用 `/api/douyin/web/fetch_user_collection_videos`，传入 secUserId，获取收藏视频列表及其所属博主信息
 - **触发频率**: 每 15 分钟触发一次，扫描所有 `type=MY_ACCOUNT` 且 `secUserId != null` 且 `deletedAt IS NULL` 的账号；作为第四个独立定时器注册，运行间隔独立配置
 - **DB 去重增量策略**: 从最新收藏向历史方向遍历，遇到 DB 中已存在的 awemeId 时立即停止翻页；首次同步（无历史基线）时全量拉取不受限制
 - **对标账号自动创建规则**:
-  - 遇到未知博主（secUserId 不存在于 DB）时，调用 fetchUserProfile 后自动创建 BENCHMARK_ACCOUNT
-  - 同一 secUserId **全局唯一**（不按员工隔离），`userId` 设为第一个触发该博主收藏的员工（first-creator 语义），`organizationId` 取该员工的组织
-  - 已归档的对标账号（`deletedAt != null`）：同一博主被再次收藏时，**不自动重建、不自动恢复归档状态**，直接跳过
+  - 遇到未知博主（当前组织内 secUserId 不存在于 DB）时，调用 fetchUserProfile 后自动创建 BenchmarkAccount，并写入当前员工的 BenchmarkAccountMember
+  - 同一 secUserId 在**同一组织内唯一**；若组织内已存在未归档对标账号，则不重复创建，仅补充当前员工的成员关联
+  - 已归档的对标账号（`deletedAt != null`）：同一组织内同一博主被再次收藏时，**不自动重建、不自动恢复归档状态**，直接跳过
 - **边界**:
   - 去重：同一博主不重复创建对标账号
   - 爬虫需先爬取收藏列表，再爬取对应博主信息
@@ -184,20 +184,20 @@
 - **验收标准**:
   1. 员工在抖音收藏视频后，15 分钟内系统自动创建该博主的对标账号
   2. 对标账号展示博主基本信息
-  3. 同一博主被多个员工收藏时，对标账号只创建一次，userId 为最早触发的员工
+  3. 同一组织内同一博主被多个员工收藏时，对标账号只创建一次，并为后续员工补充成员关联
   4. 增量同步时遇到 DB 中已存在的 awemeId 停止翻页；已同步过的博主不重复创建对标账号
 
 ### F-002-2: 对标账号管理 (P0)
 
 - **描述**: 展示和管理所有对标账号及其视频内容，支持手动添加、归档（软删除）及查看归档列表
 - **交互**: 对标账号页 → 博主卡片列表 → 点击进入 → 视频列表 → 可选择视频进行 AI 拆解
-- **数据**: DouyinAccount (BENCHMARK) + DouyinVideo[]
+- **数据**: BenchmarkAccount + BenchmarkAccountMember + BenchmarkVideo[]
 - **手动添加**:
-  - 任意员工可手动输入博主主页链接添加对标账号（复用 F-001-1 的爬虫预览 Drawer，`type=BENCHMARK_ACCOUNT`）
-  - secUserId 全局唯一去重：已存在未归档账号时提示「该对标博主已存在」；已归档时提示「该对标博主已被归档，请前往归档列表查看」
+  - 任意员工可手动输入博主主页链接添加对标账号（复用 F-001-1 的爬虫预览 Drawer）
+  - 组织内 secUserId/profileUrl 去重：已存在未归档账号时直接复用该账号并补充当前员工成员关系；已归档时提示「该对标博主已被归档，请前往归档列表查看」
 - **软删除（归档）**:
-  - 仅账号创建者（`douyinAccount.userId == session.userId`）可执行归档操作；后端 API 层双重校验，非创建者返回 403
-  - 归档后 `DouyinAccount.deletedAt = now()`，账号和视频数据保留（不物理删除）
+  - 任一关联员工均可执行归档操作；后端 API 层校验当前员工是否存在于 BenchmarkAccountMember 中，非关联员工返回 403
+  - 归档后 `BenchmarkAccount.deletedAt = now()`，账号和视频数据保留（不物理删除）
   - 归档后该账号不再参与定时同步；收藏同步遇到同 secUserId 时跳过（不重建、不恢复）
 - **归档列表入口**:
   - 主列表页提供「查看已归档」文字链接（低调但可见，避免干扰主操作）→ `/benchmarks/archived`
@@ -211,7 +211,7 @@
   2. 视频列表中可快速识别哪些已拆解
   3. 可从视频直接发起拆解操作
   4. 手动添加相同 secUserId 时有明确去重提示，阻止重复创建
-  5. 员工只能归档自己创建（userId 匹配）的账号，他人账号无归档入口
+  5. 仅关联员工可归档账号，非关联员工无归档入口
   6. 归档后账号从主列表消失，数据保留；主列表页有「查看已归档」入口
 
 ---
@@ -226,7 +226,7 @@
 
 - **描述**: AI 将短视频内容转录为文字文案
 - **交互**: 在对标视频详情页 → 点击"AI转录"→ 调用 AI → 显示转录文案 → 可人工校对
-- **数据**: Transcription (视频ID、转录文本、AI模型、状态)
+- **数据**: Transcription（关联 BenchmarkVideo，记录转录文本、AI 模型、状态）
 - **边界**:
   - 转录可能不完全准确，需支持人工编辑
   - 无语音的视频处理（标题/字幕提取）

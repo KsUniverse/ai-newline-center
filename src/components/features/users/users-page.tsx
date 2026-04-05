@@ -181,8 +181,15 @@ export function UsersPageView() {
 
   return (
     <DashboardPageShell
+      eyebrow="Administration"
       title="用户管理"
-      description={isSuperAdmin ? "管理所有用户账号" : "管理本公司用户账号"}
+      description={
+        isSuperAdmin
+          ? "统一维护全平台用户账号、组织归属和启停状态。"
+          : "维护本公司用户账号、角色和启停状态。"
+      }
+      surfaceHeader
+      maxWidth="wide"
       actions={
         <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />

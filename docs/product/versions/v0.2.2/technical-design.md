@@ -11,26 +11,31 @@
 | 项目 | 内容 |
 |------|------|
 | 涉及模块 | M-002（对标账号） |
-| 新增模型 | 无（复用 `DouyinAccount` + `DouyinVideo`，通过 `type` 字段区分） |
+| 新增模型 | `BenchmarkAccount`、`BenchmarkAccountMember`、`BenchmarkVideo`、`BenchmarkVideoSnapshot` |
 | 新增 API | 6 个路由组（`/api/benchmarks/*`） |
 | 新增页面/组件 | 3 个页面 + 7 个业务组件 |
-| 架构变更 | 无 `[ARCH-CHANGE]` — 新增第 4 个定时器；账号域采用共享 Repository 条件构建，避免 `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` 重复查询 |
+| 架构变更 | `[ARCH-CHANGE]` — 对标域从 DouyinAccount / DouyinVideo 中拆出独立模型，并保留现有 API 路径与 DTO |
 
 ---
 
 ## 数据模型变更
 
-### 结论：Prisma Schema 无变更
+### 结论：Prisma Schema 拆分对标域
 
-`DouyinAccount` 模型已具备所有需要的字段：
+| 模型 | 用途 |
+|------|------|
+| `DouyinAccount` | 仅承载我的账号 |
+| `BenchmarkAccount` | 承载组织共享的对标博主 |
+| `BenchmarkAccountMember` | 记录“哪些员工与该对标账号有关联” |
+| `BenchmarkVideo` | 承载对标视频 |
+| `BenchmarkVideoSnapshot` | 承载对标视频的历史快照 |
 
-| 字段 | 已有 | 说明 |
-|------|------|------|
-| `type DouyinAccountType` | ✅ | `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` |
-| `deletedAt DateTime?` | ✅ | 软删除（归档）标准字段 |
-| `userId String` | ✅ | 归属/创建者员工 ID（first-creator 语义） |
-| `organizationId String` | ✅ | 数据隔离字段 |
-| `secUserId String? @unique` | ✅ | 全局唯一约束，确保同一博主只有一条记录 |
+关键约束：
+
+- `BenchmarkAccount` 通过 `organizationId + secUserId`、`organizationId + profileUrl` 去重
+- `BenchmarkAccount.createdByUserId` 保留首次创建者语义
+- `BenchmarkAccountMember` 通过 `benchmarkAccountId + userId` 去重
+- `Transcription` 在后续版本中关联 `BenchmarkVideo`
 
 **「收藏时间」（collectedAt）不需要存入 DB**：该字段仅在收藏同步定时器执行期间用于时间窗口过滤，是过程中的瞬时值，不需要持久化。
 
@@ -40,7 +45,7 @@
 
 ### 通用规则
 - 认证：所有接口均需 `auth()` session
-- 权限：员工可手动添加/归档自己创建的
+- 权限：员工可手动添加对标账号；归档要求当前员工已关联该账号
 - 数据隔离：EMPLOYEE 按 `organizationId` 过滤（不按 `userId`，基准账号是全组织共享的）
 - BRANCH_MANAGER 按 `organizationId` 过滤
 - SUPER_ADMIN 不过滤
@@ -70,7 +75,7 @@ const previewBenchmarkSchema = z.object({
 手动创建对标账号。
 
 ```typescript
-// 请求体 Zod schema（与 douyin-accounts POST 字段一致，type 由后端固定为 BENCHMARK_ACCOUNT）
+// 请求体 Zod schema（与 douyin-accounts POST 字段一致，但写入 BenchmarkAccount）
 const createBenchmarkSchema = z.object({
   profileUrl: z
     .string()
@@ -97,16 +102,18 @@ const createBenchmarkSchema = z.object({
 
 // 成功响应: 201 + BenchmarkAccountDTO
 // 业务错误码:
-//   BENCHMARK_EXISTS (409)  — 该 secUserId 的 BENCHMARK 未归档时已存在
-//   BENCHMARK_ARCHIVED (409) — 该 secUserId 的 BENCHMARK 已存在但已归档
+//   BENCHMARK_ARCHIVED (409) — 该组织下该 secUserId/profileUrl 的 BENCHMARK 已存在但已归档
 //   ACCOUNT_EXISTS_AS_MY (409) — 该 profileUrl 已作为 MY_ACCOUNT 被添加
 ```
 
 **Service 层去重逻辑**（顺序检查）：
-1. `findBySecUserIdIncludingDeleted(secUserId)` → 若找到且 `deletedAt=null` → `BENCHMARK_EXISTS`
-2. → 若找到且 `deletedAt!=null` → `BENCHMARK_ARCHIVED`
-3. `findByProfileUrl(profileUrl)`（findByProfileUrl 不过滤 deletedAt，因为 profileUrl 是 unique 约束） → 若找到且 `type=MY_ACCOUNT` → `ACCOUNT_EXISTS_AS_MY`
-4. 全部通过 → 创建
+1. `findByOrganizationAndSecUserIdIncludingDeleted(organizationId, secUserId)`
+2. 若找到且 `deletedAt=null` → `upsertMember()` 并直接返回现有 BenchmarkAccount
+3. 若找到且 `deletedAt!=null` → `BENCHMARK_ARCHIVED`
+4. `findByOrganizationAndProfileUrlIncludingDeleted(organizationId, profileUrl)`
+5. 若找到且 `deletedAt=null` → `upsertMember()` 并直接返回现有 BenchmarkAccount
+6. 若找到且 `deletedAt!=null` → `BENCHMARK_ARCHIVED`
+7. 全部通过 → 创建 `BenchmarkAccount` + 初始 `BenchmarkAccountMember`
 
 ---
 
@@ -159,7 +166,7 @@ const listBenchmarksSchema = z.object({
 // 成功响应: 200 + { id: string; deletedAt: string }
 // 错误:
 //   NOT_FOUND (404)   — 账号不存在或已归档
-//   FORBIDDEN (403)   — 当前用户不是账号创建者 (account.userId != session.userId)
+//   FORBIDDEN (403)   — 当前用户不是关联员工
 ```
 
 ---
@@ -297,8 +304,8 @@ cron.schedule(collectionSyncCron, () => {
 ### 执行流程（`SyncService.runCollectionSync()`）
 
 ```
-1. 查询所有符合条件的 MY_ACCOUNT：
-   secUserId IS NOT NULL AND deletedAt IS NULL AND type = MY_ACCOUNT
+1. 查询所有符合条件的我的账号：
+  DouyinAccount.secUserId IS NOT NULL AND deletedAt IS NULL
 
 2. 遍历每个账号（独立 try/catch，单个失败不中断整体）：
 
@@ -312,23 +319,24 @@ cron.schedule(collectionSyncCron, () => {
       - 若 item.collectedAt < windowStart → break（遇到旧记录，直接停止）
       - 若 item.authorSecUserId == null → 记录 warn 日志，continue
 
-      d. 查询 DB：douyinAccountRepository.findBySecUserIdIncludingDeleted(item.authorSecUserId)
-         - 若找到（无论 type 或 deletedAt 状态）→ skip（不重复创建）
-         - 若未找到：
+      d. 查询 DB：benchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted(account.organizationId, item.authorSecUserId)
+        - 若找到且 deletedAt != null → skip（不重建）
+        - 若找到且 deletedAt == null → upsertMember(account.userId)
+        - 若未找到：
            i. 调用 crawlerService.fetchUserProfile(item.authorSecUserId)
               → 失败：记录 error 日志，continue（不创建）
-           ii. 调用 douyinAccountRepository.createBenchmark({
+          ii. 调用 benchmarkAccountRepository.createWithMember({
                  ...profile,
                  profileUrl: `https://www.douyin.com/user/${item.authorSecUserId}`,
-                 userId: account.userId,        // first-creator
+              createdByUserId: account.userId,
                  organizationId: account.organizationId,
+              memberUserId: account.userId,
                })
                → 唯一约束冲突（并发创建）：catch 并 continue（幂等）
 
-3. 新创建的 BENCHMARK_ACCOUNT 无需任何额外操作
-   → 已有的视频同步定时器调用 douyinAccountRepository.findAll()
-   → findAll() 返回所有 deletedAt=null 的账号（含新创建的 BENCHMARK_ACCOUNT）
-   → 自动进入视频同步范围
+  3. 新创建的 BenchmarkAccount 无需任何额外操作
+    → 视频同步定时器会分别扫描 DouyinAccount 与 BenchmarkAccount
+    → 新账号自动进入 BenchmarkVideo 同步范围
 ```
 
 ### 关键约束说明
@@ -337,8 +345,8 @@ cron.schedule(collectionSyncCron, () => {
 |------|---------|
 | 防重入 | `startScheduler()` 内部 `collectionSyncRunning` flag |
 | 单账号失败不中断 | for 循环内 try/catch |
-| 博主全局唯一 | `secUserId @unique` 约束 + service 层检查 |
-| 已归档博主不重建 | `findBySecUserIdIncludingDeleted` 找到则 skip |
+| 组织内博主唯一 | `organizationId + secUserId` 约束 + service 层检查 |
+| 已归档博主不重建 | `findByOrganizationAndSecUserIdIncludingDeleted` 找到且已归档则 skip |
 | 并发安全 | catch Prisma P2002（唯一约束冲突）→ continue |
 | 时间窗口覆盖 | `collectedAt >= now - 1h`，保证 5 分钟延迟下不漏数据 |
 
@@ -352,13 +360,13 @@ cron.schedule(collectionSyncCron, () => {
 
 | 操作 | 实现 |
 |------|------|
-| 归档 | `UPDATE douyin_accounts SET deletedAt = now() WHERE id = ?` |
-| 主列表查询 | `WHERE type=BENCHMARK_ACCOUNT AND deletedAt IS NULL` |
-| 归档列表查询 | `WHERE type=BENCHMARK_ACCOUNT AND deletedAt IS NOT NULL` |
+| 归档 | `UPDATE benchmark_accounts SET deletedAt = now() WHERE id = ?` |
+| 主列表查询 | `WHERE deletedAt IS NULL` |
+| 归档列表查询 | `WHERE deletedAt IS NOT NULL` |
 | 详情查询 | `WHERE id = ?`（不过滤 deletedAt，支持归档详情页） |
 | 恢复归档 | **v0.2.2 不实现** |
 | 硬删除 | **v0.2.2 不实现** |
-| 定时同步跳过 | `findAll()` 已过滤 `deletedAt: null`，自动跳过已归档账号 ✓ |
+| 定时同步跳过 | `BenchmarkAccount.findMany(archiveFilter=active)` 自动跳过已归档账号 ✓ |
 
 ---
 
@@ -457,42 +465,42 @@ src/components/features/benchmarks/
 
 ## Repository 层变更
 
-修改 `src/server/repositories/douyin-account.repository.ts`，新增以下方法：
+新增以下 Repository：
 
 ### 抽象优先实现说明
 
-由于 `DouyinAccount` 同时服务 `MY_ACCOUNT` 与 `BENCHMARK_ACCOUNT` 两种业务视图，实际实现采用了
-“**共享 where/include 构建 + 语义方法封装**”模式：
+本次实现将“我的账号”和“对标账号”分仓：
 
-- 共享条件构建：抽取 `buildWhere()` / `buildArchiveWhere()`
-- 共享 include：抽取 `userInclude`
-- 语义方法保留：`findManyBenchmarks()`、`findAllMyAccountsForCollection()`、`findBenchmarkById()` 等
+- `DouyinAccountRepository` 仅保留我的账号与登录态职责
+- `BenchmarkAccountRepository` 承担组织共享的对标账号查询、成员 upsert、归档
+- `BenchmarkVideoRepository` / `BenchmarkVideoSnapshotRepository` 承担对标视频链路
 
-这样可以保持 Service 层使用语义化方法，同时避免在 Repository 中复制多套近似 Prisma 查询。
+每个 Repository 内仍继续复用 `archiveFilter`、`include` 与分页查询 helper，避免在拆分后再次复制近似 Prisma 查询。
 
 | 方法 | 说明 |
 |------|------|
-| `findAllMyAccountsForCollection()` | `type=MY_ACCOUNT AND secUserId IS NOT NULL AND deletedAt IS NULL`，用于收藏同步 |
-| `findBySecUserIdIncludingDeleted(secUserId)` | 查询（忽略 deletedAt），用于去重检查 |
-| `findManyBenchmarks(params)` | type=BENCHMARK_ACCOUNT 分页列表，含 user include，支持 `includeArchived` 参数 |
-| `createBenchmark(data)` | 创建 type=BENCHMARK_ACCOUNT 记录（type 在方法内固定，防误传） |
-| `findBenchmarkById(id)` | 按 id 查询（不过滤 deletedAt），用于详情页和归档操作 |
-| `archiveBenchmark(id)` | `UPDATE SET deletedAt = now()`，返回更新后记录 |
+| `DouyinAccountRepository.findAllMyAccountsForCollection()` | 查询可参与收藏同步的我的账号 |
+| `BenchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted()` | 组织内对标账号去重 |
+| `BenchmarkAccountRepository.findMany()` | 对标账号分页列表，支持 `archiveFilter` |
+| `BenchmarkAccountRepository.upsertMember()` | 命中现有 active 对标账号时补充成员关联 |
+| `BenchmarkAccountRepository.archive()` | `UPDATE SET deletedAt = now()`，返回更新后记录 |
+| `BenchmarkVideoRepository.findByAccountId()` | 对标视频分页列表 |
 
-`findManyBenchmarks` params 类型：
+`BenchmarkAccountRepository.findMany` params 类型：
 
 ```typescript
-interface FindManyBenchmarksParams {
+interface FindManyBenchmarkAccountsParams {
   organizationId?: string;
-  includeArchived?: boolean; // false = 仅未归档（主列表），true = 仅已归档（归档列表）
+  archiveFilter?: "active" | "archived" | "all";
   page: number;
   limit: number;
 }
 ```
 
-其中 `includeArchived` 控制 WHERE：
-- `false`（默认）→ `deletedAt IS NULL AND type = BENCHMARK_ACCOUNT`
-- `true` → `deletedAt IS NOT NULL AND type = BENCHMARK_ACCOUNT`
+其中 `archiveFilter` 控制 WHERE：
+- `active`（默认）→ `deletedAt IS NULL`
+- `archived` → `deletedAt IS NOT NULL`
+- `all` → 不附加归档过滤
 
 ---
 
@@ -528,7 +536,7 @@ BE-004（benchmark-account.service.ts）
 
 - `BenchmarkAccountService` 依赖 `CrawlerService`（previewBenchmark 调用）
 - `SyncService.runCollectionSync` 依赖 `CrawlerService.fetchCollectionVideos`（已改造）
-- 视频同步：`SyncService.runVideoBatchSync` 通过 `findAll()` 自动包含 BENCHMARK_ACCOUNT，**无需修改**
+- 视频同步：`SyncService.runVideoBatchSync` 分别扫描 `DouyinAccount` 与 `BenchmarkAccount`，并在单次任务内对相同 `secUserId` 复用 crawler 请求
 
 ---
 
@@ -544,7 +552,7 @@ COLLECTION_SYNC_CRON: z.string().optional(),
 
 ## 架构变更记录
 
-无 `[ARCH-CHANGE]`。
+存在 `[ARCH-CHANGE]`：对标域从共享账号/视频表中拆出独立模型。
 
 所有设计决策均遵循现有架构约定：
 
@@ -554,7 +562,7 @@ COLLECTION_SYNC_CRON: z.string().optional(),
 | 软删除 | 复用现有 `deletedAt DateTime?` 字段，未引入新模式 |
 | 防重入 | `startScheduler()` 内部 flag + `initialized` 幂等注册 |
 | 数据隔离 | Repository 层 organizationId 过滤，与现有规范一致 |
-| 对标账号与 MY_ACCOUNT | 独立页面（`/benchmarks`），不合并，通过 `type` 字段区分 |
+| 对标账号与 MY_ACCOUNT | 独立页面（`/benchmarks`），后端使用独立模型承载 |
 | fetchCollectionVideos 改造 | 仍在 CrawlerService 内，保持单一封装原则 |
 | `collectedAt` 不持久化 | 瞬时值，不需要新 schema 字段 |
-| 账号域复用 | Repository 内抽取共享查询构建函数，减少 type 分支重复实现 |
+| 账号域复用 | 拆分仓储后继续在各自领域内复用分页 / include / archiveFilter helper |

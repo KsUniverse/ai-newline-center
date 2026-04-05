@@ -56,11 +56,17 @@
 
 - [ ] 使用 shadcn/ui 组件，无自制基础组件
 - [ ] 颜色使用 CSS 变量（不硬编码色值）
-- [ ] `--card` 背景与 `--background` 有可见区别（暗色模式下卡片不能隐形）
+- [ ] `--card` / `--popover` / `--background` 层级清晰，两套主题下均可辨识
 - [ ] ThemeToggle 类 Sun/Moon 绝对定位图标的父容器有 `relative` class
 - [ ] 间距符合 4px 倍数体系
-- [ ] 字号层级正确 (参照 ui-ux-system.md)
+- [ ] 字号层级正确，优先使用 `text-2xs` ~ `text-3xl` 语义 token
 - [ ] 响应式布局正常
+- [ ] Dashboard 页面优先复用 `DashboardPageShell`，详情页返回导航使用统一 back chip 模式
+- [ ] 桌面侧栏与移动端导航保持同一视觉语言与状态表达
+- [ ] Dialog / AlertDialog / Sheet / DropdownMenu 复用共享原语，而非局部复制样式
+- [ ] 数据密集列表在移动端提供卡片视图，而不是压缩桌面表格
+- [ ] 关键输入区采用字段块模式，helper text / error text 节奏清晰
+- [ ] 滚动条、背景纹理、动效等全局样式复用 `globals.css`，无页面级私自覆盖
 - [ ] 路由注册验证：`router.push()` 的目标路径在路由表中存在（可通过 `pnpm build` 后检查 routes-manifest.json）
 - [ ] 用户操作权限 UI：对当前登录用户本身的危险操作按钮（禁用/删除等）需置灰，不能仅依赖后端拦截
 

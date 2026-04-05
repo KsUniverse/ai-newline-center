@@ -17,6 +17,9 @@ model Organization {
   children  Organization[]   @relation("OrgTree")
   users     User[]
   douyinAccounts DouyinAccount[]
+  benchmarkAccounts BenchmarkAccount[]
+  benchmarkAccountMembers BenchmarkAccountMember[]
+  benchmarkVideos BenchmarkVideo[]
   douyinLoginSessions DouyinLoginSession[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -34,6 +37,8 @@ model User {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   douyinAccounts DouyinAccount[]
+  createdBenchmarkAccounts BenchmarkAccount[] @relation("BenchmarkAccountCreator")
+  benchmarkAccountMembers BenchmarkAccountMember[]
   douyinLoginSessions DouyinLoginSession[]
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
@@ -64,11 +69,6 @@ enum UserStatus {
   DISABLED
 }
 
-enum DouyinAccountType {
-  MY_ACCOUNT
-  BENCHMARK_ACCOUNT
-}
-
 enum DouyinAccountLoginStatus {
   NOT_LOGGED_IN
   PENDING
@@ -93,6 +93,11 @@ enum DouyinLoginSessionStatus {
   CANCELLED
 }
 
+enum BenchmarkAccountMemberSource {
+  MANUAL
+  COLLECTION_SYNC
+}
+
 model DouyinAccount {
   id             String            @id @default(cuid())
   profileUrl     String            @unique
@@ -113,7 +118,6 @@ model DouyinAccount {
   verificationLabel   String?
   verificationIconUrl String?
   verificationType    Int?
-  type           DouyinAccountType @default(MY_ACCOUNT)
   loginStatus    DouyinAccountLoginStatus @default(NOT_LOGGED_IN)
   loginStatePath String?
   loginStateUpdatedAt DateTime?
@@ -136,6 +140,62 @@ model DouyinAccount {
   @@index([userId])
   @@index([organizationId])
   @@map("douyin_accounts")
+}
+
+model BenchmarkAccount {
+  id                 String                  @id @default(cuid())
+  profileUrl         String
+  secUserId          String?
+  nickname           String
+  avatar             String
+  bio                String?
+  signature          String?
+  followersCount     Int                     @default(0)
+  followingCount     Int                     @default(0)
+  likesCount         Int                     @default(0)
+  videosCount        Int                     @default(0)
+  douyinNumber       String?
+  ipLocation         String?
+  age                Int?
+  province           String?
+  city               String?
+  verificationLabel  String?
+  verificationIconUrl String?
+  verificationType   Int?
+  createdByUserId    String
+  createdByUser      User                    @relation("BenchmarkAccountCreator", fields: [createdByUserId], references: [id])
+  organizationId     String
+  organization       Organization            @relation(fields: [organizationId], references: [id])
+  members            BenchmarkAccountMember[]
+  videos             BenchmarkVideo[]
+  lastSyncedAt       DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  deletedAt          DateTime?
+
+  @@index([createdByUserId])
+  @@index([organizationId])
+  @@unique([organizationId, profileUrl])
+  @@unique([organizationId, secUserId])
+  @@map("benchmark_accounts")
+}
+
+model BenchmarkAccountMember {
+  id                 String                       @id @default(cuid())
+  benchmarkAccountId String
+  benchmarkAccount   BenchmarkAccount             @relation(fields: [benchmarkAccountId], references: [id])
+  userId             String
+  user               User                         @relation(fields: [userId], references: [id])
+  organizationId     String
+  organization       Organization                 @relation(fields: [organizationId], references: [id])
+  source             BenchmarkAccountMemberSource
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  @@unique([benchmarkAccountId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("benchmark_account_members")
 }
 
 model EmployeeCollectionVideo {
@@ -200,13 +260,47 @@ model DouyinVideo {
   recommendCount Int         @default(0)
   tags         String[]      @default([])
   snapshots    VideoSnapshot[]
-  transcription Transcription?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   deletedAt    DateTime?
 
   @@index([accountId])
   @@map("douyin_videos")
+}
+
+model BenchmarkVideo {
+  id               String                  @id @default(cuid())
+  videoId          String
+  accountId        String
+  account          BenchmarkAccount        @relation(fields: [accountId], references: [id])
+  organizationId   String
+  organization     Organization            @relation(fields: [organizationId], references: [id])
+  title            String
+  coverUrl         String?
+  coverSourceUrl   String?
+  coverStoragePath String?
+  videoUrl         String?
+  videoSourceUrl   String?
+  videoStoragePath String?
+  publishedAt      DateTime?
+  playCount        Int                     @default(0)
+  likeCount        Int                     @default(0)
+  commentCount     Int                     @default(0)
+  shareCount       Int                     @default(0)
+  collectCount     Int                     @default(0)
+  admireCount      Int                     @default(0)
+  recommendCount   Int                     @default(0)
+  tags             String[]                @default([])
+  snapshots        BenchmarkVideoSnapshot[]
+  transcription    Transcription?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
+
+  @@index([accountId])
+  @@index([organizationId])
+  @@unique([accountId, videoId])
+  @@map("benchmark_videos")
 }
 
 model VideoSnapshot {
@@ -226,6 +320,23 @@ model VideoSnapshot {
   @@map("video_snapshots")
 }
 
+model BenchmarkVideoSnapshot {
+  id            String         @id @default(cuid())
+  videoId       String
+  video         BenchmarkVideo @relation(fields: [videoId], references: [id])
+  timestamp     DateTime       @default(now())
+  playsCount    Int
+  likesCount    Int
+  commentsCount Int
+  sharesCount   Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([videoId])
+  @@index([videoId, timestamp])
+  @@map("benchmark_video_snapshots")
+}
+
 enum TranscriptionStatus {
   PENDING
   PROCESSING
@@ -236,7 +347,7 @@ enum TranscriptionStatus {
 model Transcription {
   id           String              @id @default(cuid())
   videoId      String              @unique
-  video        DouyinVideo         @relation(fields: [videoId], references: [id])
+  video        BenchmarkVideo      @relation(fields: [videoId], references: [id])
   status       TranscriptionStatus @default(PENDING)
   aiModel      String
   originalText String?

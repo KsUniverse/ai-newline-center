@@ -1,284 +1,217 @@
 # 前端架构规范
 
-> 摘要：Linear 风格布局（紧凑侧边栏 + 列表/详情分栏）。弹框/抽屉/Slide-over 优先，减少页面跳转。shadcn/ui 组件库 + Zustand 状态管理。暗色主题为主，支持亮色切换。外部提供 UI/UX 品牌设计文档，前端需严格遵循。
+> 摘要：品牌化运营工作台架构。亮色优先、暗色兼容；统一页面壳、导航壳与共享弹层原语；业务页面采用“页面壳 → 区块表面 → 共享原语 → 功能组件”的分层实现。
 
-## 品牌设计引用
+## 设计规范引用
 
-> **重要**: 前端开发必须参照 `docs/standards/ui-ux-system.md` 中的设计系统规范。
-> 如有外部提供的品牌设计文档，以该文档为准，ui-ux-system.md 同步更新。
+- 视觉规范：`docs/standards/ui-ux-system.md`
+- 全局 token：`src/app/globals.css`
+- 共享布局壳：`src/components/shared/layout/*`
+- 共享交互原语：`src/components/ui/*`
 
-## 布局体系 (Linear 风格)
+前端代码必须以这些文件为统一约束来源；若出现稳定新模式，必须同步回写文档。
 
-```
-┌──────────────────────────────────────────────────────┐
-│ ┌────────┐ ┌────────────────────────────────────────┐│
-│ │        │ │ Header (面包屑 + 页面操作按钮)          ││
-│ │ Side   │ ├─────────────────┬──────────────────────┤│
-│ │ bar    │ │                 │                      ││
-│ │        │ │   列表区域       │   详情/编辑面板       ││
-│ │ 紧凑   │ │   (主内容)       │   (Slide-over)       ││
-│ │ 图标+  │ │                 │                      ││
-│ │ 文字   │ │                 │                      ││
-│ │        │ │                 │                      ││
-│ └────────┘ └─────────────────┴──────────────────────┘│
-└──────────────────────────────────────────────────────┘
-```
+## 前端分层
 
-### 布局组件
+### L0: 全局样式层
 
-```typescript
-// src/components/shared/layout/app-layout.tsx
+`src/app/globals.css` 负责：
+
+- 主题 token
+- 字体 token
+- 语义字号 token
+- 全局动效类
+- 点阵纹理
+- 滚动条样式
+
+### L1: 共享原语层
+
+`src/components/ui/*` 基于 shadcn/ui 做统一封装，允许**集中主题化修改**。这层不是业务组件，但也不是“永远不可改”的第三方代码镜像。
+
+当前必须统一维护的高频原语：
+
+- `button.tsx`
+- `input.tsx`
+- `dropdown-menu.tsx`
+- `dialog.tsx`
+- `alert-dialog.tsx`
+- `sheet.tsx`
+
+原则：视觉风格稳定变化时，优先改这一层，不在 `features/*` 内重复覆盖。
+
+### L2: 共享布局与组合层
+
+`src/components/shared/*` 负责跨功能复用的布局和表面模式：
+
+- `layout/app-layout.tsx`
+- `layout/app-sidebar.tsx`
+- `layout/app-header.tsx`
+- `layout/dashboard-page-shell.tsx`
+- `common/confirm-dialog.tsx`
+- `common/surface-section.tsx`
+- `common/empty-state.tsx`
+
+### L3: 功能组件层
+
+`src/components/features/*` 承载具体业务模块，允许使用共享壳和共享原语组合，但不得再造一套基础交互皮肤。
+
+## 布局体系
+
+### AppLayout
+
+```tsx
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <AppSidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col overflow-hidden">
         <AppHeader />
-        <div className="flex-1 overflow-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );
 }
 ```
 
-### Sidebar 规范
+约束：
 
-- **宽度**: 收起 `w-16` / 展开 `w-60`
-- **结构**: Logo → 主导航 → 分隔线 → 次要导航 → 底部用户区
-- **交互**: 图标始终可见，展开时显示文字标签
-- **高亮**: 当前页面对应菜单项高亮
+- Sidebar 固定为品牌导航表面
+- Header 作为全局工具栏，使用半透明背景与模糊
+- 页面内容通过 `DashboardPageShell` 管理容器宽度与标题区
 
-## 交互模式 — 弹框优先
+### DashboardPageShell
 
-**核心原则**: 除了顶级模块切换使用路由导航，其他操作尽量在当前页面内完成。
+所有 Dashboard 页面优先使用页面壳，而不是手写顶层容器：
 
-| 场景 | 交互方式 | 组件 |
-|------|---------|------|
-| 创建/编辑表单 | 抽屉 (Drawer) | `Sheet` from shadcn |
-| 查看详情 | Slide-over 右侧面板 | 自定义 `SlidePanel` |
-| 确认操作 | 弹框 (Dialog) | `AlertDialog` from shadcn |
-| 删除/危险操作 | 确认弹框 | `AlertDialog` with destructive |
-| 筛选/设置 | 弹出面板 (Popover) | `Popover` from shadcn |
-| 列表项快捷操作 | 下拉菜单 | `DropdownMenu` from shadcn |
-
-### Slide-over Panel 模板
-
-```typescript
-// src/components/shared/common/slide-panel.tsx
-"use client";
-
-import { cn } from "@/lib/utils";
-
-interface SlidePanelProps {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-  width?: "sm" | "md" | "lg";
-}
-
-const widthMap = { sm: "w-[400px]", md: "w-[560px]", lg: "w-[720px]" };
-
-export function SlidePanel({ open, onClose, title, children, width = "md" }: SlidePanelProps) {
-  return (
-    <div className={cn(
-      "fixed inset-y-0 right-0 z-50 border-l border-border bg-background shadow-lg",
-      "transition-transform duration-300 ease-in-out",
-      widthMap[width],
-      open ? "translate-x-0" : "translate-x-full"
-    )}>
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex-1 overflow-auto p-6">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-```
-
-## 组件层次
-
-```
-src/components/
-├── ui/                    # L1: shadcn/ui 原子组件 (不手动修改)
-│   ├── button.tsx
-│   ├── input.tsx
-│   └── ...
-├── shared/                # L2: 通用组合组件 (跨功能复用)
-│   ├── layout/
-│   │   ├── app-layout.tsx     # 主布局壳
-│   │   ├── app-sidebar.tsx    # 侧边栏
-│   │   └── app-header.tsx     # 顶部栏
-│   │   └── dashboard-page-shell.tsx # Dashboard 页面通用标题壳
-│   └── common/
-│       ├── slide-panel.tsx    # 右侧滑出面板
-│       ├── loading-spinner.tsx
-│       ├── error-boundary.tsx
-│       ├── empty-state.tsx
-│       └── confirm-dialog.tsx
-└── features/              # L3: 业务功能组件 (按功能模块组织)
-    └── [feature-name]/
-        ├── [feature]-page.tsx         # 页面主视图（数据加载 + 页面内交互）
-        ├── [feature]-detail-page.tsx  # 详情页视图（如有）
-        ├── [component].tsx
-        └── index.ts       # barrel export
-```
-
-## 页面结构
-
-```typescript
-// src/app/(dashboard)/users/page.tsx — page 只做页面入口
-import { UsersPageView } from "@/components/features/users";
-
-export default function UsersPage() {
-  return <UsersPageView />;
-}
-```
-
-```typescript
-// src/components/shared/layout/dashboard-page-shell.tsx — 统一页面标题壳
+```tsx
 interface DashboardPageShellProps {
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   actions?: React.ReactNode;
+  backHref?: string;
+  backLabel?: string;
+  maxWidth?: "default" | "wide" | "full";
+  surfaceHeader?: boolean;
   children: React.ReactNode;
 }
-
-export function DashboardPageShell({
-  title,
-  description,
-  actions,
-  children,
-}: DashboardPageShellProps) {
-  return (
-    <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
-      <div className="animate-in-up flex items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">
-            {title}
-          </h1>
-          <p className="text-sm text-muted-foreground/80">{description}</p>
-        </div>
-        {actions}
-      </div>
-      {children}
-    </div>
-  );
-}
 ```
 
-## 状态管理 (Zustand)
+页面壳职责：
 
-```typescript
-// src/stores/auth.store.ts
-import { create } from "zustand";
-import type { User } from "@/types/user";
+- 居中与限宽
+- 页面标题区
+- 返回 chip
+- 头部动作区
+- 强调型表面头部 `surfaceHeader`
 
-interface AuthState {
-  user: User | null;
-  isLoading: boolean;
-  setUser: (user: User | null) => void;
-  setLoading: (loading: boolean) => void;
-}
+### 导航壳
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isLoading: true,
-  setUser: (user) => set({ user }),
-  setLoading: (isLoading) => set({ isLoading }),
-}));
+`AppSidebar` 与移动端 `AppHeader` 内的导航 Sheet 必须保持：
+
+- 同一套图标壳与卡片结构
+- 同一套 active / hover 状态
+- 同一套品牌气氛层
+- 同一套用户身份与退出逻辑呈现
+
+## 页面模式
+
+### 列表页
+
+默认结构：
+
+1. `DashboardPageShell`
+2. 摘要卡片
+3. 移动端卡片列表
+4. 桌面端表格列表
+5. 菜单 / 确认框 / 抽屉作为页内交互
+
+适用模块：账号、对标账号、用户、组织等高密度列表。
+
+约束：
+
+- 列表首页优先使用轻页头，不额外叠加大面积解释型 overview hero
+- 若需要教学或背景说明，应下沉到空状态、字段说明、抽屉或详情页
+- 顶部数量 / 状态 / 筛选摘要统一使用 compact chips，而不是每页自写 span pill
+- 空态优先复用统一的任务型空状态组件
+
+### Dashboard 首页
+
+Dashboard 首页作为任务分发入口，而不是说明页：
+
+1. 页面壳展示问候语与紧凑状态 chips
+2. 主体提供按角色可见的快捷入口卡片
+3. 不额外堆叠解释业务原理的 overview hero
+
+### 详情页
+
+默认结构：
+
+1. 返回 chip
+2. 眉标 + 标题 + 描述
+3. 详情摘要区块
+4. 次级内容区块（样本、日志、状态等）
+5. 对应 Dialog / Sheet 的局部交互
+
+约束：
+
+- 详情页顶部状态信息和二级内容区摘要优先复用 compact chips
+- 详情页不要并行维护另一套零散状态标签样式
+- 详情页首屏优先保留关键动作，来源、同步、录入时间等弱信息应折叠为 chips 或短辅助文案，不再占用独立说明卡区域
+
+### 表单页内交互
+
+表单优先在 `Dialog` 或 `Sheet` 中完成，而不是新建独立路由页。对关键信息输入优先使用带 label / helper / icon shell 的字段块。
+
+## 交互模式
+
+| 场景 | 首选交互 | 组件 |
+|------|----------|------|
+| 短表单创建 / 编辑 | 居中弹框 | `Dialog` |
+| 长表单 / 多步骤流程 | 侧边抽屉 | `Sheet` |
+| 危险确认 | 确认框 | `AlertDialog` |
+| 上下文动作 | 下拉菜单 | `DropdownMenu` |
+| 轻量提示 | Tooltip / helper text | `Tooltip` / 文案 |
+
+规则：
+
+- 不允许在功能组件内直接复制原语结构做另一套样式
+- 危险操作统一通过 `ConfirmDialog` 或 `AlertDialog`
+- 移动导航统一通过 `Sheet`
+
+## 组件目录约定
+
+```text
+src/components/
+├── ui/                    # 共享原语层，可集中主题化修改
+├── shared/                # 布局壳与跨功能组合组件
+│   ├── layout/
+│   └── common/
+└── features/              # 业务功能组件
 ```
 
-## API 调用
+约束：
 
-```typescript
-// src/lib/api-client.ts
-import type { ApiResponse } from "@/types/api";
+- `ui/` 不写业务逻辑
+- `shared/` 不绑定具体业务接口
+- `features/` 不重复定义全局视觉皮肤
 
-const BASE_URL = "/api";
+## 页面入口约定
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
-  const json: ApiResponse<T> = await response.json();
-  if (!json.success) {
-    throw new Error(json.error?.message ?? "请求失败");
-  }
-  return json.data!;
-}
+`src/app/**/page.tsx` 只做页面入口与路由承接，业务状态和 UI 交互下沉到 `src/components/features/**/[feature]-page.tsx`。
 
-export const apiClient = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, data: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(data) }),
-  put: <T>(path: string, data: unknown) =>
-    request<T>(path, { method: "PUT", body: JSON.stringify(data) }),
-  delete: <T>(path: string) =>
-    request<T>(path, { method: "DELETE" }),
-};
-```
+## 状态与数据
 
-### SSE 订阅
+- API 请求统一经 `@/lib/api-client.ts`
+- 页面交互状态用 React state 或 Zustand
+- 会话、导航折叠、主题切换等横切状态可放共享 store / provider
 
-```typescript
-// src/lib/sse-client.ts
-export function subscribeSSE(
-  taskId: string,
-  onChunk: (text: string) => void,
-  onDone: () => void,
-  onError: (error: Error) => void,
-) {
-  const eventSource = new EventSource(`/api/tasks/${taskId}/stream`);
-  eventSource.onmessage = (event) => onChunk(event.data);
-  eventSource.addEventListener("done", () => { eventSource.close(); onDone(); });
-  eventSource.onerror = () => { eventSource.close(); onError(new Error("SSE 连接中断")); };
-  return () => eventSource.close();
-}
-```
+## 前端实现规则
 
-## 主题切换
-
-使用 `next-themes` 管理暗色/亮色切换：
-
-```typescript
-// src/app/layout.tsx
-import { ThemeProvider } from "next-themes";
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="zh-CN" suppressHydrationWarning>
-      <body>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          {children}
-        </ThemeProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-在 `globals.css` 中定义 `:root` (亮色) 和 `.dark` (暗色) 两套 CSS 变量。
-
-## 规则
-
-1. **弹框优先**: 创建/编辑/详情操作用 Drawer/SlidePanel/Dialog，不跳转页面
-2. **组件职责**: `page.tsx` 只做页面入口和布局编排，页面级数据加载/状态放在 `components/features/**/[feature]-page.tsx`
-3. **"use client"**: 仅在需要 hooks/事件/浏览器 API 时添加，默认 Server Component
-4. **Props 接口**: 每个组件必须定义 Props 接口，使用 named export
-5. **样式**: 只用 Tailwind utility classes，禁止内联 style、禁止 CSS modules
-6. **API 调用**: 统一通过 `apiClient`，禁止直接 fetch；AI 流式用 `subscribeSSE`
-7. **状态**: 服务端数据用 Server Component 直接获取；客户端交互状态用 Zustand
-8. **导入**: 功能组件通过 barrel export (`index.ts`) 导出
-9. **品牌遵循**: 严格按照 `docs/standards/ui-ux-system.md` 中的设计规范实现
-10. **页面壳复用**: Dashboard 页面优先复用 `DashboardPageShell`，保持标题区、容器宽度和动作区一致
+1. **颜色只用 token**：通过 `bg-card`、`text-muted-foreground`、`border-border/60` 等语义类表达。
+2. **字号只用 token**：优先 `text-2xs` ~ `text-3xl`，禁止滥用 `text-[Npx]`。
+3. **全局原语先改**：当多个页面出现同类样式漂移时，先改 `src/components/ui/*`。
+4. **页面壳必复用**：Dashboard 页面优先使用 `DashboardPageShell`。
+5. **列表双视图**：高密度列表必须兼顾移动卡片与桌面表格。
+6. **导航一体化**：桌面侧栏和移动导航必须保持同一视觉语言。
+7. **文档同步**：新增稳定模式后，同步更新 `ui-ux-system.md`、本文件和相关检查文档。

@@ -1,19 +1,15 @@
 "use client";
 
-import { ExternalLink, Play, Heart, MessageCircle, Share2 } from "lucide-react";
+import { ExternalLink, Heart, MessageCircle, Play, Share2 } from "lucide-react";
 
-import type { DouyinVideoDTO } from "@/types/douyin-account";
-import { proxyImageUrl, formatNumber, formatDateTime } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import type { DouyinVideoDTO, DouyinVideoWithAccountDTO } from "@/types/douyin-account";
+import { formatDateTime, formatNumber, proxyImageUrl } from "@/lib/utils";
+import { SlidePanel } from "@/components/shared/common/slide-panel";
+
+import { getAccountDetailPanelTitle } from "./accounts-copy";
 
 interface VideoDetailDialogProps {
-  video: DouyinVideoDTO | null;
+  video: (DouyinVideoDTO & Partial<Pick<DouyinVideoWithAccountDTO, "accountNickname">>) | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -22,49 +18,67 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
   if (!video) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="line-clamp-2">{video.title}</DialogTitle>
-          <DialogDescription className="tabular-nums tracking-tight">
-            {formatDateTime(video.publishedAt)}
-          </DialogDescription>
-        </DialogHeader>
+    <SlidePanel
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={getAccountDetailPanelTitle(video)}
+      width="lg"
+    >
+      <div className="space-y-5">
+        <section className="space-y-4 rounded-3xl border border-border/60 bg-background/70 p-4 shadow-sm">
+          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border/60 bg-muted">
+            {video.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={proxyImageUrl(video.coverUrl)}
+                alt={video.title}
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
 
-        <div className="space-y-4">
-          {/* Cover */}
-          {video.coverUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={proxyImageUrl(video.coverUrl)}
-              alt={video.title}
-              className="w-full rounded-lg object-cover bg-muted max-h-64"
-            />
-          )}
+          <div className="flex flex-wrap items-center gap-2 text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              内容样本
+            </span>
+            {video.accountNickname ? (
+              <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+                {video.accountNickname}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+              {formatDateTime(video.publishedAt)}
+            </span>
+          </div>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatItem icon={Play} label="播放" value={video.playCount} />
             <StatItem icon={Heart} label="点赞" value={video.likeCount} />
             <StatItem icon={MessageCircle} label="评论" value={video.commentCount} />
             <StatItem icon={Share2} label="转发" value={video.shareCount} />
           </div>
+        </section>
 
-          {/* Video link */}
-          {video.videoUrl && (
+        <section className="rounded-3xl border border-border/60 bg-background/70 p-4 shadow-sm">
+          <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Distribution</p>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground/80">
+            该面板用于快速核查内容样本的互动表现、发布时间与原视频跳转链接。
+          </p>
+          {video.videoUrl ? (
             <a
               href={video.videoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               查看原视频
             </a>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+          ) : null}
+        </section>
+      </div>
+    </SlidePanel>
   );
 }
 
@@ -78,7 +92,7 @@ function StatItem({
   value: number;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg border border-border/60 bg-card p-3">
+    <div className="rounded-2xl border border-border/60 bg-card/80 p-3 text-center">
       <Icon className="h-4 w-4 text-muted-foreground" />
       <span className="text-lg font-semibold tabular-nums tracking-tight text-foreground/90">
         {formatNumber(value)}

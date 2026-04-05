@@ -1,19 +1,28 @@
 "use client";
 
-import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 interface SlidePanelProps {
   open: boolean;
   onClose: () => void;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   width?: "sm" | "md" | "lg";
 }
 
-const widthMap = { sm: "w-[400px]", md: "w-[560px]", lg: "w-[720px]" };
+const widthMap = {
+  sm: "w-full sm:w-[400px]",
+  md: "w-full sm:w-[560px]",
+  lg: "w-full sm:w-[720px]",
+};
 
 export function SlidePanel({
   open,
@@ -23,23 +32,33 @@ export function SlidePanel({
   width = "md",
 }: SlidePanelProps) {
   return (
-    <div
-      className={cn(
-        "fixed inset-y-0 right-0 z-50 border-l border-border bg-background shadow-lg",
-        "transition-transform duration-300 ease-in-out",
-        widthMap[width],
-        open ? "translate-x-0" : "translate-x-full",
-      )}
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
     >
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+      <SheetContent
+        side="right"
+        className={cn(
+          "h-full border-l border-border/60 bg-card p-0 shadow-2xl shadow-black/20 [&>button]:hidden",
+          widthMap[width],
+        )}
+      >
+        <div className="flex h-full flex-col">
+          <SheetHeader className="border-b border-border/60 px-5 py-4 text-left sm:px-6">
+            <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
+              研究详情
+            </p>
+            <SheetTitle className="text-lg font-semibold tracking-tight text-foreground/90">
+              {title}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-auto p-5 sm:p-6">{children}</div>
         </div>
-        <div className="flex-1 overflow-auto p-6">{children}</div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }

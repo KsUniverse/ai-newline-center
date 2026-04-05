@@ -87,16 +87,21 @@ model DouyinAccount {
 
 ## 领域模型复用原则
 
-当两个业务视图仅在 `type`、`status`、`deletedAt`、可见范围或少量行为差异上不同，
+当两个业务视图仅在 `status`、`deletedAt`、可见范围或少量行为差异上不同，
 优先使用**单模型承载 + 字段区分语义**，避免拆出结构近似的新表。
 
 典型场景：
-- `MY_ACCOUNT` / `BENCHMARK_ACCOUNT`
 - 主列表 / 归档列表
 - 活跃记录 / 软删除记录
 
+例外：如果所有权、权限、同步链路、下游关联已明显分叉，应及时拆表。
+
+当前账号域采用：
+- `DouyinAccount` / `DouyinVideo` 承载“我的账号”私有链路
+- `BenchmarkAccount` / `BenchmarkAccountMember` / `BenchmarkVideo` 承载“对标账号”组织共享链路
+
 设计要求：
-- 公共过滤字段命名保持标准化，如 `type`、`deletedAt`、`organizationId`
+- 公共过滤字段命名保持标准化，如 `deletedAt`、`organizationId`
 - 索引围绕共享查询模式设计，而不是只为单一路径临时补索引
 - 若多个视图长期共用同一组 `where/orderBy` 条件，应优先在 Repository 层复用查询构建
 
@@ -171,7 +176,7 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 6. 禁止手动修改已提交的迁移文件
 7. 枚举值使用 UPPER_SNAKE_CASE
 8. 系统配置表 (AiProvider, PromptTemplate) 不需要 organizationId（全局共享）
-9. 仅因 `type/status/archive` 区分的近似视图，优先单模型承载，避免复制式表结构
+9. 仅因 `status/archive` 区分的近似视图，优先单模型承载；若权限与下游链路已分叉，则及时拆为独立模型
 
 ## 系统模型 (AI/任务)
 

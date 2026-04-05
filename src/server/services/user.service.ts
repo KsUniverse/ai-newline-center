@@ -4,14 +4,7 @@ import { UserRole, UserStatus } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { userRepository } from "@/server/repositories/user.repository";
 import type { PaginatedData } from "@/types/api";
-
-export interface SessionUser {
-  id: string;
-  name?: string | null;
-  account: string;
-  role: UserRole;
-  organizationId: string;
-}
+import type { SessionUser } from "@/types/session";
 
 // 用于恒定时间比对的虚拟哈希，防止基于响应时间的账号枚举攻击
 const DUMMY_HASH = "$2b$12$invalidhashfortimingnormalizationxxxxxxxxxxxxxxx";

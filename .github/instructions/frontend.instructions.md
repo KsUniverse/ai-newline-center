@@ -9,27 +9,30 @@ applyTo: ["src/app/**/page.tsx", "src/app/**/layout.tsx", "src/components/**", "
 
 ## 关键规则速查
 
-1. **Linear 风格布局**: 左侧 Sidebar(w-16/w-60) + 右侧主内容区
-2. **弹框优先**: 新建/编辑用 Sheet，详情用 SlidePanel，确认用 AlertDialog，禁止页面跳转
-3. **UI/UX**: 色彩只用 CSS 变量，间距 4px 倍数，严格遵循 `ui-ux-system.md`；字体使用 `Outfit`（禁用 Inter/Roboto/Space Grotesk）
-4. **只用 Tailwind**: 禁止内联 style、CSS modules
-5. **shadcn/ui**: 有现成组件优先使用，不自造
+1. **品牌工作台布局**: 左侧 Sidebar(`w-16` / `w-60`) + 右侧主内容区，移动端导航必须与桌面侧栏同一视觉语言
+2. **弹层优先**: 短表单用 `Dialog`，长表单和流程用 `Sheet`，确认用 `AlertDialog`，轻量动作用 `DropdownMenu`
+3. **UI/UX**: 色彩只用 CSS 变量，字号只用 `text-2xs` ~ `text-3xl` 语义 token，严格遵循 `ui-ux-system.md`
+4. **全局原语优先**: 菜单、Dialog、AlertDialog、Sheet 的统一风格改在 `src/components/ui/*`，不要在功能组件各写一套
+5. **只用 Tailwind**: 禁止内联 style、CSS modules
 6. **API 调用**: 统一通过 `@/lib/api-client.ts`，禁止直接 fetch
-7. **[INTEGRATE] 标注**: 复杂业务逻辑标注 `// TODO: [INTEGRATE]`
-8. **统一风格优先**: 同领域页面优先复用既有列表页、详情页、空状态、分页和添加流程的视觉与交互模式
-9. **避免复制式实现**: 若差异只在文案、接口、Badge、权限展示，优先抽共享组件或 props 配置，不直接复制整页/整组件
-10. **页面入口收敛**: `src/app/**/page.tsx` 只做入口，页面级状态和交互下沉到 `src/components/features/**/[feature]-page.tsx`
-11. **页面壳复用**: Dashboard 页面优先复用 `src/components/shared/layout/dashboard-page-shell.tsx`
+7. **页面入口收敛**: `src/app/**/page.tsx` 只做入口，页面级状态和交互下沉到 `src/components/features/**/[feature]-page.tsx`
+8. **页面壳复用**: Dashboard 页面优先复用 `src/components/shared/layout/dashboard-page-shell.tsx`
+9. **列表双视图**: 高密度列表优先采用“统计摘要 + 移动卡片 + 桌面表格”
+10. **字段块优先**: 关键输入区优先用字段块，而不是裸 input 直接贴在页面上
+11. **文档同步**: 稳定的新视觉模式必须同步更新 `docs/standards/ui-ux-system.md` 和 `docs/architecture/frontend.md`
+12. **[INTEGRATE] 标注**: 复杂业务逻辑标注 `// TODO: [INTEGRATE]`
 
 ## 美学约束 (DISTILLED_AESTHETICS)
 
-- 字体：只用 `Outfit`（UI）+ `JetBrains Mono`（代码），拒绝 Inter / Space Grotesk / system-ui
-- 品牌色：`--primary` 为电光青 `hsl(173 80% 37%)`，按钮/Logo 标记用此色
-- 背景：避免纯色；登录页用大气渐变，主内容区可叠加点阵纹理 (`.bg-dot-grid`)
-- 动效：页面入场用 `.animate-in-up` + 间隔延迟类 (`.animate-in-up-d1` 等)，时长 ≤ 350ms
-- Logo 标记：`bg-primary text-primary-foreground shadow-primary/20`
+- 字体：只用 `Outfit`（UI）+ `JetBrains Mono`（代码）
+- 主题：亮色默认，暗色完整兼容；禁止假设“暗色是唯一正式主题”
+- 品牌色：`--primary` 为电光青，按钮、Logo、焦点与眉标使用该语义色
+- 背景：避免单纯白板或纯黑底，允许点阵纹理与极淡 radial gradient 氛围层
+- 表面：主区块使用 `rounded-3xl border border-border/60 bg-card/80 shadow-sm` 一类卡片化表面
+- 动效：页面入场用 `.animate-in-up` + 延迟类，时长控制在 350ms 左右
 
 ## 禁止操作
 
 - 不写 src/app/api/**、src/server/**、prisma/**
-- 不修改 docs/**
+- 不在功能组件内复制一套新的 Dropdown / Dialog / Sheet 视觉皮肤
+- 不跳过文档同步，导致代码与规范长期分叉

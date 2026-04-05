@@ -123,14 +123,13 @@ export const userRepository = new UserRepository();
 
 ## Repository 抽象复用模式
 
-当同一个 Prisma Model 通过 `type`、`deletedAt` 或不同可见范围承载多个业务视图时，
-Repository 层应优先抽取**共享查询构建函数**，而不是为每个业务视图复制一套近似查询。
+当同一个 Prisma Model 仅通过 `deletedAt`、可见范围或少量 include/orderBy 差异承载多个业务视图时，
+Repository 层应优先抽取**共享查询构建函数**，而不是复制一套近似查询。
 
 ```typescript
 type ArchiveFilter = "active" | "archived" | "all";
 
 interface BuildAccountWhereParams {
-  type?: DouyinAccountType;
   userId?: string;
   organizationId?: string;
   archiveFilter?: ArchiveFilter;
@@ -138,10 +137,9 @@ interface BuildAccountWhereParams {
 
 class DouyinAccountRepository {
   private buildWhere(params: BuildAccountWhereParams): Prisma.DouyinAccountWhereInput {
-    const { type, userId, organizationId, archiveFilter = "active" } = params;
+    const { userId, organizationId, archiveFilter = "active" } = params;
 
     return {
-      ...(type ? { type } : {}),
       ...(userId ? { userId } : {}),
       ...(organizationId ? { organizationId } : {}),
       ...(archiveFilter === "active" ? { deletedAt: null } : {}),
@@ -152,13 +150,16 @@ class DouyinAccountRepository {
 ```
 
 **适用场景**：
-- 同一模型下有 `MY_ACCOUNT` / `BENCHMARK_ACCOUNT` 这类 type 分支
 - 主列表 / 归档列表仅在 `deletedAt` 条件上不同
 - 查询主体一致，仅 include / 排序 / archiveFilter 略有差异
 
+**不适用场景**：
+- 领域所有权、权限模型、定时同步链路已经实质分叉，例如 `DouyinAccount` / `BenchmarkAccount`
+- 下游视频、快照、转录链路已拆为独立模型，例如 `DouyinVideo` / `BenchmarkVideo`
+
 **规则**：
 - 共享逻辑放在 Repository 私有 helper 中，不上浮到 Route Handler
-- 业务语义方法仍保留，例如 `findManyBenchmarks()`、`findAllMyAccountsForCollection()`
+- 已拆分领域仍保留业务语义方法，例如 `findAllMyAccountsForCollection()`、`findByOrganizationAndSecUserIdIncludingDeleted()`
 - Service 依赖“语义方法”，不直接拼装 Prisma where 条件
 - `include` 片段如 `user: { select: { id, name } }` 可抽成常量复用，避免多处漂移
 - 同领域归档筛选优先统一为 `archiveFilter` 语义，历史兼容路由也应委托同一套 Service / Repository 逻辑

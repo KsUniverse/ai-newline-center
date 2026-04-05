@@ -18,37 +18,46 @@ interface EmployeeCollectionVideoRecord {
 
 class EmployeeCollectionVideoRepository {
   async existsForAccount(accountId: string): Promise<boolean> {
-    const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (
-        SELECT 1
-        FROM employee_collection_videos
-        WHERE "accountId" = ${accountId}
-      ) AS "exists"
-    `;
+    const record = await prisma.employeeCollectionVideo.findFirst({
+      where: {
+        accountId,
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    return rows[0]?.exists ?? false;
+    return record !== null;
   }
 
   async existsByAccountAndAwemeId(accountId: string, awemeId: string): Promise<boolean> {
-    const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (
-        SELECT 1
-        FROM employee_collection_videos
-        WHERE "accountId" = ${accountId}
-          AND "awemeId" = ${awemeId}
-      ) AS "exists"
-    `;
+    const record = await prisma.employeeCollectionVideo.findUnique({
+      where: {
+        accountId_awemeId: {
+          accountId,
+          awemeId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    return rows[0]?.exists ?? false;
+    return record !== null;
   }
 
   async create(record: CreateEmployeeCollectionVideoRecord): Promise<void> {
-    const id = cuid();
-    await prisma.$executeRaw`
-      INSERT INTO employee_collection_videos ("id", "accountId", "awemeId", "authorSecUserId")
-      VALUES (${id}, ${record.accountId}, ${record.awemeId}, ${record.authorSecUserId})
-      ON CONFLICT ("accountId", "awemeId") DO NOTHING
-    `;
+    await prisma.employeeCollectionVideo.createMany({
+      data: [
+        {
+          id: cuid(),
+          accountId: record.accountId,
+          awemeId: record.awemeId,
+          authorSecUserId: record.authorSecUserId,
+        },
+      ],
+      skipDuplicates: true,
+    });
   }
 
   async deleteByAccountIds(accountIds: string[]): Promise<void> {
@@ -56,20 +65,25 @@ class EmployeeCollectionVideoRepository {
       return;
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM employee_collection_videos
-      WHERE "accountId" = ANY(${accountIds}::text[])
-    `;
+    await prisma.employeeCollectionVideo.deleteMany({
+      where: {
+        accountId: {
+          in: accountIds,
+        },
+      },
+    });
   }
 
   async findRecentByAccountId(accountId: string, limit: number): Promise<EmployeeCollectionVideoRecord[]> {
-    return prisma.$queryRaw<EmployeeCollectionVideoRecord[]>`
-      SELECT "id", "accountId", "awemeId", "authorSecUserId", "createdAt"
-      FROM employee_collection_videos
-      WHERE "accountId" = ${accountId}
-      ORDER BY "createdAt" DESC
-      LIMIT ${limit}
-    `;
+    return prisma.employeeCollectionVideo.findMany({
+      where: {
+        accountId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: limit,
+    });
   }
 }
 

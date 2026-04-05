@@ -50,9 +50,12 @@ export function AccountReloginDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-xl border-border/60 bg-card p-0">
-        <div className="p-6 pb-0">
+      <DialogContent className="max-w-xl border-border/60 bg-card/95 p-0 shadow-2xl shadow-black/15">
+        <div className="border-b border-border/60 px-6 py-6">
           <DialogHeader>
+            <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
+              Login Session
+            </p>
             <DialogTitle>{reloginLabel}</DialogTitle>
             <DialogDescription>
               为当前账号更新独立登录态，不会影响其他已录入账号。
@@ -60,7 +63,7 @@ export function AccountReloginDialog({
           </DialogHeader>
         </div>
 
-        <div className="max-h-[80vh] overflow-y-auto px-6 pb-6">
+        <div className="max-h-[80vh] overflow-y-auto px-6 py-6">
           <AccountLoginSessionContent
             purpose="RELOGIN"
             viewState={viewState}

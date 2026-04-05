@@ -58,7 +58,7 @@ enum TranscriptionStatus {
 model Transcription {
   id           String              @id @default(cuid())
   videoId      String              @unique
-  video        DouyinVideo         @relation(fields: [videoId], references: [id])
+  video        BenchmarkVideo      @relation(fields: [videoId], references: [id])
   status       TranscriptionStatus @default(PENDING)
   aiModel      String
   originalText String?
@@ -71,10 +71,10 @@ model Transcription {
 }
 ```
 
-### `DouyinVideo` 模型变更（添加反向关系）
+### `BenchmarkVideo` 模型变更（添加反向关系）
 
 ```prisma
-model DouyinVideo {
+model BenchmarkVideo {
   // ...（原有字段不变）
   transcription Transcription?   // ← 新增反向关系字段
 }
@@ -85,7 +85,7 @@ model DouyinVideo {
 | 决策 | 理由 |
 |------|------|
 | `videoId @unique` | 单视频只允许一条转录记录；重新转录时更新同一条记录，不新增 |
-| 无独立 `organizationId` | 权限隔离通过 `DouyinVideo → DouyinAccount.organizationId` 传递，与 `VideoSnapshot` 保持一致 |
+| 无独立 `organizationId` | 权限隔离通过 `BenchmarkVideo → BenchmarkAccount.organizationId` 传递，与对标视频链路保持一致 |
 | `originalText` + `editedText` 双字段 | 保证 AI 原始结果不被人工校对覆盖，"恢复 AI 原文"通过清空 `editedText` 实现 |
 | `aiModel` 持久化 | 记录生成时使用的模型，便于后续审计 |
 
@@ -96,7 +96,7 @@ model DouyinVideo {
 ### 通用规则
 
 - 所有接口需 `auth()` session
-- 权限隔离：通过 `DouyinVideo.account.organizationId` 验证调用方 `organizationId`
+- 权限隔离：通过 `BenchmarkVideo.account.organizationId` 验证调用方 `organizationId`
 - 响应格式：`{ success: boolean, data?: T, error?: { code, message } }`
 
 ---
@@ -119,7 +119,7 @@ const createTranscriptionSchema = z.object({
 ```
 
 **Service 层逻辑**（顺序执行）：
-1. 通过 `videoId` 查询 `DouyinVideo`（含 `account`），验证 `account.organizationId === caller.organizationId`
+1. 通过 `videoId` 查询 `BenchmarkVideo`（含 `account`），验证 `account.organizationId === caller.organizationId`
 2. 检查 `video.videoStoragePath !== null`，否则抛 `VIDEO_NOT_DOWNLOADED`
 3. 查询已有 `Transcription`：若存在且 `status` 为 `PENDING` 或 `PROCESSING`，抛 `TRANSCRIPTION_IN_PROGRESS`
 4. Upsert `Transcription`（status=PENDING，清空 `originalText/editedText/errorMessage`，写入 `aiModel=env.TRANSCRIPTION_AI_MODEL`）
@@ -410,7 +410,7 @@ benchmark-detail-page.tsx（已有，扩展状态管理）
 | 类型 | 内容 |
 |------|------|
 | 前后端共享类型 | `src/types/transcription.ts`（两端均 import） |
-| 后端 → Prisma | `Transcription` 模型 + `DouyinVideo.transcription` 关系 |
+| 后端 → Prisma | `Transcription` 模型 + `BenchmarkVideo.transcription` 关系 |
 | Worker → AiGateway | `aiGateway.transcribe(path, model)` |
 | Worker → Redis | Pub/Sub client（`src/lib/redis.ts`） |
 | SSE endpoint → Redis | Pub/Sub subscriber client |

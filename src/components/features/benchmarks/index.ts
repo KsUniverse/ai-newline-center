@@ -1,8 +1,12 @@
 export { BenchmarkAddDrawer } from "./benchmark-add-drawer";
+export { BenchmarkArchiveDialog } from "./benchmark-archive-dialog";
 export { BenchmarkCard } from "./benchmark-card";
 export { BenchmarkCardGrid } from "./benchmark-card-grid";
 export { BenchmarkDetailHeader } from "./benchmark-detail-header";
 export { BenchmarkEmptyState } from "./benchmark-empty-state";
+export { BenchmarkLibraryOverview } from "./benchmark-library-overview";
+export { BenchmarkPagination } from "./benchmark-pagination";
+export { BenchmarkSurfaceSection } from "./benchmark-surface-section";
 export { BenchmarkVideoGridCard } from "./benchmark-video-grid-card";
 export { BenchmarkVideoList } from "./benchmark-video-list";
 export { BenchmarksPageView } from "./benchmarks-page";

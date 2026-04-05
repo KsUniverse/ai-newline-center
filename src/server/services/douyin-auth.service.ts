@@ -17,7 +17,7 @@ import { douyinAccountService, type CreateDouyinAccountData } from "@/server/ser
 import { douyinLoginSessionManager } from "@/server/services/douyin-login-session-manager";
 import { douyinLoginStateStorageService } from "@/server/services/douyin-login-state-storage.service";
 import { syncService } from "@/server/services/sync.service";
-import type { SessionUser } from "@/server/services/user.service";
+import type { SessionUser } from "@/types/session";
 import type {
   DouyinLoginSessionCurrentStep,
   DouyinLoginSessionDTO,

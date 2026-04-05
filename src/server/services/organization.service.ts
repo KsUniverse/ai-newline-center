@@ -4,8 +4,8 @@ import { OrganizationStatus, OrganizationType, UserRole, UserStatus } from "@pri
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
 import type { BranchWithUserCount, OrganizationWithUserCount } from "@/server/repositories/organization.repository";
-import type { SessionUser } from "@/server/services/user.service";
 import { organizationRepository } from "@/server/repositories/organization.repository";
+import type { SessionUser } from "@/types/session";
 
 class OrganizationService {
   async listBranches(): Promise<BranchWithUserCount[]> {

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Film, Heart } from "lucide-react";
+import { Film, Heart, MessageCircle, Play } from "lucide-react";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
-import { Badge } from "@/components/ui/badge";
 import { cn, proxyImageUrl, formatNumber, formatDateTime } from "@/lib/utils";
+
+import { getBenchmarkVideoStatusLabel } from "./benchmark-copy";
 
 interface BenchmarkVideoGridCardProps {
   video: DouyinVideoDTO;
@@ -23,6 +24,7 @@ export function BenchmarkVideoGridCard({
   onClick,
 }: BenchmarkVideoGridCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const statusLabel = getBenchmarkVideoStatusLabel(video.videoStoragePath);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -41,11 +43,13 @@ export function BenchmarkVideoGridCard({
   return (
     <button
       type="button"
-      className="relative aspect-3/4 w-full overflow-hidden rounded-lg bg-card cursor-pointer"
+      className="group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
       onClick={onClick}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.16),transparent_34%)]" />
+
       {/* Cover image */}
       {video.coverUrl ? (
         /* eslint-disable-next-line @next/next/no-img-element */
@@ -78,37 +82,49 @@ export function BenchmarkVideoGridCard({
         />
       )}
 
-      {/* Tags — top left */}
-      {video.tags.length > 0 && (
-        <div className="absolute top-2 left-2 flex gap-1">
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+            研究样本
+          </span>
           {video.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center rounded-sm px-2 py-0.5 text-2xs font-medium bg-black/50 text-white/90 backdrop-blur-sm"
+              className="inline-flex items-center rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-2xs font-medium text-white/75 backdrop-blur-sm"
             >
               {tag}
             </span>
           ))}
         </div>
-      )}
-
-      {/* 未拆解 Badge — top right (v0.3.x 拆解功能占位) */}
-      <div className="absolute top-2 right-2">
-        <Badge
-          variant="outline"
-          className="text-2xs text-white/80 bg-black/40 border-white/20 backdrop-blur-sm"
-        >
-          未拆解
-        </Badge>
+        <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              video.videoStoragePath ? "bg-emerald-400" : "bg-white/40",
+            )}
+          />
+          {statusLabel}
+        </span>
       </div>
 
-      {/* Bottom gradient overlay */}
-      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-3 pt-8">
-        <p className="truncate text-sm font-medium text-white text-left">{video.title}</p>
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs text-white/80">
-          <span className="flex min-w-0 items-center gap-1 tabular-nums">
+      {video.videoUrl ? (
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur-sm">
+            <Play className="ml-0.5 h-4 w-4" />
+          </span>
+        </div>
+      ) : null}
+
+      <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/45 to-transparent p-4 pt-10">
+        <p className="line-clamp-2 text-sm font-medium text-white">{video.title}</p>
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs text-white/75">
+          <span className="flex min-w-0 items-center gap-1 tabular-nums tracking-tight">
             <Heart className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{formatNumber(video.likeCount)}</span>
+          </span>
+          <span className="flex min-w-0 items-center gap-1 tabular-nums tracking-tight">
+            <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{formatNumber(video.commentCount)}</span>
           </span>
           <span className="shrink-0 tabular-nums tracking-tight">
             {formatDateTime(video.publishedAt)}

@@ -2,17 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import type { PaginatedData } from "@/types/api";
 import type { BenchmarkAccountDTO } from "@/types/douyin-account";
 import { ApiError, apiClient } from "@/lib/api-client";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
-import { Button } from "@/components/ui/button";
 
 import { BenchmarkCardGrid } from "./benchmark-card-grid";
 import { BenchmarkEmptyState } from "./benchmark-empty-state";
+import { BenchmarkPagination } from "./benchmark-pagination";
+import { BenchmarkSurfaceSection } from "./benchmark-surface-section";
+import {
+  BENCHMARK_BACK_TO_LIBRARY_LABEL,
+  BENCHMARK_LIBRARY_ARCHIVED_DESCRIPTION,
+  BENCHMARK_LIBRARY_ARCHIVED_LIST_DESCRIPTION,
+  BENCHMARK_LIBRARY_ARCHIVED_LIST_TITLE,
+  BENCHMARK_LIBRARY_ARCHIVED_TITLE,
+  getBenchmarkArchivedListLoadErrorMessage,
+  getBenchmarkLibraryCountLabel,
+  getBenchmarkLibrarySyncHint,
+} from "./benchmark-copy";
 
 const LIMIT = 20;
 
@@ -42,7 +53,7 @@ export function BenchmarksArchivedPageView() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "加载归档账号失败");
+          toast.error(error instanceof ApiError ? error.message : getBenchmarkArchivedListLoadErrorMessage());
         }
       } finally {
         if (!cancelled) {
@@ -61,54 +72,47 @@ export function BenchmarksArchivedPageView() {
 
   return (
     <DashboardPageShell
-      title="已归档对标账号"
+      eyebrow="Research Archive"
+      title={BENCHMARK_LIBRARY_ARCHIVED_TITLE}
+      description={BENCHMARK_LIBRARY_ARCHIVED_DESCRIPTION}
       backHref="/benchmarks"
-      backLabel="返回对标账号"
+      backLabel={BENCHMARK_BACK_TO_LIBRARY_LABEL}
+      maxWidth="wide"
     >
       <div className="animate-in-up-d1">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-lg border border-border/60 bg-card"
-              />
-            ))}
-          </div>
-        ) : accounts.length === 0 ? (
-          <BenchmarkEmptyState archived />
-        ) : (
-          <BenchmarkCardGrid accounts={accounts} archived />
-        )}
+        <BenchmarkSurfaceSection
+          eyebrow="Archived Dossiers"
+          title={BENCHMARK_LIBRARY_ARCHIVED_LIST_TITLE}
+          description={BENCHMARK_LIBRARY_ARCHIVED_LIST_DESCRIPTION}
+          actions={
+            <MetaPillList
+              items={[
+                { label: getBenchmarkLibraryCountLabel(total, true), tone: "primary" },
+                { label: getBenchmarkLibrarySyncHint(true) },
+              ]}
+            />
+          }
+          bodyClassName="space-y-5"
+        >
+          {loading ? (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-72 animate-pulse rounded-3xl border border-border/60 bg-card"
+                />
+              ))}
+            </div>
+          ) : accounts.length === 0 ? (
+            <BenchmarkEmptyState archived />
+          ) : (
+            <>
+              <BenchmarkCardGrid accounts={accounts} archived />
+              <BenchmarkPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+            </>
+          )}
+        </BenchmarkSurfaceSection>
       </div>
-
-      {!loading && total > LIMIT && (
-        <div className="flex items-center justify-center gap-4 pb-4 animate-in-up-d2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-            上一页
-          </Button>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            下一页
-            <ChevronRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
     </DashboardPageShell>
   );
 }

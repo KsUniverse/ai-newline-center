@@ -51,6 +51,7 @@ describe("startScheduler", () => {
     envMock.COLLECTION_SYNC_CRON = undefined;
     envMock.VIDEO_SYNC_CRON = undefined;
     envMock.VIDEO_SNAPSHOT_CRON = undefined;
+    globalThis.__schedulerInitialized = undefined;
     vi.resetModules();
   });
 
@@ -61,10 +62,10 @@ describe("startScheduler", () => {
     startScheduler();
 
     expect(scheduleMock).toHaveBeenCalledTimes(4);
-    expect(scheduleMock).toHaveBeenNthCalledWith(1, "0 */1 * * *", expect.any(Function));
+    expect(scheduleMock).toHaveBeenNthCalledWith(1, "3 * * * *", expect.any(Function));
     expect(scheduleMock).toHaveBeenNthCalledWith(2, "*/10 * * * *", expect.any(Function));
     expect(scheduleMock).toHaveBeenNthCalledWith(3, "*/10 * * * *", expect.any(Function));
-    expect(scheduleMock).toHaveBeenNthCalledWith(4, "*/5 * * * *", expect.any(Function));
+    expect(scheduleMock).toHaveBeenNthCalledWith(4, "*/15 * * * *", expect.any(Function));
   });
 
   it("skips collection sync reentry while the previous run is still active", async () => {

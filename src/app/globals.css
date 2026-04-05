@@ -67,6 +67,37 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted) / 0.45);
+    scrollbar-width: thin;
+  }
+
+  * {
+    scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted) / 0.45);
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.45);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.72), hsl(var(--info) / 0.5));
+    border: 2px solid hsl(var(--background) / 0.7);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.9), hsl(var(--info) / 0.66));
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   @keyframes fade-up {

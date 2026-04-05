@@ -1,6 +1,6 @@
 import {
   DouyinAccountLoginStatus,
-  DouyinAccountType,
+  type DouyinVideo,
   type Prisma,
   type PrismaClient,
   UserRole,
@@ -14,13 +14,18 @@ import type {
   DouyinAccountDTO,
   DouyinAccountDetailDTO,
 } from "@/types/douyin-account";
+import type { PaginatedData } from "@/types/api";
+import type { SessionUser } from "@/types/session";
 import {
   douyinAccountRepository,
-  type DouyinAccountWithUser,
 } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { crawlerService } from "@/server/services/crawler.service";
-import type { SessionUser } from "@/server/services/user.service";
+import {
+  mapCrawlerProfileToPreview,
+  mapDouyinAccountDetailToDto,
+  mapDouyinAccountToDto,
+} from "@/server/services/douyin-account.mapper";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 
@@ -61,91 +66,6 @@ interface CreateLoggedInAccountOptions {
 export interface ListParams {
   page: number;
   limit: number;
-}
-
-export function mapCrawlerProfileToPreview(
-  profileUrl: string,
-  profile: {
-    secUserId: string;
-    nickname: string;
-    avatar: string;
-    bio: string | null;
-    signature: string | null;
-    followersCount: number;
-    followingCount: number;
-    likesCount: number;
-    videosCount: number;
-    douyinNumber: string | null;
-    ipLocation: string | null;
-    age: number | null;
-    province: string | null;
-    city: string | null;
-    verificationLabel: string | null;
-    verificationIconUrl: string | null;
-    verificationType: number | null;
-  },
-): AccountPreview {
-  return {
-    profileUrl,
-    secUserId: profile.secUserId,
-    nickname: profile.nickname,
-    avatar: profile.avatar,
-    bio: profile.bio,
-    signature: profile.signature,
-    followersCount: profile.followersCount,
-    followingCount: profile.followingCount,
-    likesCount: profile.likesCount,
-    videosCount: profile.videosCount,
-    douyinNumber: profile.douyinNumber,
-    ipLocation: profile.ipLocation,
-    age: profile.age,
-    province: profile.province,
-    city: profile.city,
-    verificationLabel: profile.verificationLabel,
-    verificationIconUrl: profile.verificationIconUrl,
-    verificationType: profile.verificationType,
-  };
-}
-
-export function mapDouyinAccountToDto(account: DouyinAccount): DouyinAccountDTO {
-  return {
-    id: account.id,
-    profileUrl: account.profileUrl,
-    secUserId: account.secUserId,
-    nickname: account.nickname,
-    avatar: account.avatar,
-    bio: account.bio,
-    signature: account.signature,
-    followersCount: account.followersCount,
-    followingCount: account.followingCount,
-    likesCount: account.likesCount,
-    videosCount: account.videosCount,
-    douyinNumber: account.douyinNumber,
-    ipLocation: account.ipLocation,
-    age: account.age,
-    province: account.province,
-    city: account.city,
-    verificationLabel: account.verificationLabel,
-    verificationIconUrl: account.verificationIconUrl,
-    verificationType: account.verificationType,
-    type: account.type,
-    loginStatus: account.loginStatus,
-    loginStateUpdatedAt: account.loginStateUpdatedAt?.toISOString() ?? null,
-    loginStateCheckedAt: account.loginStateCheckedAt?.toISOString() ?? null,
-    loginStateExpiresAt: account.loginStateExpiresAt?.toISOString() ?? null,
-    loginErrorMessage: account.loginErrorMessage,
-    userId: account.userId,
-    organizationId: account.organizationId,
-    createdAt: account.createdAt.toISOString(),
-  };
-}
-
-function mapDouyinAccountDetailToDto(account: DouyinAccountWithUser): DouyinAccountDetailDTO {
-  return {
-    ...mapDouyinAccountToDto(account),
-    user: account.user,
-    lastSyncedAt: account.lastSyncedAt?.toISOString() ?? null,
-  };
 }
 
 class DouyinAccountService {
@@ -191,7 +111,6 @@ class DouyinAccountService {
       ...data,
       userId: caller.id,
       organizationId: caller.organizationId,
-      type: DouyinAccountType.MY_ACCOUNT,
     });
 
     return mapDouyinAccountToDto(createdAccount);
@@ -212,7 +131,6 @@ class DouyinAccountService {
       ...data,
       userId: caller.id,
       organizationId: caller.organizationId,
-      type: DouyinAccountType.MY_ACCOUNT,
       loginStatus: data.loginStatus ?? DouyinAccountLoginStatus.LOGGED_IN,
       loginStatePath: options.loginStatePath ?? null,
       loginStateUpdatedAt: data.loginStateUpdatedAt ?? null,
@@ -224,7 +142,10 @@ class DouyinAccountService {
     }, db);
   }
 
-  async listAccounts(caller: SessionUser, params: ListParams) {
+  async listAccounts(
+    caller: SessionUser,
+    params: ListParams,
+  ): Promise<PaginatedData<DouyinAccountDTO>> {
     const result = await ((): ReturnType<typeof douyinAccountRepository.findMany> => {
       switch (caller.role) {
         case UserRole.EMPLOYEE:
@@ -277,9 +198,6 @@ class DouyinAccountService {
     if (!account) {
       throw new AppError("NOT_FOUND", "账号不存在", 404);
     }
-    if (account.type !== DouyinAccountType.MY_ACCOUNT) {
-      throw new AppError("NOT_FOUND", "账号不存在", 404);
-    }
 
     if (caller.role === UserRole.EMPLOYEE && account.userId !== caller.id) {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
@@ -295,7 +213,11 @@ class DouyinAccountService {
     return mapDouyinAccountDetailToDto(account);
   }
 
-  async listVideos(caller: SessionUser, accountId: string, params: ListParams) {
+  async listVideos(
+    caller: SessionUser,
+    accountId: string,
+    params: ListParams,
+  ): Promise<PaginatedData<DouyinVideo>> {
     await this.getAccountDetail(caller, accountId);
 
     return douyinVideoRepository.findByAccountId({

@@ -1,8 +1,10 @@
 "use client";
 
-import { MoreHorizontal, Pencil, Ban, RotateCcw } from "lucide-react";
+import { Ban, Building2, MoreHorizontal, Pencil, RotateCcw, ShieldCheck, Users } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { TaskEmptyState } from "@/components/shared/common/task-empty-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -35,96 +37,204 @@ function formatDate(iso: string) {
   });
 }
 
+function getStatusMeta(status: OrganizationDTO["status"]) {
+  return status === "ACTIVE"
+    ? {
+        label: "正常",
+        dotClassName: "bg-emerald-500",
+      }
+    : {
+        label: "已禁用",
+        dotClassName: "bg-muted-foreground/40",
+      };
+}
+
 export function OrganizationList({
   organizations,
   onEdit,
   onToggleStatus,
   loading,
 }: OrganizationListProps) {
+  const activeCount = organizations.filter((org) => org.status === "ACTIVE").length;
+  const disabledCount = organizations.length - activeCount;
+  const totalUsers = organizations.reduce((count, org) => count + (org._count?.users ?? 0), 0);
+
   if (loading) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        加载中...
+      <div className="space-y-4 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="h-20 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-border/60 bg-background shadow-xs overflow-hidden">
-      <Table className="text-sm border-b-0">
-        <TableHeader className="bg-muted/30">
-          <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
-            <TableHead className="font-semibold text-foreground/70 pl-5">公司名称</TableHead>
-            <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
-            <TableHead className="w-28 font-semibold text-foreground/70">状态</TableHead>
-            <TableHead className="w-40 font-semibold text-foreground/70">创建时间</TableHead>
-            <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {organizations.length === 0 && (
-            <TableRow className="border-b-0">
-              <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                暂无分公司数据
-              </TableCell>
-            </TableRow>
-          )}
-          {organizations.map((org) => (
-            <TableRow key={org.id} className="border-border/60 hover:bg-muted/30 transition-colors group">
-              <TableCell className="font-medium pl-5">{org.name}</TableCell>
-              <TableCell className="text-right text-muted-foreground/80 font-mono">
-                {org._count?.users ?? 0}
-              </TableCell>
-              <TableCell>
-                {org.status === "ACTIVE" ? (
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    <span className="text-muted-foreground">正常</span>
+    <div className="space-y-5 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-primary">
+          <Building2 className="h-4 w-4" />
+          <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Organization Queue</p>
+        </div>
+        <MetaPillList
+          items={[
+            { label: `共 ${organizations.length} 个分公司`, icon: Building2, tone: "primary" },
+            { label: `累计 ${totalUsers} 个账号`, icon: Users },
+            { label: `${activeCount} 正常 / ${disabledCount} 禁用`, icon: ShieldCheck, tone: activeCount > 0 ? "success" : "default" },
+          ]}
+        />
+      </div>
+
+      {organizations.length === 0 ? (
+        <TaskEmptyState
+          icon={Building2}
+          eyebrow="Organization Setup"
+          title="还没有分公司档案"
+          description="先创建分公司，再继续分配用户和管理组织状态。"
+          hint="组织会作为后续账号、用户和研究数据的范围基础。"
+          tone="muted"
+        />
+      ) : (
+        <>
+          <div className="space-y-3 md:hidden">
+            {organizations.map((org) => {
+              const status = getStatusMeta(org.status);
+
+              return (
+                <div key={org.id} className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <p className="text-base font-semibold tracking-tight text-foreground/95">{org.name}</p>
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
+                        <span className="text-muted-foreground">{status.label}</span>
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">操作</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuItem onClick={() => onEdit(org)} className="cursor-pointer py-1.5 text-sm">
+                          <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                          编辑
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => onToggleStatus(org)}
+                          className={cn("cursor-pointer py-1.5 text-sm", org.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                        >
+                          {org.status === "ACTIVE" ? (
+                            <>
+                              <Ban className="mr-2 h-3.5 w-3.5 text-destructive/70" />
+                              禁用
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              启用
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-muted-foreground">已禁用</span>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                      <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">用户数</p>
+                      <p className="mt-1 text-sm font-medium text-foreground/90">{org._count?.users ?? 0} 个</p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                      <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">创建时间</p>
+                      <p className="mt-1 text-sm font-medium text-foreground/90">{formatDate(org.createdAt)}</p>
+                    </div>
                   </div>
-                )}
-              </TableCell>
-              <TableCell className="text-muted-foreground tracking-tight tabular-nums">{formatDate(org.createdAt)}</TableCell>
-              <TableCell className="text-right pr-5">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100 -mr-1">
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">操作</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem onClick={() => onEdit(org)} className="text-sm py-1.5 cursor-pointer">
-                      <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                      编辑
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onToggleStatus(org)}
-                      className={cn("text-sm py-1.5 cursor-pointer", org.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
-                    >
-                      {org.status === "ACTIVE" ? (
-                        <>
-                          <Ban className="mr-2 h-3.5 w-3.5 text-destructive/70" />
-                          禁用
-                        </>
-                      ) : (
-                        <>
-                          <RotateCcw className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                          启用
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden overflow-hidden rounded-2xl border border-border/60 md:block">
+            <Table className="border-b-0 text-sm">
+              <TableHeader className="bg-muted/20">
+                <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
+                  <TableHead className="pl-5 font-semibold text-foreground/70">公司名称</TableHead>
+                  <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
+                  <TableHead className="w-28 font-semibold text-foreground/70">状态</TableHead>
+                  <TableHead className="w-40 font-semibold text-foreground/70">创建时间</TableHead>
+                  <TableHead className="w-16 pr-5 text-right font-semibold text-foreground/70">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {organizations.map((org) => {
+                  const status = getStatusMeta(org.status);
+
+                  return (
+                    <TableRow key={org.id} className="group border-border/60 transition-colors hover:bg-muted/20">
+                      <TableCell className="pl-5 font-medium">{org.name}</TableCell>
+                      <TableCell className="text-right font-mono text-muted-foreground/80">{org._count?.users ?? 0}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
+                          <span className="text-muted-foreground">{status.label}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="tabular-nums tracking-tight text-muted-foreground">{formatDate(org.createdAt)}</TableCell>
+                      <TableCell className="pr-5 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="-mr-1 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">操作</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36">
+                            <DropdownMenuItem onClick={() => onEdit(org)} className="cursor-pointer py-1.5 text-sm">
+                              <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                              编辑
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => onToggleStatus(org)}
+                              className={cn("cursor-pointer py-1.5 text-sm", org.status === "ACTIVE" ? "text-destructive focus:text-destructive" : "")}
+                            >
+                              {org.status === "ACTIVE" ? (
+                                <>
+                                  <Ban className="mr-2 h-3.5 w-3.5 text-destructive/70" />
+                                  禁用
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCcw className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                                  启用
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -3,8 +3,8 @@ import { TranscriptionStatus, UserRole } from "@prisma/client";
 import { getTranscriptionQueue, TRANSCRIPTION_QUEUE_NAME } from "@/lib/bullmq";
 import { AppError } from "@/lib/errors";
 import { transcriptionRepository } from "@/server/repositories/transcription.repository";
-import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
-import type { SessionUser } from "@/server/services/user.service";
+import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
+import type { SessionUser } from "@/types/session";
 import type { TranscriptionDTO } from "@/types/transcription";
 import { env } from "@/lib/env";
 
@@ -94,7 +94,7 @@ class TranscriptionService {
   }
 
   private async getAccessibleVideo(videoId: string, caller: SessionUser) {
-    const video = await douyinVideoRepository.findByIdWithAccountOrganization(videoId);
+    const video = await benchmarkVideoRepository.findByIdWithAccountOrganization(videoId);
 
     if (!video) {
       throw new AppError("VIDEO_NOT_FOUND", "视频不存在", 404);

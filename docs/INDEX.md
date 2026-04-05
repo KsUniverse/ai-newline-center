@@ -10,7 +10,7 @@
 | **当前迭代** | v0.3.1 |
 | **当前阶段** | 待规划 |
 | **分支** | main |
-| **最后更新** | 2026-04-04 |
+| **最后更新** | 2026-04-06 |
 
 ## 文档导航
 
@@ -21,7 +21,7 @@
 | [OVERVIEW.md](architecture/OVERVIEW.md) | 技术架构摘要 | **必读** — 所有角色 |
 | [project-structure.md](architecture/project-structure.md) | 目录结构约定 | 创建新文件时 |
 | [backend.md](architecture/backend.md) | 后端分层规范 | 后端开发 / 架构师 |
-| [frontend.md](architecture/frontend.md) | 前端组件体系 | 前端开发 / 架构师 |
+| [frontend.md](architecture/frontend.md) | 前端组件体系 + 页面壳 + 共享弹层原语 | 前端开发 / 架构师 |
 | [database.md](architecture/database.md) | 数据库设计规范 | 后端开发 / 架构师 |
 | [api-conventions.md](architecture/api-conventions.md) | API 设计规范 | 前后端开发 / 架构师 |
 
@@ -29,7 +29,7 @@
 
 | 文件 | 说明 | 何时阅读 |
 |------|------|----------|
-| [ui-ux-system.md](standards/ui-ux-system.md) | UI/UX 设计系统 | 前端开发 / 测试 |
+| [ui-ux-system.md](standards/ui-ux-system.md) | 全局视觉语言、主题 token、页面/表单/弹层样式规范 | 前端开发 / 测试 |
 | [coding-standards.md](standards/coding-standards.md) | 编码规范 | 所有开发角色 |
 | [review-checklist.md](standards/review-checklist.md) | 评审检查清单 | 代码评审 |
 

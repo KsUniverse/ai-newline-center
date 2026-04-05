@@ -1,478 +1,342 @@
 # UI/UX 设计系统
 
-> 摘要：Linear 风格暗色主题设计系统，支持亮色切换。基于 shadcn/ui + Tailwind CSS。弹框/抽屉/Slide-over 优先交互，减少页面跳转。如有外部品牌设计文档，以该文档为准。
+> 摘要：亮色优先、暗色兼容的品牌化运营界面。以卡片化内容表面、气氛层背景、统一页面壳、共享弹层原语为核心。基于 Tailwind CSS 4 + shadcn/ui，所有稳定样式模式必须回写到本文档和前端架构文档。
+
+## 规范来源
+
+当前 UI/UX 的唯一可信来源按优先级如下：
+
+1. `src/app/globals.css`：主题 token、字体、字号 token、动效、滚动条、背景纹理
+2. `src/components/ui/*.tsx`：Dialog / AlertDialog / Sheet / DropdownMenu 等共享原语
+3. `src/components/shared/layout/*.tsx`：AppSidebar、AppHeader、DashboardPageShell 等布局壳
+4. 本文档 `docs/standards/ui-ux-system.md`
+5. `docs/architecture/frontend.md`
+
+当代码实现与文档冲突时，应先确认实现是否已经成为稳定模式；若是，必须同步更新文档，而不是让文档继续过期。
 
 ## 设计原则
 
-1. **简洁优先**: 减少视觉噪音，突出核心内容
-2. **一致性**: 相同功能使用相同组件和交互模式
-3. **层次分明**: 通过颜色、大小、间距建立清晰的视觉层次
-4. **弹框优先**: 创建/编辑/详情用 Drawer/SlidePanel/Dialog，减少页面跳转
-5. **响应式**: 桌面优先（B 端后台），兼容平板
+1. **品牌化但克制**：避免模板化 SaaS 外观，用气氛层、卡片和字距建立识别度，但不过度装饰。
+2. **表面层级清晰**：页面背景、区块表面、浮层、危险反馈必须有明确层次，而不是只靠单一灰度区分。
+3. **上下文优先**：创建、编辑、确认、查看优先在当前页面完成，减少页面跳转。
+4. **共享原语先行**：菜单、弹框、抽屉、页面壳统一从全局原语收敛，不允许每个功能各做一套。
+5. **移动端不缩表格**：数据密集页面默认采用“移动卡片 + 桌面表格”双视图，而不是强行压缩桌面表格。
+6. **文档必须反映真实实现**：稳定的视觉模式、布局模式和交互模式必须沉淀到规范文档。
 
-## 品牌设计
+## 主题与色彩
 
-> **如有外部提供的品牌设计文档，以该文档为准，本文档同步更新。**
->
-> 外部文档应包含：品牌色、字体选择、图标风格、Logo 规范。
-> 本文档提供默认设计系统作为基础。
+### 总原则
 
-## 色彩体系
+- 默认主题为**亮色**，暗色作为完整兼容主题。
+- 颜色必须通过 CSS 变量使用，禁止在组件中硬编码 HSL / HEX 作为业务常态样式。
+- 品牌主色为电光青；信息辅助色为冷蓝；成功、警告、危险使用语义色，不混入品牌色职责。
 
-基于 shadcn/ui CSS 变量体系，在 `globals.css` 中定义。使用 `next-themes` 切换暗色/亮色。
+### 主题 Token
 
-### 暗色主题 (默认)
+| 语义 | 亮色 `:root` | 暗色 `.dark` | 用途 |
+|------|--------------|--------------|------|
+| `--background` | `0 0% 99%` | `240 7% 8%` | 页面底色 |
+| `--foreground` | `240 10% 10%` | `0 0% 95%` | 主文字 |
+| `--card` | `0 0% 100%` | `240 7% 10%` | 卡片与主表面 |
+| `--popover` | `0 0% 100%` | `240 7% 10%` | 浮层背景 |
+| `--primary` | `173 80% 26%` | `173 80% 37%` | 品牌高亮、Logo、焦点 |
+| `--secondary` | `240 4.8% 95.9%` | `240 5% 15%` | 次级按钮/次级表面 |
+| `--muted` | `240 5% 94%` | `240 5% 15%` | 辅助底色 |
+| `--accent` | `240 5% 92%` | `240 6% 18%` | hover / active 辅助表面 |
+| `--destructive` | `0 84.2% 60.2%` | `0 62.8% 40%` | 危险动作 |
+| `--border` | `240 6% 90%` | `240 6% 16%` | 边框与分割线 |
+| `--sidebar` | `0 0% 98%` | `240 7% 8%` | 导航背景 |
 
-> ⚠️ 下表为 **实际生效值**（已从原始 shadcn 默认值调整为 Linear 微蓝深灰黑色调）。修改 `globals.css` 时必须以此为准。
+### 功能色
 
-| 用途 | CSS 变量 | 值 | 场景 |
-|------|----------|------|------|
-| 背景 | `--background` | `hsl(240 7% 8%)` | 页面背景（非纯黑，带微蓝色调） |
-| 前景 | `--foreground` | `hsl(0 0% 95%)` | 主要文字（略低于纯白，减少刺眼感） |
-| 卡片 | `--card` | `hsl(240 7% 10%)` | 卡片/浮层背景（比背景亮 +2-3%） |
-| 弹出层 | `--popover` | `hsl(240 7% 10%)` | 下拉/弹出框背景（与 card 统一，非背景色） |
-| 主色 | `--primary` | `hsl(173 80% 37%)` | 品牌色电光青（按钮/焦点/高亮）— 区别于 emerald 状态指示器 |
-| 次要 | `--secondary` | `hsl(240 5% 15%)` | 次要按钮 |
-| 柔和 | `--muted` | `hsl(240 5% 15%)` | 辅助背景/禁用区域 |
-| 强调 | `--accent` | `hsl(240 6% 18%)` | 悬停状态（比 muted 略亮，形成层次） |
-| 危险 | `--destructive` | `hsl(0 62.8% 40%)` | 删除/错误（比原版更亮，暗背景下可读） |
-| 边框 | `--border` | `hsl(240 6% 16%)` | 分割线/边框 |
-| 侧边栏 | `--sidebar` | `hsl(240 7% 8%)` | 与背景同色（Linear 风格：侧边栏不单独突出） |
+```css
+--success: 142 76% 36%;
+--warning: 38 92% 50%;
+--info: 217 91% 60%;
+```
 
-### 亮色主题
+## 字体与字号
 
-| 用途 | CSS 变量 | 值 |
+### 字体
+
+- UI 正文字体：`Outfit`
+- 等宽字体：`JetBrains Mono`
+- 中文 fallback：`PingFang SC`、`Microsoft YaHei`
+
+禁止回退到 Inter、Roboto、Arial 作为主要 UI 字体方案。
+
+### 字号 Token
+
+所有字号必须使用 `globals.css` 中已经注册的语义 token，禁止常态使用 `text-[Npx]` 任意值。
+
+| Token | 实际尺寸 | 用途 |
 |------|----------|------|
-| 背景 | `--background` | `hsl(0 0% 99%)` |
-| 前景 | `--foreground` | `hsl(240 10% 10%)` |
-| 卡片 | `--card` | `hsl(0 0% 100%)` |
-| 主色 | `--primary` | `hsl(173 80% 26%)` | 深电光青，深色背景可读 |
-| 次要 | `--secondary` | `hsl(240 4.8% 95.9%)` |
-| 柔和 | `--muted` | `hsl(240 5% 94%)` |
-| 强调 | `--accent` | `hsl(240 5% 92%)` |
-| 危险 | `--destructive` | `hsl(0 84.2% 60.2%)` |
-| 边框 | `--border` | `hsl(240 6% 90%)` |
-| 侧边栏 | `--sidebar` | `hsl(0 0% 98%)` |
+| `text-2xs` | 11px | 眉标、极小辅助标签、状态说明 |
+| `text-xs` | 12px | 编号、ID、等宽技术信息 |
+| `text-sm` | 13px | 默认 UI 文案、表格单元、提示文案、下拉菜单 |
+| `text-base` | 14px | 正文、详情描述 |
+| `text-lg` | 16px | 区块标题 |
+| `text-xl` | 18px | 页面标题 |
+| `text-2xl` | 22px | 指标数字 |
+| `text-3xl` | 26px | 大标题 / 强调数字 |
 
-### 功能色 (两套主题共用语义)
+## 间距、圆角与阴影
 
-```css
---success: hsl(142 76% 36%);    /* 成功状态 */
---warning: hsl(38 92% 50%);     /* 警告状态 */
---info: hsl(217 91% 60%);       /* 信息提示 */
-```
+### 间距
 
-## 字体
+- 组件内边距：`p-2` ~ `p-4`
+- 组件间距：`gap-3` ~ `gap-6`
+- 页面区块间距：`space-y-6`
+- 页面边距：`px-4 py-6` 起步，桌面升级到 `sm:px-6 lg:px-8`
 
-### 字体选型原则 (DISTILLED_AESTHETICS)
+### 圆角
 
-> 前端美学核心要求：避免通用 AI 生成外观，选择**独特、有设计感**的字体，拒绝 Inter、Roboto、Arial、Space Grotesk 等泛滥字体。
+- 基准圆角：`--radius: 0.4rem`
+- 输入 / 按钮：`rounded-md`
+- 图标壳 / 内嵌小卡：`rounded-xl` ~ `rounded-2xl`
+- 区块表面 / 浮层：`rounded-2xl` ~ `rounded-3xl`
 
-- **UI 正文字体**：`"Outfit"` — 几何人文主义无衬线，字形独特（A/G/Q 等字母有辨识度），现代感强，非主流 SaaS 选择
-- **代码/等宽字体**：`"JetBrains Mono"` — 开发者工具标配，字符可读性极佳
-- 中文字符自动 fallback 到系统字体（PingFang SC / Microsoft YaHei）
+### 阴影
 
-```css
---font-sans: "Outfit", ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
---font-mono: "JetBrains Mono", ui-monospace, monospace;
-```
+- 普通表面：`shadow-sm`
+- 浮层：`shadow-xl shadow-black/10`
+- 主 Dialog / Sheet：`shadow-2xl shadow-black/15`
 
-## 字号规范
+本项目用法上**边框优先于重阴影**，阴影只用于提示悬浮层级，不用于制造厚重拟物感。
 
-所有字号必须使用下列**语义 token 类名**，严禁硬编码 `text-[Npx]` 任意值。
-Token 在 `globals.css` 的 `@theme inline` 块中定义；若需调整尺寸，只改该文件即可全局生效。
+## 全局背景与氛围层
 
-| Token Class | 实际尺寸 | 场景 |
-|-------------|---------|------|
-| `text-2xs` | 11px | 状态圆点旁边的角色标签、Badge 内文字 |
-| `text-xs` | 12px | 等宽标识符（账号、ID、代码），搭配 `font-mono` |
-| `text-sm` | 13px | **默认 UI 文字**：表格单元格、筛选标签、下拉项、帮助文本 |
-| `text-base` | 14px | 正文内容 |
-| `text-lg` | 16px | 区域小节标题 |
-| `text-xl` | 18px | 页面主标题（配合 `font-semibold tracking-tight`） |
-| `text-2xl` | 22px | 大数字/指标展示 |
-| `text-3xl` | 26px | 强调标题 |
+### 页面背景
 
-> **禁止事项**：不使用 `text-[13px]`、`text-[12px]`、`text-[11px]` 等任意值。
-> 如需新尺寸，先在 `globals.css` `@theme inline` 中注册 token，再使用对应类名。
+- 页面底色来自 `--background`
+- 可叠加 `bg-dot-grid` 点阵纹理
+- 品牌氛围通过极淡 radial gradient 营造，而不是大片彩色块
 
-## 间距系统
+### 玻璃感与透出
 
-基于 4px 倍数 (Tailwind 默认):
-
-| 用途 | 值 | Tailwind |
-|------|-----|----------|
-| 组件内间距 | 8-12px | `p-2` ~ `p-3` |
-| 组件间距 | 16-24px | `gap-4` ~ `gap-6` |
-| 区域间距 | 24-32px | `space-y-6` ~ `space-y-8` |
-| 页面边距 | 24-48px | `px-6` ~ `px-12` |
-
-## 圆角
-
-> `--radius` 基准值为 `0.4rem`（已从 shadcn 默认 `0.5rem` 收紧，整体更精致）。
-
-| 用途 | Tailwind | 值 |
-|------|----------|----|
-| 按钮/输入框 | `rounded-md` | 6px |
-| 卡片 | `rounded-lg` | 8px |
-| 弹窗 | `rounded-xl` | 12px |
-| 头像/图标 | `rounded-full` | 50% |
-
-## 阴影
-
-暗色主题下阴影效果较弱，通过边框区分层级：
-
-| 层级 | 样式 |
-|------|------|
-| 基础 | `border border-border` |
-| 浮起 | `border border-border shadow-sm` |
-| 弹出 | `border border-border shadow-lg` |
-
-## 背景与氛围 (Background & Atmosphere) (DISTILLED_AESTHETICS)
-
-> 避免纯色背景，通过 CSS 分层营造**深度感和氛围感**，而非依赖纯色填充。
-
-### 点阵网格纹理
-
-可在主内容背景上叠加极淡的点阵纹理，增加深度：
-
-```css
-/* .bg-dot-grid — 在 globals.css utilities 层注册 */
-background-image: radial-gradient(circle, hsl(var(--foreground) / 0.05) 1px, transparent 1px);
-background-size: 20px 20px;
-```
-
-### 登录页大气渐变背景
+固定头部、悬浮区块、抽屉和菜单允许使用半透明背景 + blur：
 
 ```tsx
-{/* Auth Layout 背景层 */}
-<div className="pointer-events-none absolute inset-0">
-  {/* 品牌色发光光晕（顶部中心） */}
-  <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,hsl(173_80%_37%/0.12),transparent)]" />
-  {/* 蓝色辅助氛围（右下角） */}
-  <div className="absolute inset-0 bg-[radial-gradient(ellipse_40%_30%_at_80%_100%,hsl(217_91%_60%/_0.06),transparent)]" />
-  {/* 点阵纹理 */}
-  <div className="absolute inset-0 bg-dot-grid" />
+bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60
+```
+
+约束：
+
+- 必须写 `supports-backdrop-filter:*` 渐进增强
+- 不能只写 blur 而没有实底色回退
+
+### 滚动条
+
+滚动条属于全局品牌样式的一部分，统一由 `globals.css` 管理：
+
+- Firefox 使用 `scrollbar-color` + `scrollbar-width: thin`
+- WebKit 使用圆角胶囊形 thumb
+- thumb 采用 `primary → info` 渐变
+
+禁止在单个页面或组件内自定义另一套滚动条皮肤。
+
+## 布局契约
+
+### App Shell
+
+后台主壳由 `AppSidebar + AppHeader + 主内容区` 组成：
+
+- Sidebar 收起宽度：`w-16`
+- Sidebar 展开宽度：`w-60`
+- Header 高度：`h-14`
+- Sidebar 与移动端导航抽屉必须使用同一套视觉语言
+
+### DashboardPageShell
+
+所有 Dashboard 页面优先复用 `DashboardPageShell`，统一容器宽度、标题区、动作区和返回导航：
+
+```tsx
+<DashboardPageShell
+  eyebrow="Account Dossier"
+  title="账号档案"
+  description="查看账号登录态、同步状态与内容样本。"
+  backHref="/accounts"
+  backLabel="返回账号列表"
+  actions={...}
+  surfaceHeader
+>
+  {children}
+</DashboardPageShell>
+```
+
+约束：
+
+- 容器限宽统一由组件负责，页面不要手写另一套顶层 `max-w-*` 容器
+- 有父级列表页的详情页优先使用返回 chip，而不是裸文字链接
+- 标题区允许 `surfaceHeader`，用于详情页和强调型头部
+
+### Dashboard 首页
+
+Dashboard 首页默认采用**快捷入口模式**：
+
+- 页面壳只保留问候语、角色/状态类 compact chips
+- 主内容直接提供可点击的工作区卡片
+- 不使用欢迎词、原理说明或大面积 overview hero 抢占首屏
+
+### 侧边栏与移动导航
+
+侧边栏是品牌表面的一部分，而不是纯功能菜单：
+
+- 顶部使用品牌身份卡 + 氛围层
+- 导航项使用图标壳 + 文字层级 + 激活状态说明
+- 底部使用用户卡片 + 下拉菜单 + 折叠按钮
+- 移动端导航抽屉必须复用相同的品牌语言和状态表达
+
+### 区块表面
+
+页面中的业务表面统一使用如下层级：
+
+- 主区块：`rounded-3xl border border-border/60 bg-card/80 p-* shadow-sm`
+- 内嵌表面：`rounded-2xl border border-border/60 bg-background/80`
+- 危险或错误提示：语义色边框 + 极浅危险背景
+
+## 共享交互原语
+
+### 使用原则
+
+菜单、弹框、抽屉必须统一走 `src/components/ui/*` 的共享封装。若风格发生稳定变化，应先修改原语，再让所有功能面继承。
+
+### 原语规范
+
+| 原语 | 用途 | 当前视觉契约 |
+|------|------|--------------|
+| `DropdownMenu` | 用户菜单、表格行操作、轻量上下文动作 | `rounded-2xl`、`border-border/60`、`bg-popover/95`、`backdrop-blur-xl` |
+| `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-3xl`、`bg-card/95`、关闭按钮使用小型图标壳 |
+| `AlertDialog` | 删除、确认、危险动作 | Header/Footer 分区明确，按钮规格统一 `h-8 rounded-md px-3` |
+| `Sheet` | 长表单、复杂流程、移动端导航 | 半透明浮层表面、右侧/左侧滑出、统一关闭按钮 |
+
+### 交互选择顺序
+
+1. 确认操作：`AlertDialog`
+2. 短表单或短内容：`Dialog`
+3. 长表单、分步流程、移动导航：`Sheet`
+4. 轻量上下文动作：`DropdownMenu`
+
+## 内容模式
+
+### 列表页模式
+
+数据密集页面默认遵循以下结构：
+
+1. 顶部页面壳 `DashboardPageShell`
+2. 统计摘要卡片
+3. 移动端卡片列表
+4. 桌面端表格列表
+
+不要在移动端直接压缩桌面表格宽度凑合显示。
+
+附加约束：
+
+- 列表首页默认使用**任务优先的轻页头**，只保留标题、简短描述和主操作
+- 不要在首屏插入大段“原理说明型” hero / overview 区块占据主要空间
+- 说明类信息优先下沉到 helper text、空状态、抽屉说明和详情页，而不是首页首屏
+
+### 表格模式
+
+- 桌面表格作为高密度浏览模式
+- 行 hover 才展示附加操作
+- 技术信息使用 `font-mono` 或 `tabular-nums`
+- 状态优先使用小圆点 + 文字，而不是大面积彩色 Badge
+
+### 顶部 Chips
+
+列表页和详情页标题区内的 summary chips 使用统一的 compact pill 模式：
+
+- 结构：圆角胶囊 + 可选图标 + 单行状态文案
+- 用途：数量、同步节奏、筛选摘要、系统状态
+- 禁止：在 chips 中塞入长段解释文案，或为每个页面重写一套 pill 样式
+- 详情页首屏的弱信息优先并入 chips；关键动作直接放入标题区或摘要区，避免再并排堆叠一整组说明卡
+
+### 表单字段模式
+
+对页面中的核心输入项，优先使用“字段块”而不是裸 input：
+
+1. 眉标或字段分组标题
+2. Label
+3. 图标壳 + 输入容器
+4. helper text / error text
+
+示例：
+
+```tsx
+<div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
+  <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">
+    Profile URL
+  </p>
+  <Label htmlFor="profile-url" className="text-sm font-medium text-foreground/90">
+    抖音主页链接
+  </Label>
+  <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/90 px-3 py-3">
+    <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-primary">
+      <Link2 className="h-4 w-4" />
+    </span>
+    <Input className="h-auto border-0 bg-transparent px-0 py-0 shadow-none" />
+  </div>
 </div>
 ```
 
-### 品牌 Logo 标记
+### 详情页模式
 
-Logo 方块使用 `bg-primary text-primary-foreground`，搭配 `shadow-primary/20` 发光阴影：
+- 返回 chip
+- 眉标 + 标题 + 描述
+- 动作区与内容区解耦
+- 内容主体使用 `maxWidth="wide"` 或 `surfaceHeader`
+- 详情页顶部状态条与二级区块摘要统一使用 compact chips，不再额外造一套 span 标签样式
 
-```tsx
-<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/20">
-  A
-</div>
-```
+### 加载、空态与反馈
+
+- 成功 / 失败：使用 `sonner` toast
+- 页面级加载：骨架屏或占位卡片
+- 空态：使用统一 EmptyState 风格
+- 错误：卡片内错误说明 + 明确恢复操作
+
+空态默认采用**任务型空状态**：
+
+- 图标 + 眉标 + 标题 + 简短描述
+- 可选主操作按钮
+- 可选 hint 区块告诉用户下一步怎么做
+- 不再使用解释系统原理的大型 hero 空态
 
 ## 动效
 
-### 动效总体原则 (DISTILLED_AESTHETICS)
+页面内容区统一使用 `fade-up` 语义类：
 
-> 避免散乱的 micro-interaction，聚焦**高冲击时刻**：一次精心设计的页面加载交错渐显远胜于遍布各处的小动效。
+- `.animate-in-up`
+- `.animate-in-up-d1`
+- `.animate-in-up-d2`
+- `.animate-in-up-d3`
+- `.animate-in-up-d4`
 
-```css
-/* 页面入场 — 统一使用以下 keyframe */
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+约束：
 
-/* 使用语义 class 而非 Tailwind 任意值 */
-.animate-in-up      { animation: fade-up 0.35s ease-out both; }
-.animate-in-up-d1   { animation: fade-up 0.35s ease-out 0.06s both; }
-.animate-in-up-d2   { animation: fade-up 0.35s ease-out 0.12s both; }
-.animate-in-up-d3   { animation: fade-up 0.35s ease-out 0.18s both; }
-.animate-in-up-d4   { animation: fade-up 0.35s ease-out 0.24s both; }
-```
+- 单页只做 2~4 个区块交错，不做密集逐行动画
+- Dialog / Sheet 使用原语自带进出场
+- 动效时长控制在 350ms 左右
 
-**使用规范**：
-- 每个 Dashboard 页面内容区根块加 `animate-in-up`
-- 页面内 2~4 个独立区域使用 `animate-in-up-d1` ~ `animate-in-up-d4` 交错
-- 列表行不做逐行动画（性能问题）
-- Dialog / Sheet 沿用 shadcn 内置动效，不额外添加
+## 响应式
 
-
-
-## 响应式断点
-
-| 断点 | Tailwind | 宽度 | 布局策略 |
-|------|----------|------|----------|
-| Mobile | 默认 | < 768px | 侧边栏隐藏，汉堡菜单 |
-| Tablet | `md:` | ≥ 768px | 侧边栏收起，主内容全宽 |
-| Desktop | `lg:` | ≥ 1024px | 侧边栏展开 + 主内容 |
-| Wide | `xl:` | ≥ 1280px | 支持列表/详情分栏 |
-| Ultra | `2xl:` | ≥ 1536px | 限制最大宽度 |
-
-## Linear 风格布局规范
-
-### 侧边栏 (Sidebar)
-
-- **收起宽度**: `w-16` (64px) — 只显示图标
-- **展开宽度**: `w-60` (240px) — 图标 + 文字
-- **背景**: 使用 `--sidebar` 变量，略深于主背景
-- **结构**: Logo → 主导航(图标+文字) → 分隔线 → 管理入口 → 底部(用户头像+名字)
-- **当前项高亮**: `bg-accent text-accent-foreground rounded-md`
-
-### 列表/详情分栏
-
-在 `xl:` 以上断点，列表页可分为左侧列表 + 右侧 Slide-over 详情面板：
-
-```tsx
-<div className="flex h-full">
-  <div className="flex-1 border-r border-border overflow-auto">
-    {/* 列表区域 */}
-  </div>
-  <SlidePanel open={selected !== null} onClose={() => setSelected(null)}>
-    {/* 详情/编辑 */}
-  </SlidePanel>
-</div>
-```
-
-### 页面标题区
-
-每个页面顶部统一标题区（非 AppHeader，而是页面内容区的本地标题）：
-
-```tsx
-<div className="flex items-center justify-between mb-6">
-  <div className="space-y-1.5">
-    <h1 className="text-xl font-semibold tracking-tight leading-none text-foreground/90">页面标题</h1>
-    <p className="text-sm text-muted-foreground/80 mt-1">页面描述</p>
-  </div>
-  <div className="flex items-center gap-2">
-    {/* 操作按钮 */}
-  </div>
-</div>
-```
-
-## Linear 美学强约束与特征 (v0.1.1+ 必须遵循)
-
-在后续的 UI/UX 开发中，必须严格执行以下 **Linear 级极简美学** 的细化设定：
-
-### 1. 色彩与对比度极大克制
-
-- 背景色拒绝纯黑，暗色模式底色使用带微蓝色的深灰黑（`hsl(240 7% 8%)`）。
-- 图标不使用强烈的反差色，通常带有不透明度（如 `text-muted-foreground` 或 `opacity-70`），仅在悬停、激活或提示性反馈时恢复全对比。
-- 边框应比原生 shadcn 更轻浅，常用带透明度的边框隔离内容：
-  - 主要分割线：`border-border/60`
-  - 顶栏 / 次要分割：`border-border/40`
-
-### 2. 紧凑排版与精致字体参数
-
-- 数据密集型列表、侧边栏导航文字应缩小字号：
-  - 通用辅助文字 / 筛选标签 / 表头 / 下拉项：`text-[13px]`
-  - 技术类标识符（账号、ID）：`text-[12px] font-mono`
-  - 极小角标 / 标签内文字：`text-[11px]`
-- 时间 / 数字类单元格加强可读性：`tracking-tight tabular-nums`
-- 页面主标题：`text-xl font-semibold tracking-tight leading-none text-foreground/90`
-- 页面副标题：`text-[13px] text-muted-foreground/80 mt-1`
-
-### 3. 操作隐藏与上下文渐进式展示 (Hover Actions)
-
-- 列表行 / 表格上的附加操作按钮（如"更多"按钮 `...`）**默认完全隐藏**，绝对不能占用视觉权重。
-- 父级行元素加 `group`，操作按钮应用：
-  ```
-  opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100
-  ```
-- 操作按钮固定尺寸：`h-7 w-7`（比标准 `h-8 w-8` 更小）；下拉菜单宽度 `w-36`。
-- 菜单项规格：`text-[13px] py-1.5 cursor-pointer`；图标：`h-3.5 w-3.5 text-muted-foreground`。
-
-### 4. 发光小圆点取代色块 Badge (Minimalist Indicators)
-
-- 抛弃大面积背景填充的实心 Badge（如 `bg-green-100 text-green-800`）。
-- 用 **彩色小圆点 + `text-muted-foreground` 文本** 表示启用 / 禁用状态：
-  - 正常/启用：`h-1.5 w-1.5 rounded-full bg-emerald-500`
-  - 已禁用：`h-1.5 w-1.5 rounded-full bg-muted-foreground/40`
-- 角色 / 类型标签（非状态）使用**中性无色**方案，不做彩色区分：
-  ```
-  inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground
-  ```
-
-### 5. 空间纵深感与磨砂玻璃 (Depth & Glassmorphism)
-
-- 悬浮在滚动内容上方的固定元素（顶栏 Header）必须具备空间透出感。
-- 使用渐进增强写法（兼容不支持 backdrop-filter 的环境）：
-  ```
-  bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
-  ```
-- 禁止使用 `backdrop-blur-md` 单独写法，必须配合 `supports-[backdrop-filter]` 条件包裹。
-
-### 6. 统一页面容器与内容限宽
-
-- 每个 Dashboard 页面内容区必须限宽并居中：
-  ```
-  flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full
-  ```
-- 新建 / 主操作按钮统一规格（不使用默认 `size="sm"` 的高度）：
-  ```
-  h-8 rounded-md text-[13px] px-3 shadow-sm
-  ```
-  图标缩小为 `h-3.5 w-3.5`，间距 `mr-1.5`。
-## 交互模式
-
-### 弹框优先原则
-
-**首选 Dialog**，仅当内容明显过多（需要大量滚动）时才升级到 Drawer（Sheet）。
-
-| 操作 | 交互方式 | shadcn 组件 | 升级条件 |
-|------|---------|------------|---------|
-| 新建/编辑（≤ 6 个字段） | **居中弹框** | `Dialog` | — |
-| 新建/编辑（> 6 个字段或含富文本） | 抽屉（右侧滑出） | `Sheet` | 内容确实过多 |
-| 查看详情 | 居中弹框 | `Dialog` | > 1000 字时用 `Sheet` |
-| 确认/删除 | 弹框 | `AlertDialog` | — |
-| 筛选 | 弹出面板 | `Popover` | — |
-| 行操作 | 下拉菜单 | `DropdownMenu` | — |
-| 设置/配置 | 抽屉 | `Sheet` | — |
-
-**Dialog 动效标准**（Linear 风格）：
-- Overlay：`bg-black/50`（非纯黑）
-- Content：`duration-150`，`zoom-in-95` 进入，`zoom-out-95` 退出，从 `top-[52%]` 进出
-- 背景：`bg-card border border-border/60 shadow-xl`（与背景有可见区分）
-
-### 状态反馈
-
-| 场景 | 方式 |
+| 断点 | 策略 |
 |------|------|
-| 操作成功 | Toast 通知 (sonner) |
-| 操作失败 | Toast 错误提示 |
-| 加载中 | 骨架屏 (Skeleton) |
-| 空数据 | EmptyState 组件 |
-| AI 生成中 | 流式文字 + 进度指示 |
+| `< md` | 侧边栏隐藏，使用移动导航 Sheet；列表优先卡片化 |
+| `md` | 侧边栏出现，可保持收起/展开状态 |
+| `lg` | 标准桌面工作区，页面壳完整展开 |
+| `xl` | 列表/详情分栏、宽内容区 |
+| `2xl` | 容器限宽，避免内容过长 |
 
-## 常用组件模式
+## 强约束
 
-### 卡片
-
-```tsx
-<Card className="border border-border">
-  <CardHeader className="pb-3">
-    <CardTitle className="text-base font-medium">标题</CardTitle>
-    <CardDescription>描述</CardDescription>
-  </CardHeader>
-  <CardContent>内容</CardContent>
-</Card>
-```
-
-### 空状态
-
-```tsx
-<div className="flex flex-col items-center justify-center py-12 text-center">
-  <Icon className="h-12 w-12 text-muted-foreground/50 mb-4" />
-  <h3 className="text-lg font-medium mb-1">暂无数据</h3>
-  <p className="text-sm text-muted-foreground mb-4">描述文字</p>
-  <Button variant="outline">操作</Button>
-</div>
-```
-
-### 数据表格
-
-使用以下标准外壳结构，**不要用 `Card` 包裹**，直接自定义容器：
-
-```tsx
-{/* 外层容器 */}
-<div className="rounded-lg border border-border/60 bg-background shadow-xs overflow-hidden">
-  <Table className="text-[13px] border-b-0">
-    <TableHeader className="bg-muted/30">
-      {/* hover:bg-transparent 防止表头出现悬停高亮；*:h-10 统一行高 */}
-      <TableRow className="hover:bg-transparent border-border/60 *:h-10 *:align-middle">
-        <TableHead className="font-semibold text-foreground/70 pl-5">名称</TableHead>
-        <TableHead className="font-semibold text-foreground/70">状态</TableHead>
-        <TableHead className="w-16 text-right font-semibold text-foreground/70 pr-5">操作</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {items.map((item) => (
-        <TableRow key={item.id} className="border-border/60 hover:bg-muted/30 transition-colors group">
-          {/* 第一列固定左内边距 */}
-          <TableCell className="font-medium pl-5">{item.name}</TableCell>
-          {/* 技术类 ID / 账号 — 等宽字体 */}
-          <TableCell className="text-muted-foreground/80 font-mono text-[12px]">{item.account}</TableCell>
-          {/* 状态指示：小圆点 + 文字 */}
-          <TableCell>
-            <div className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span className="text-muted-foreground">正常</span>
-            </div>
-          </TableCell>
-          {/* 时间列：等宽数字 */}
-          <TableCell className="text-muted-foreground tracking-tight tabular-nums">
-            {formatDate(item.createdAt)}
-          </TableCell>
-          {/* 操作列：默认隐藏，hover 显示，最后一列右内边距 */}
-          <TableCell className="text-right pr-5">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 data-[state=open]:opacity-100 -mr-1"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-36">
-                <DropdownMenuItem className="text-[13px] py-1.5 cursor-pointer">
-                  <Pencil className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                  编辑
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-</div>
-```
-
-**关键规则**：
-- 最后一个空 `TableRow`（空状态行）设 `border-b-0` 防止底部多余边线
-- 筛选区域（位于表格顶部）：`bg-muted/10 border-b border-border/60 px-5 py-3`
-
-## 规则
-
-1. **暗色默认**: 暗色为默认主题，亮色通过 `next-themes` 切换
-2. **只用 Tailwind**: 禁止内联 style、禁止 CSS modules、禁止自定义 CSS 类
-3. **shadcn/ui 优先**: 有现成组件直接用，避免从零实现
-4. **间距一致**: 同层级元素间距保持一致，使用 gap 而非 margin
-5. **无固定宽高**: 组件尺寸由内容和容器决定，使用 min/max 约束
-6. **弹框优先**: ≤ 6 个字段的新建/编辑优先用 `Dialog`，内容过多再考虑 `Sheet`
-7. **品牌遵循**: 如有外部品牌设计文档，颜色/字体/图标以该文档为准
-8. **颜色变量**: 颜色必须使用 CSS 变量（不硬编码 hsl 值），确保主题切换生效
-9. **卡片可见性**: `--card` 在暗色模式下必须与 `--background` 有可见区别（推荐 `--card` 比 `--background` 亮度至少 +2%）
-10. **字号 Token**: 必须使用 `text-2xs / text-xs / text-sm / text-base` 等已注册的 token 类名，**严禁** `text-[Npx]` 任意值
-
-## 标准组件实现
-
-### ThemeToggle（主题切换按钮）
-
-```tsx
-// 必须有 relative 容器，Sun/Moon 通过 dark: 类切换
-<Button variant="ghost" size="icon" className="relative" onClick={...}>
-  <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-  <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-</Button>
-```
-
-**关键**: `Moon` 使用 `absolute` 定位，父 `Button` 必须有 `relative` 类，否则图标会脱离按钮范围。
-
-### AppHeader（顶部导航栏）
-
-```tsx
-<header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 px-6 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-  {title ? (
-    <h2 className="text-sm font-medium tracking-tight">{title}</h2>
-  ) : (
-    <div /> {/* 占位，保持 space-between 对齐 */}
-  )}
-  <div className="flex items-center gap-2">
-    {/* 主题切换等右侧操作，图标按钮规格 */}
-    <Button variant="ghost" size="icon" className="relative h-8 w-8 text-muted-foreground hover:text-foreground">
-      {/* ... */}
-    </Button>
-  </div>
-</header>
-```
-
-**关键**：`shrink-0` 防止 flex 布局下顶栏被压缩；`supports-[backdrop-filter]` 作为磨砂玻璃的渐进增强条件。
+1. **只用 CSS 变量表达颜色**，不在业务组件里硬编码品牌色值。
+2. **只用语义字号 token**，禁止常态化 `text-[13px]`、`text-[11px]` 等任意值。
+3. **全局原语优先**：Dialog、AlertDialog、Sheet、DropdownMenu 的样式统一在 `src/components/ui/*` 维护。
+4. **页面壳统一**：Dashboard 页面优先使用 `DashboardPageShell`。
+5. **导航成套**：桌面侧栏与移动抽屉必须共享同一视觉语言。
+6. **核心字段块化**：关键输入区优先使用字段块，而不是裸表单控件直接贴在页面上。
+7. **移动端卡片化**：数据密集型列表必须为移动端提供卡片视图。
+8. **危险操作显式化**：确认框必须说明影响范围，按钮规格统一。
+9. **滚动条全局统一**：禁止单页私自覆盖另一套滚动条样式。
+10. **文档同步**：稳定模式一旦落地，必须同步更新本文档、`frontend.md` 以及相关评审/指令文档。

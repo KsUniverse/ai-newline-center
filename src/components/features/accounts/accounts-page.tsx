@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
@@ -10,30 +11,38 @@ import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import type { PaginatedData } from "@/types/api";
 import type { DouyinAccountDTO, DouyinVideoWithAccountDTO } from "@/types/douyin-account";
 import { ApiError, apiClient } from "@/lib/api-client";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { PaginationControls } from "@/components/shared/common/pagination-controls";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { Button } from "@/components/ui/button";
 
 import { AccountAddDrawer } from "./account-add-drawer";
+import { AccountCardGrid } from "./account-card-grid";
 import { AccountEmptyState } from "./account-empty-state";
-import { AccountRow } from "./account-row";
 import { VideoDetailDialog } from "./video-detail-dialog";
 import { VideoFilterBar } from "./video-filter-bar";
 import { VideoGrid } from "./video-grid";
+import {
+  ACCOUNTS_ADD_ACTION_LABEL,
+  ACCOUNTS_EYEBROW,
+  ACCOUNTS_VIDEO_SECTION_DESCRIPTION,
+  ACCOUNTS_VIDEO_SECTION_TITLE,
+  getAccountsCountLabel,
+  getAccountsFilterSummary,
+  getAccountsLibrarySectionDescription,
+  getAccountsLibrarySectionTitle,
+  getAccountsListLoadErrorMessage,
+  getAccountsPageMeta,
+  getAccountsSyncHint,
+  getAccountsVideoCountLabel,
+  getAccountsVideoFeedLoadErrorMessage,
+} from "./accounts-copy";
 
 const VIDEOS_PER_PAGE = 20;
 
-function getPageMeta(role: string): { title: string; description: string } {
-  switch (role) {
-    case "BRANCH_MANAGER":
-      return { title: "本公司账号", description: "查看本公司所有员工的抖音账号和视频" };
-    case "SUPER_ADMIN":
-      return { title: "所有账号", description: "查看全平台所有抖音账号和视频" };
-    default:
-      return { title: "我的账号", description: "管理你录入的抖音账号，浏览这些账号的视频" };
-  }
-}
-
 export function AccountsPageView() {
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   const [accounts, setAccounts] = useState<DouyinAccountDTO[]>([]);
@@ -53,7 +62,7 @@ export function AccountsPageView() {
 
   const userRole = session?.user?.role ?? "EMPLOYEE";
   const isEmployee = userRole === "EMPLOYEE";
-  const { title, description } = getPageMeta(userRole);
+  const { title, description } = getAccountsPageMeta(userRole);
   const totalPages = Math.max(1, Math.ceil(total / VIDEOS_PER_PAGE));
 
   const availableTags = useMemo(() => {
@@ -84,7 +93,7 @@ export function AccountsPageView() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "鍔犺浇璐﹀彿鏁版嵁澶辫触");
+          toast.error(error instanceof ApiError ? error.message : getAccountsListLoadErrorMessage());
         }
       } finally {
         if (!cancelled && shouldShowLoading) {
@@ -134,7 +143,7 @@ export function AccountsPageView() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "鍔犺浇瑙嗛鏁版嵁澶辫触");
+          toast.error(error instanceof ApiError ? error.message : getAccountsVideoFeedLoadErrorMessage());
         }
       } finally {
         if (!cancelled && shouldShowLoading) {
@@ -150,6 +159,7 @@ export function AccountsPageView() {
   }, [status, page, filterAccountId, filterTag, sort, refreshKey]);
 
   function handleAddSuccess() {
+    setPage(1);
     setRefreshKey((current) => current + 1);
   }
 
@@ -174,41 +184,67 @@ export function AccountsPageView() {
 
   return (
     <DashboardPageShell
+      eyebrow={ACCOUNTS_EYEBROW}
       title={title}
       description={description}
+      maxWidth="wide"
       actions={
         isEmployee ? (
-          <Button onClick={() => setDrawerOpen(true)} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
+          <Button onClick={() => setDrawerOpen(true)} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            娣诲姞璐﹀彿
+            {ACCOUNTS_ADD_ACTION_LABEL}
           </Button>
         ) : null
       }
     >
       <div className="animate-in-up-d1">
-        {accountsLoading ? (
-          <div className="flex gap-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-16 min-w-50 shrink-0 animate-pulse rounded-lg border border-border/60 bg-card"
-              />
-            ))}
-          </div>
-        ) : accounts.length === 0 ? (
-          <AccountEmptyState onAdd={isEmployee ? () => setDrawerOpen(true) : undefined} />
-        ) : (
-          <AccountRow
-            accounts={accounts}
-            showAddButton={isEmployee}
-            onAddClick={() => setDrawerOpen(true)}
-          />
-        )}
+        <SurfaceSection
+          eyebrow="Source Dossiers"
+          title={getAccountsLibrarySectionTitle(userRole)}
+          description={getAccountsLibrarySectionDescription(userRole)}
+          actions={
+            <MetaPillList
+              items={[
+                { label: getAccountsCountLabel(accounts.length), tone: "primary" },
+                { label: getAccountsSyncHint() },
+              ]}
+            />
+          }
+          bodyClassName="space-y-5"
+        >
+          {accountsLoading ? (
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-72 animate-pulse rounded-3xl border border-border/60 bg-card" />
+              ))}
+            </div>
+          ) : accounts.length === 0 ? (
+            <AccountEmptyState onAdd={isEmployee ? () => setDrawerOpen(true) : undefined} />
+          ) : (
+            <AccountCardGrid
+              accounts={accounts}
+              onCardClick={(account) => router.push(`/accounts/${account.id}`)}
+            />
+          )}
+        </SurfaceSection>
       </div>
 
       {accounts.length > 0 ? (
-        <>
-          <div className="animate-in-up-d2">
+        <div className="animate-in-up-d2">
+          <SurfaceSection
+            eyebrow="Content Samples"
+            title={ACCOUNTS_VIDEO_SECTION_TITLE}
+            description={ACCOUNTS_VIDEO_SECTION_DESCRIPTION}
+            bodyClassName="space-y-5"
+            actions={
+              <MetaPillList
+                items={[
+                  { label: getAccountsVideoCountLabel(total), tone: "primary" },
+                  { label: getAccountsFilterSummary(filterAccountId, filterTag, sort, accounts) },
+                ]}
+              />
+            }
+          >
             <VideoFilterBar
               accounts={accounts}
               availableTags={availableTags}
@@ -219,40 +255,11 @@ export function AccountsPageView() {
               onTagChange={handleTagChange}
               onSortChange={handleSortChange}
             />
-          </div>
 
-          <div className="animate-in-up-d3">
             <VideoGrid videos={videos} loading={videosLoading} onVideoClick={setSelectedVideo} />
-          </div>
-
-          {!videosLoading && total > VIDEOS_PER_PAGE ? (
-            <div className="flex items-center justify-center gap-4 pb-4">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                disabled={page <= 1}
-                onClick={() => setPage((current) => current - 1)}
-              >
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                涓婁竴椤?
-              </Button>
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {page} / {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8"
-                disabled={page >= totalPages}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                涓嬩竴椤?
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ) : null}
-        </>
+            <PaginationControls page={page} totalPages={totalPages} onPageChange={setPage} />
+          </SurfaceSection>
+        </div>
       ) : null}
 
       <VideoDetailDialog

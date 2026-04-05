@@ -21,11 +21,11 @@
 
 | 角色 | F-002-1 收藏同步 | F-002-2 对标账号列表 | F-002-2 添加对标账号 | F-002-2 归档（软删除） |
 |------|-----------------|---------------------|---------------------|----------------------|
-| **员工** | 系统自动执行（无感知） | 查看**本组织全部**对标账号 | 可手动添加 | 仅可归档**自己创建**的账号 |
-| **分公司负责人** | — | 查看**本分公司全部**对标账号 | 可手动添加 | 仅可归档**自己创建**的账号 |
-| **超级管理员** | — | 查看**全平台全部**对标账号 | 可手动添加 | 仅可归档**自己创建**的账号 |
+| **员工** | 系统自动执行（无感知） | 查看**本组织全部**对标账号 | 可手动添加 | 仅可归档**自己关联**的账号 |
+| **分公司负责人** | — | 查看**本分公司全部**对标账号 | 可手动添加 | 仅可归档**自己关联**的账号 |
+| **超级管理员** | — | 查看**全平台全部**对标账号 | 可手动添加 | 仅可归档**自己关联**的账号 |
 
-> **核心数据隔离规则**：对标账号是**全组织共享**的（所有员工可见），但归档权限仅限于创建者本人。这与"我的账号"（MY_ACCOUNT 按 userId 私有）形成区别。
+> **核心数据隔离规则**：对标账号是**全组织共享**的（所有员工可见），并通过 `BenchmarkAccountMember` 记录关联员工；归档权限限于关联员工本人。这与"我的账号"（DouyinAccount 按 userId 私有）形成区别。
 
 ---
 
@@ -35,14 +35,14 @@
 
 ### F-002-1: 收藏同步 (P0)
 
-**描述**: 系统每 5 分钟扫描所有员工的 `MY_ACCOUNT` 抖音账号收藏列表，自动发现新收藏视频，识别其所属博主，在全组织维度创建或关联对标账号（`BENCHMARK_ACCOUNT`）。
+**描述**: 系统每 5 分钟扫描所有员工的我的账号收藏列表，自动发现新收藏视频，识别其所属博主，在全组织维度创建或关联对标账号，并补充 `BenchmarkAccountMember` 关联。
 
 ---
 
 #### 触发机制
 
 - **触发方式**: 全局定时任务，每 5 分钟执行一次
-- **扫描对象**: 所有 `type=MY_ACCOUNT` 且 `secUserId != null` 且 `deletedAt IS NULL` 的账号
+- **扫描对象**: 所有 `DouyinAccount` 中 `secUserId != null` 且 `deletedAt IS NULL` 的账号
 - **调度模式**: 与现有三个定时器保持一致，采用全局扫描模式（统一间隔轮询所有账号），不按账号独立注册定时器
 - **独立定时器**: 本任务作为第四个定时器独立注册，运行间隔独立配置（默认 5 分钟）
 
@@ -52,15 +52,16 @@
 
 ```
 定时器触发
-  → 查询所有 MY_ACCOUNT（secUserId 非空）
+  → 查询所有我的账号（secUserId 非空）
   → 对每个账号: 调用 fetchCollectionVideos(secUserId)
   → 时间窗口策略: 遍历收藏列表，遇到收藏时间 < (now - 1小时) 的记录则停止
   → 对每条收藏视频:
       → 提取所属博主的 secUserId（[PENDING-CRAWLER-DETAIL] 收藏列表返回格式中博主字段待确认）
-      → 查 DB: 是否已存在此 secUserId 的 BENCHMARK_ACCOUNT
-        ├── 不存在 → 调用 fetchUserProfile(secUserId) → 创建 DouyinAccount(type=BENCHMARK_ACCOUNT)
-        └── 已存在（含已归档）→ 跳过
-  → 新创建的 BENCHMARK_ACCOUNT 自动纳入 F-001-2 的视频同步定时器扫描范围（无需额外操作，定时器按 type 不限制）
+      → 查 DB: 当前组织内是否已存在此 secUserId 的 BenchmarkAccount
+        ├── 不存在 → 调用 fetchUserProfile(secUserId) → 创建 BenchmarkAccount + BenchmarkAccountMember
+        ├── 已存在且未归档 → 为当前员工补充 BenchmarkAccountMember
+        └── 已存在且已归档 → 跳过
+  → 新创建的 BenchmarkAccount 自动纳入 F-001-2 的视频同步定时器扫描范围
 ```
 
 ---
@@ -73,7 +74,7 @@
 | 时间窗口 | 1 小时（可配置，默认 now - 1h） |
 | 遍历方向 | 从最新收藏向历史方向遍历 |
 | 停止条件 | 遇到收藏时间 < (now - 1小时) 的记录，立即停止（该条及之后不处理） |
-| 去重策略 | **不用 videoId 去重**（多员工可能收藏同一视频）；用 secUserId 去重（同一博主只创建一个 BENCHMARK_ACCOUNT） |
+| 去重策略 | **不用 videoId 去重**（多员工可能收藏同一视频）；用 organizationId + secUserId 去重（同一组织内同一博主只创建一个 BenchmarkAccount） |
 
 **边界说明**：
 - 「收藏时间」指该视频被员工收藏的时间（非视频发布时间）；该字段名从爬虫返回中读取，**[PENDING-CRAWLER-DETAIL] 字段名待 crawler.service.ts 实现阶段确认**
@@ -86,12 +87,13 @@
 
 | 规则 | 说明 |
 |------|-----|
-| secUserId 全局唯一 | 同一 secUserId 只有一条 BENCHMARK_ACCOUNT，跨组织全局唯一 |
-| 归属员工（userId） | 设定为**第一个触发该博主收藏的员工 ID**（first-creator 语义） |
-| 归属组织（organizationId） | 取该员工的 organizationId |
+| 组织内唯一 | 同一 `organizationId + secUserId` 只有一条 BenchmarkAccount |
+| 创建人 | `createdByUserId` 记录首次创建该博主的员工 ID |
+| 关联员工 | 每次命中该博主时，向 `BenchmarkAccountMember` upsert 当前员工关联 |
+| 归属组织（organizationId） | 取当前触发员工的 organizationId |
 | profileUrl | 从爬虫 fetchUserProfile 返回中提取，若无则构造 `https://www.douyin.com/user/{secUserId}` |
-| 已归档账号处理 | 若同 secUserId 已有归档（`deletedAt != null`）的 BENCHMARK_ACCOUNT，不重复创建，亦不自动恢复；已归档账号对当前员工不可见 |
-| 不递归触发 | BENCHMARK_ACCOUNT 不扫描其收藏列表 |
+| 已归档账号处理 | 若当前组织内同 secUserId 已有归档的 BenchmarkAccount，不重复创建，亦不自动恢复；已归档账号对当前员工不可见 |
+| 不递归触发 | BenchmarkAccount 不扫描其收藏列表 |
 
 ---
 
@@ -114,10 +116,10 @@
 #### 验收标准
 
 1. 当员工在抖音收藏了某博主的视频，且该收藏时间在 1 小时内，则 5 分钟内系统自动创建该博主的对标账号，出现在对标账号列表中
-2. 同一博主被多个员工收藏时，对标账号只创建一次，userId 为最早触发创建的员工
+2. 同一组织内同一博主被多个员工收藏时，对标账号只创建一次，并为后续员工补充成员关联
 3. 时间窗口外（收藏时间 > 1 小时前）的视频不触发新对标账号创建
 4. 收藏同步任务单次账号爬虫失败不影响其他账号的处理继续执行
-5. 对标账号创建后，F-001-2 的视频同步定时器下次执行时自动抓取该博主的视频列表
+5. 对标账号创建后，F-001-2 的视频同步定时器下次执行时自动抓取该博主的视频列表到 BenchmarkVideo
 
 ---
 
@@ -157,7 +159,7 @@
 2. 右侧 Drawer 滑出 → 输入抖音主页链接（支持 `https://www.douyin.com/user/xxxxx` 格式）
 3. 点击「获取账号信息」→ 调用爬虫（getSecUserId → fetchUserProfile）→ 展示预览
 4. 预览信息：头像、昵称、粉丝数、作品数、简介
-5. 用户确认 → 点击「添加」→ 系统写入 `DouyinAccount`（`type=BENCHMARK_ACCOUNT`，`userId=当前登录用户ID`）→ Drawer 关闭 → 列表刷新
+5. 用户确认 → 点击「添加」→ 系统写入 `BenchmarkAccount`，并创建当前登录用户的 `BenchmarkAccountMember` → Drawer 关闭 → 列表刷新
 
 **手动添加的去重规则**:
 - secUserId 全局唯一：若该 secUserId 已有**未归档**的 BENCHMARK_ACCOUNT，提示「该对标博主已存在」，不重复创建
@@ -173,16 +175,16 @@
 - 或对标账号详情页右上角「归档」按钮
 
 **权限校验**:
-- 仅允许 `userId == 当前登录用户 ID` 的账号才显示归档入口（其他人的账号不显示该操作）
-- 后端双重校验：API 层验证 `douyinAccount.userId == session.userId`，不满足则返回 403
+- 仅允许当前登录用户已关联的账号显示归档入口（其他人的账号不显示该操作）
+- 后端双重校验：API 层验证当前用户存在于 `BenchmarkAccountMember` 中，不满足则返回 403
 
 **操作确认**:
 - 点击归档后弹出二次确认 Dialog：「归档后，该博主的账号和视频数据均保留但会从主列表隐藏。确认归档？」
 - 确认 → 执行软删除（`deletedAt = now()`）→ 账号从主列表消失 → Toast 提示「已归档」
 
 **归档效果**:
-- `DouyinAccount.deletedAt` 设置为当前时间（软删除标准字段）
-- `DouyinVideo` 数据**保留不变**（不修改 deletedAt）
+- `BenchmarkAccount.deletedAt` 设置为当前时间（软删除标准字段）
+- `BenchmarkVideo` 数据**保留不变**（不修改 deletedAt）
 - F-001-2 的视频同步定时器扫描时跳过已归档（`deletedAt != null`）的账号
 - 收藏同步任务遇到同 secUserId 的博主时不重新创建（已归档则保持归档状态）
 
@@ -198,7 +200,7 @@
 - 归档列表无归档/恢复操作（v0.2.2 不实现恢复功能）
 
 **数据范围**:
-- 查询条件：`type=BENCHMARK_ACCOUNT AND deletedAt IS NOT NULL`
+- 查询条件：`BenchmarkAccount.deletedAt IS NOT NULL`
 - 权限同主列表（员工看本组织，分公司负责人看本公司，超管看全部）
 
 ---
@@ -210,7 +212,7 @@
 | 查看主列表 | 本组织全部 | 本公司全部 | 全部 |
 | 查看归档列表 | 本组织全部 | 本公司全部 | 全部 |
 | 手动添加 | ✅ | ✅ | ✅ |
-| 归档（软删除） | 仅自己创建的 | 仅自己创建的 | 仅自己创建的 |
+| 归档（软删除） | 仅自己关联的 | 仅自己关联的 | 仅自己关联的 |
 
 ---
 
@@ -228,11 +230,11 @@
 
 1. 用户可通过「对标账号」页面查看本组织所有未归档的对标博主列表
 2. 手动添加相同 secUserId 的对标账号时，系统给出明确提示并阻止重复创建
-3. 员工只能归档自己创建（userId 匹配）的对标账号，他人账号无归档入口
+3. 员工只能归档自己关联的对标账号，非关联账号无归档入口
 4. 归档操作有二次确认弹窗，确认后账号从主列表消失，但数据保留
 5. 主列表页有「查看已归档」入口，点击可进入归档列表
 6. 归档账号的视频数据可在 `/benchmarks/archived/[id]` 中查看，数据不再更新
-7. 当系统返回 403 时（非创建者尝试归档），前端展示权限不足提示
+7. 当系统返回 403 时（非关联员工尝试归档），前端展示权限不足提示
 
 ---
 

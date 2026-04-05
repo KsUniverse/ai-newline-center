@@ -4,17 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   addJobMock,
   createTranscriptionMock,
+  findBenchmarkVideoByIdWithOrgMock,
   findTranscriptionByIdMock,
   findTranscriptionByVideoIdMock,
-  findVideoByIdWithOrgMock,
   resetTranscriptionMock,
   updateEditedTextMock,
 } = vi.hoisted(() => ({
   addJobMock: vi.fn(),
   createTranscriptionMock: vi.fn(),
+  findBenchmarkVideoByIdWithOrgMock: vi.fn(),
   findTranscriptionByIdMock: vi.fn(),
   findTranscriptionByVideoIdMock: vi.fn(),
-  findVideoByIdWithOrgMock: vi.fn(),
   resetTranscriptionMock: vi.fn(),
   updateEditedTextMock: vi.fn(),
 }));
@@ -36,9 +36,9 @@ vi.mock("@/server/repositories/transcription.repository", () => ({
   },
 }));
 
-vi.mock("@/server/repositories/douyin-video.repository", () => ({
-  douyinVideoRepository: {
-    findByIdWithAccountOrganization: findVideoByIdWithOrgMock,
+vi.mock("@/server/repositories/benchmark-video.repository", () => ({
+  benchmarkVideoRepository: {
+    findByIdWithAccountOrganization: findBenchmarkVideoByIdWithOrgMock,
   },
 }));
 
@@ -48,15 +48,15 @@ describe("transcriptionService", () => {
   beforeEach(() => {
     addJobMock.mockReset();
     createTranscriptionMock.mockReset();
+    findBenchmarkVideoByIdWithOrgMock.mockReset();
     findTranscriptionByIdMock.mockReset();
     findTranscriptionByVideoIdMock.mockReset();
-    findVideoByIdWithOrgMock.mockReset();
     resetTranscriptionMock.mockReset();
     updateEditedTextMock.mockReset();
   });
 
-  it("creates a new transcription job when the video is accessible and downloaded", async () => {
-    findVideoByIdWithOrgMock.mockResolvedValue({
+  it("creates a transcription job when the benchmark video is accessible and downloaded", async () => {
+    findBenchmarkVideoByIdWithOrgMock.mockResolvedValue({
       id: "video_1",
       videoStoragePath: "D:/videos/video.mp4",
       account: { organizationId: "org_1" },
@@ -106,7 +106,7 @@ describe("transcriptionService", () => {
   });
 
   it("rejects creating a transcription when one is already in progress", async () => {
-    findVideoByIdWithOrgMock.mockResolvedValue({
+    findBenchmarkVideoByIdWithOrgMock.mockResolvedValue({
       id: "video_1",
       videoStoragePath: "D:/videos/video.mp4",
       account: { organizationId: "org_1" },

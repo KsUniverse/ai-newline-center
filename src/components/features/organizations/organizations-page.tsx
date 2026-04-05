@@ -142,8 +142,11 @@ export function OrganizationsPageView() {
 
   return (
     <DashboardPageShell
+      eyebrow="Administration"
       title="组织管理"
-      description="管理集团旗下分公司"
+      description="维护集团旗下分公司、组织状态与启停策略。"
+      surfaceHeader
+      maxWidth="wide"
       actions={
         <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />

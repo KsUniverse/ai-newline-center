@@ -5,6 +5,7 @@ const {
   createAccountMock,
   findAccountByIdMock,
   findByProfileUrlMock,
+  findBySecUserIdIncludingDeletedMock,
   findManyAccountsMock,
   findVideosByAccountIdMock,
   fetchUserProfileMock,
@@ -13,6 +14,7 @@ const {
   createAccountMock: vi.fn(),
   findAccountByIdMock: vi.fn(),
   findByProfileUrlMock: vi.fn(),
+  findBySecUserIdIncludingDeletedMock: vi.fn(),
   findManyAccountsMock: vi.fn(),
   findVideosByAccountIdMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock("@/server/repositories/douyin-account.repository", () => ({
     create: createAccountMock,
     findById: findAccountByIdMock,
     findByProfileUrl: findByProfileUrlMock,
+    findBySecUserIdIncludingDeleted: findBySecUserIdIncludingDeletedMock,
     findMany: findManyAccountsMock,
   },
 }));
@@ -46,6 +49,7 @@ describe("douyinAccountService", () => {
     createAccountMock.mockReset();
     findAccountByIdMock.mockReset();
     findByProfileUrlMock.mockReset();
+    findBySecUserIdIncludingDeletedMock.mockReset();
     findManyAccountsMock.mockReset();
     findVideosByAccountIdMock.mockReset();
     fetchUserProfileMock.mockReset();

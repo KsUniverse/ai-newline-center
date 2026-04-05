@@ -1,6 +1,5 @@
 import {
   DouyinAccountLoginStatus,
-  DouyinAccountType,
   type DouyinAccount,
   type Prisma,
   type PrismaClient,
@@ -37,22 +36,12 @@ export type DouyinAccountWithUser = Prisma.DouyinAccountGetPayload<{
   include: typeof userInclude;
 }>;
 
-export type DouyinBenchmarkWithUser = DouyinAccountWithUser;
-
 export type DouyinAccountLoginStateMeta = Prisma.DouyinAccountGetPayload<{
   select: typeof loginStateMetaSelect;
 }>;
 
 export interface FindManyDouyinAccountsParams {
-  type?: DouyinAccountType;
   userId?: string;
-  organizationId?: string;
-  page: number;
-  limit: number;
-  archiveFilter?: ArchiveFilter;
-}
-
-export interface FindManyBenchmarksParams {
   organizationId?: string;
   page: number;
   limit: number;
@@ -63,7 +52,6 @@ interface BuildAccountWhereParams {
   id?: string;
   profileUrl?: string;
   secUserId?: string;
-  type?: DouyinAccountType;
   userId?: string;
   organizationId?: string;
   requireSecUserId?: boolean;
@@ -100,10 +88,7 @@ interface CreateDouyinAccountRecord {
   lastSyncedAt?: Date | null;
   userId: string;
   organizationId: string;
-  type: DouyinAccountType;
 }
-
-type CreateBenchmarkRecord = Omit<CreateDouyinAccountRecord, "type">;
 
 class DouyinAccountRepository {
   private buildWhere(params: BuildAccountWhereParams): Prisma.DouyinAccountWhereInput {
@@ -111,7 +96,6 @@ class DouyinAccountRepository {
       id,
       profileUrl,
       secUserId,
-      type,
       userId,
       organizationId,
       requireSecUserId,
@@ -122,7 +106,6 @@ class DouyinAccountRepository {
       ...(id ? { id } : {}),
       ...(profileUrl ? { profileUrl } : {}),
       ...(secUserId ? { secUserId } : {}),
-      ...(type ? { type } : {}),
       ...(userId ? { userId } : {}),
       ...(organizationId ? { organizationId } : {}),
       ...(requireSecUserId ? { secUserId: { not: null } } : {}),
@@ -154,7 +137,6 @@ class DouyinAccountRepository {
   async findAllMyAccountsForCollection(db: DatabaseClient = prisma): Promise<DouyinAccount[]> {
     return db.douyinAccount.findMany({
       where: this.buildWhere({
-        type: DouyinAccountType.MY_ACCOUNT,
         requireSecUserId: true,
         archiveFilter: "active",
       }),
@@ -213,7 +195,6 @@ class DouyinAccountRepository {
         id,
         userId,
         organizationId,
-        type: DouyinAccountType.MY_ACCOUNT,
         archiveFilter: "active",
       }),
     });
@@ -234,27 +215,12 @@ class DouyinAccountRepository {
     });
   }
 
-  async findBenchmarkById(
-    id: string,
-    db: DatabaseClient = prisma,
-  ): Promise<DouyinBenchmarkWithUser | null> {
-    return db.douyinAccount.findFirst({
-      where: this.buildWhere({
-        id,
-        type: DouyinAccountType.BENCHMARK_ACCOUNT,
-        archiveFilter: "all",
-      }),
-      include: userInclude,
-    });
-  }
-
   async findMany(
     params: FindManyDouyinAccountsParams,
     db: DatabaseClient = prisma,
   ): Promise<{ items: DouyinAccount[]; total: number; page: number; limit: number }> {
-    const { type = DouyinAccountType.MY_ACCOUNT, userId, organizationId, page, limit } = params;
+    const { userId, organizationId, page, limit } = params;
     const where = this.buildWhere({
-      type,
       userId,
       organizationId,
       archiveFilter: params.archiveFilter ?? "active",
@@ -263,33 +229,6 @@ class DouyinAccountRepository {
     const [items, total] = await Promise.all([
       db.douyinAccount.findMany({
         where,
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      db.douyinAccount.count({ where }),
-    ]);
-
-    return { items, total, page, limit };
-  }
-
-  async findManyBenchmarks(
-    params: FindManyBenchmarksParams,
-    db: DatabaseClient = prisma,
-  ): Promise<{ items: DouyinBenchmarkWithUser[]; total: number; page: number; limit: number }> {
-    const { organizationId, archiveFilter = "active", page, limit } = params;
-    const where = this.buildWhere({
-      type: DouyinAccountType.BENCHMARK_ACCOUNT,
-      organizationId,
-      archiveFilter,
-    });
-
-    const [items, total] = await Promise.all([
-      db.douyinAccount.findMany({
-        where,
-        include: userInclude,
         orderBy: {
           createdAt: "desc",
         },
@@ -320,21 +259,7 @@ class DouyinAccountRepository {
   }
 
   async findMyAccountIdsByUserId(userId: string, db: DatabaseClient = prisma): Promise<string[]> {
-    const accounts = await db.douyinAccount.findMany({
-      where: this.buildWhere({
-        userId,
-        type: DouyinAccountType.MY_ACCOUNT,
-        archiveFilter: "active",
-      }),
-      select: {
-        id: true,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
-
-    return accounts.map((account) => account.id);
+    return this.findIdsByUserId(userId, db);
   }
 
   async findIdsByOrganizationId(
@@ -363,30 +288,6 @@ class DouyinAccountRepository {
   ): Promise<DouyinAccount> {
     return db.douyinAccount.create({
       data,
-    });
-  }
-
-  async createBenchmark(
-    data: CreateBenchmarkRecord,
-    db: DatabaseClient = prisma,
-  ): Promise<DouyinAccount> {
-    return this.create(
-      {
-        ...data,
-        type: DouyinAccountType.BENCHMARK_ACCOUNT,
-      },
-      db,
-    );
-  }
-
-  async archiveBenchmark(id: string, db: DatabaseClient = prisma): Promise<DouyinAccount> {
-    return db.douyinAccount.update({
-      where: {
-        id,
-      },
-      data: {
-        deletedAt: new Date(),
-      },
     });
   }
 
@@ -520,15 +421,8 @@ class DouyinAccountRepository {
       },
       data: {
         loginStatus: DouyinAccountLoginStatus.FAILED,
+        loginStateCheckedAt: new Date(),
         loginErrorMessage: errorMessage,
-      },
-    });
-  }
-
-  async deleteById(id: string, db: DatabaseClient = prisma): Promise<DouyinAccount> {
-    return db.douyinAccount.delete({
-      where: {
-        id,
       },
     });
   }

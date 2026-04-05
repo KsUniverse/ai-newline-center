@@ -1,27 +1,30 @@
-import { UserRole } from "@prisma/client";
+import { BenchmarkAccountMemberSource, Prisma, UserRole } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import {
-  douyinAccountRepository,
-  type DouyinBenchmarkWithUser,
-  type FindManyBenchmarksParams,
-} from "@/server/repositories/douyin-account.repository";
-import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
+  benchmarkAccountRepository,
+  type FindManyBenchmarkAccountsParams,
+} from "@/server/repositories/benchmark-account.repository";
+import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
 import { crawlerService } from "@/server/services/crawler.service";
-import type { SessionUser } from "@/server/services/user.service";
 import {
-  mapCrawlerProfileToPreview,
   type CreateDouyinAccountData,
   type ListParams,
 } from "@/server/services/douyin-account.service";
+import {
+  mapBenchmarkAccountDetailToDto,
+  mapBenchmarkAccountToDto,
+  mapCrawlerProfileToPreview,
+} from "@/server/services/douyin-account.mapper";
 import type {
   BenchmarkAccountDTO,
   BenchmarkAccountDetailDTO,
   AccountPreview,
 } from "@/types/douyin-account";
 import type { PaginatedData } from "@/types/api";
+import type { SessionUser } from "@/types/session";
 
-type BenchmarkArchiveFilter = NonNullable<FindManyBenchmarksParams["archiveFilter"]>;
+type BenchmarkArchiveFilter = NonNullable<FindManyBenchmarkAccountsParams["archiveFilter"]>;
 
 interface ListBenchmarksParams {
   page: number;
@@ -45,11 +48,23 @@ class BenchmarkAccountService {
   ): Promise<{ id: string; profileUrl: string; secUserId: string }> {
     this.assertSupportedCaller(caller);
 
-    const existingBySecUserId = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
+    const existingBySecUserId = await benchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted(
+      caller.organizationId,
       data.secUserId,
     );
     if (existingBySecUserId && existingBySecUserId.deletedAt === null) {
-      throw new AppError("BENCHMARK_EXISTS", "该对标博主已存在", 409);
+      await benchmarkAccountRepository.upsertMember({
+        benchmarkAccountId: existingBySecUserId.id,
+        userId: caller.id,
+        organizationId: caller.organizationId,
+        source: BenchmarkAccountMemberSource.MANUAL,
+      });
+
+      return {
+        id: existingBySecUserId.id,
+        profileUrl: existingBySecUserId.profileUrl,
+        secUserId: existingBySecUserId.secUserId ?? data.secUserId,
+      };
     }
     if (existingBySecUserId && existingBySecUserId.deletedAt !== null) {
       throw new AppError(
@@ -59,24 +74,38 @@ class BenchmarkAccountService {
       );
     }
 
-    const existingByProfileUrl = await douyinAccountRepository.findByProfileUrl(
+    const existingByProfileUrl = await benchmarkAccountRepository.findByOrganizationAndProfileUrlIncludingDeleted(
+      caller.organizationId,
       data.profileUrl,
-      true,
     );
-    if (existingByProfileUrl?.type === "MY_ACCOUNT") {
-      throw new AppError("ACCOUNT_EXISTS_AS_MY", "该账号已作为我的账号被添加", 409);
+    if (existingByProfileUrl && existingByProfileUrl.deletedAt === null) {
+      await benchmarkAccountRepository.upsertMember({
+        benchmarkAccountId: existingByProfileUrl.id,
+        userId: caller.id,
+        organizationId: caller.organizationId,
+        source: BenchmarkAccountMemberSource.MANUAL,
+      });
+
+      return {
+        id: existingByProfileUrl.id,
+        profileUrl: existingByProfileUrl.profileUrl,
+        secUserId: existingByProfileUrl.secUserId ?? data.secUserId,
+      };
+    }
+    if (existingByProfileUrl && existingByProfileUrl.deletedAt !== null) {
+      throw new AppError(
+        "BENCHMARK_ARCHIVED",
+        "该对标博主已被归档，请前往归档列表查看",
+        409,
+      );
     }
 
-    const benchmark = await douyinAccountRepository.createBenchmark({
-      ...data,
-      userId: caller.id,
-      organizationId: caller.organizationId,
-    });
+    const benchmark = await this.createBenchmarkWithMember(caller, data);
 
     return {
       id: benchmark.id,
       profileUrl: benchmark.profileUrl,
-      secUserId: data.secUserId,
+      secUserId: benchmark.secUserId ?? data.secUserId,
     };
   }
 
@@ -84,16 +113,23 @@ class BenchmarkAccountService {
     caller: SessionUser,
     params: ListBenchmarksParams,
   ): Promise<PaginatedData<BenchmarkAccountDTO>> {
-    const result = await douyinAccountRepository.findManyBenchmarks({
+    const result = await benchmarkAccountRepository.findMany({
       organizationId: this.resolveOrganizationScope(caller),
       page: params.page,
       limit: params.limit,
       archiveFilter: params.archiveFilter ?? "active",
     });
 
+    const items = await Promise.all(
+      result.items.map(async (item) => ({
+        ...mapBenchmarkAccountToDto(item),
+        canArchive: await benchmarkAccountRepository.hasMember(item.id, caller.id),
+      })),
+    );
+
     return {
       ...result,
-      items: result.items.map((item) => this.toBenchmarkAccountDTO(item)),
+      items,
     };
   }
 
@@ -112,7 +148,7 @@ class BenchmarkAccountService {
     caller: SessionUser,
     id: string,
   ): Promise<BenchmarkAccountDetailDTO> {
-    const account = await douyinAccountRepository.findBenchmarkById(id);
+    const account = await benchmarkAccountRepository.findById(id);
 
     if (!account) {
       throw new AppError("NOT_FOUND", "对标账号不存在", 404);
@@ -126,8 +162,8 @@ class BenchmarkAccountService {
     }
 
     return {
-      ...this.toBenchmarkAccountDTO(account),
-      lastSyncedAt: account.lastSyncedAt?.toISOString() ?? null,
+      ...mapBenchmarkAccountDetailToDto(account),
+      canArchive: await benchmarkAccountRepository.hasMember(account.id, caller.id),
     };
   }
 
@@ -135,17 +171,25 @@ class BenchmarkAccountService {
     caller: SessionUser,
     id: string,
   ): Promise<{ id: string; deletedAt: string }> {
-    const account = await douyinAccountRepository.findBenchmarkById(id);
+    const account = await benchmarkAccountRepository.findById(id);
 
     if (!account || account.deletedAt !== null) {
       throw new AppError("NOT_FOUND", "对标账号不存在", 404);
     }
 
-    if (account.userId !== caller.id) {
-      throw new AppError("FORBIDDEN", "只能归档自己创建的对标账号", 403);
+    if (
+      caller.role !== UserRole.SUPER_ADMIN &&
+      account.organizationId !== caller.organizationId
+    ) {
+      throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    const archived = await douyinAccountRepository.archiveBenchmark(id);
+    const isMember = await benchmarkAccountRepository.hasMember(account.id, caller.id);
+    if (!isMember) {
+      throw new AppError("FORBIDDEN", "仅关联员工可归档该对标账号", 403);
+    }
+
+    const archived = await benchmarkAccountRepository.archive(id);
 
     return {
       id: archived.id,
@@ -153,10 +197,14 @@ class BenchmarkAccountService {
     };
   }
 
-  async listBenchmarkVideos(caller: SessionUser, benchmarkId: string, params: ListParams) {
+  async listBenchmarkVideos(
+    caller: SessionUser,
+    benchmarkId: string,
+    params: ListParams,
+  ): Promise<Awaited<ReturnType<typeof benchmarkVideoRepository.findByAccountId>>> {
     await this.getBenchmarkDetail(caller, benchmarkId);
 
-    return douyinVideoRepository.findByAccountId({
+    return benchmarkVideoRepository.findByAccountId({
       accountId: benchmarkId,
       page: params.page,
       limit: params.limit,
@@ -178,40 +226,50 @@ class BenchmarkAccountService {
     }
   }
 
-  private toBenchmarkAccountDTO(account: DouyinBenchmarkWithUser): BenchmarkAccountDTO {
-    return {
-      id: account.id,
-      profileUrl: account.profileUrl,
-      secUserId: account.secUserId,
-      nickname: account.nickname,
-      avatar: account.avatar,
-      bio: account.bio,
-      signature: account.signature,
-      followersCount: account.followersCount,
-      followingCount: account.followingCount,
-      likesCount: account.likesCount,
-      videosCount: account.videosCount,
-      douyinNumber: account.douyinNumber,
-      ipLocation: account.ipLocation,
-      age: account.age,
-      province: account.province,
-      city: account.city,
-      verificationLabel: account.verificationLabel,
-      verificationIconUrl: account.verificationIconUrl,
-      verificationType: account.verificationType,
-      type: account.type,
-      loginStatus: account.loginStatus,
-      loginStateUpdatedAt: account.loginStateUpdatedAt?.toISOString() ?? null,
-      loginStateCheckedAt: account.loginStateCheckedAt?.toISOString() ?? null,
-      loginStateExpiresAt: account.loginStateExpiresAt?.toISOString() ?? null,
-      loginErrorMessage: account.loginErrorMessage,
-      userId: account.userId,
-      organizationId: account.organizationId,
-      createdAt: account.createdAt.toISOString(),
-      creatorName: account.user.name,
-      deletedAt: account.deletedAt?.toISOString() ?? null,
-    };
+  private async createBenchmarkWithMember(
+    caller: SessionUser,
+    data: CreateDouyinAccountData,
+  ) {
+    try {
+      return await benchmarkAccountRepository.createWithMember(
+        {
+          ...data,
+          createdByUserId: caller.id,
+          organizationId: caller.organizationId,
+        },
+        BenchmarkAccountMemberSource.MANUAL,
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const existing = await benchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted(
+          caller.organizationId,
+          data.secUserId,
+        );
+        if (existing?.deletedAt) {
+          throw new AppError(
+            "BENCHMARK_ARCHIVED",
+            "该对标博主已被归档，请前往归档列表查看",
+            409,
+          );
+        }
+        if (existing) {
+          await benchmarkAccountRepository.upsertMember({
+            benchmarkAccountId: existing.id,
+            userId: caller.id,
+            organizationId: caller.organizationId,
+            source: BenchmarkAccountMemberSource.MANUAL,
+          });
+          return existing;
+        }
+      }
+
+      throw error;
+    }
   }
+
 }
 
 export const benchmarkAccountService = new BenchmarkAccountService();

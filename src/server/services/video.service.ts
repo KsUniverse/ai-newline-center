@@ -3,7 +3,7 @@ import { UserRole } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
-import type { SessionUser } from "@/server/services/user.service";
+import type { SessionUser } from "@/types/session";
 import type { DouyinVideoWithAccountDTO } from "@/types/douyin-account";
 import type { PaginatedData } from "@/types/api";
 

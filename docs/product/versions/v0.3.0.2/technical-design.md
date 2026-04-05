@@ -78,7 +78,6 @@
 - purpose
 - status
 - qrcodeDataUrl
-- tempStatePath
 - resolvedSecUserId
 - errorCode
 - errorMessage
@@ -134,21 +133,21 @@ EXPIRED -> PENDING
 
 ```text
 {DOUYIN_LOGIN_STATE_DIR}/
-  tmp/
   organizations/{organizationId}/users/{userId}/accounts/{accountId}.json
 ```
 
 说明：
-- tmp/ 用于账号尚未创建或尚未完成绑定前的临时 storageState。
-- organizations/.../accounts/{accountId}.json 用于正式登录态。
+- organizations/.../accounts/{accountId}.json 用于账号正式登录态。
 - 正式文件路径写入 DouyinAccount.loginStatePath。
+- 会话运行中的临时 storageState 仅保存在 LoginSessionManager 进程内存中，不落临时文件。
 
 ### 存储策略
 
-1. Playwright 登录成功后先将 storageState 写入 tmp/{loginSessionId}.json。
-2. 自动建号成功后，将临时文件原子移动到正式路径。
-3. 既有账号重登录成功后，直接覆盖该账号正式路径。
-4. 失败、取消、过期场景必须删除临时文件。
+1. Playwright 登录成功后先将 storageState 保存在 LoginSessionManager 运行态内存中。
+2. 自动建号成功时，按 organizationId / userId / accountId 生成正式路径并直接写入账号正式文件。
+3. 既有账号重登录成功时，直接覆盖该账号正式路径。
+4. CREATE_ACCOUNT 场景下若正式文件已写入但账号创建或绑定失败，必须删除该正式文件并回滚。
+5. 失败、取消、过期场景必须清理运行态会话资源，不保留未绑定的临时登录态。
 
 ---
 
@@ -179,8 +178,9 @@ EXPIRED -> PENDING
 
 ### CrawlerService 与 SyncService
 
-- CrawlerService.fetchCollectionVideos 的服务层签名固定为 fetchCollectionVideos({ secUserId, cookieHeader })。
+- CrawlerService.fetchCollectionVideos 的服务层签名固定为 fetchCollectionVideos({ cookieHeader, cursor?, count? })。
 - SyncService.runCollectionSync() 遍历可同步账号时，只消费账号自己绑定的 favoriteCookieHeader。
+- 收藏同步的账号身份来自当前账号绑定的 favoriteCookieHeader，不额外向 crawler 传 secUserId。
 - 若账号没有有效 Cookie header，直接将该账号标记为 EXPIRED 并跳过。
 
 ---

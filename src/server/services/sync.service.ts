@@ -1,6 +1,14 @@
-﻿import { DouyinAccountLoginStatus, Prisma, type DouyinAccount } from "@prisma/client";
+﻿import {
+  BenchmarkAccountMemberSource,
+  DouyinAccountLoginStatus,
+  Prisma,
+  type DouyinAccount,
+} from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
+import { benchmarkAccountRepository } from "@/server/repositories/benchmark-account.repository";
+import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
+import { benchmarkVideoSnapshotRepository } from "@/server/repositories/benchmark-video-snapshot.repository";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { employeeCollectionVideoRepository } from "@/server/repositories/employee-collection-video.repository";
@@ -16,15 +24,195 @@ const RECENT_VIDEO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MID_TERM_VIDEO_WINDOW_MS = 72 * 60 * 60 * 1000;
 const MID_TERM_VIDEO_SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
+interface SyncableAccount {
+  id: string;
+  profileUrl: string;
+  secUserId: string | null;
+  organizationId: string;
+}
+
+interface SyncableVideo {
+  id: string;
+  videoId: string;
+  publishedAt: Date | null;
+  collectCount: number;
+  admireCount: number;
+  recommendCount: number;
+  snapshots: Array<{
+    timestamp: Date;
+  }>;
+}
+
+interface CrawlerProfile {
+  secUserId: string;
+  nickname: string;
+  avatar: string;
+  bio: string | null;
+  signature: string | null;
+  followersCount: number;
+  followingCount: number;
+  likesCount: number;
+  videosCount: number;
+  douyinNumber: string | null;
+  ipLocation: string | null;
+  age: number | null;
+  province: string | null;
+  city: string | null;
+  verificationLabel: string | null;
+  verificationIconUrl: string | null;
+  verificationType: number | null;
+}
+
+interface CrawlerVideo {
+  awemeId: string;
+  title: string;
+  coverSourceUrl: string | null;
+  videoSourceUrl: string | null;
+  publishedAt: string | null;
+  playCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+  collectCount: number;
+  admireCount: number;
+  recommendCount: number;
+}
+
+interface CrawlerVideoListResult {
+  videos: CrawlerVideo[];
+  hasMore: boolean;
+  cursor: number;
+}
+
+interface CrawlerVideoDetail {
+  awemeId: string;
+  playCount: number;
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
+}
+
+interface SyncCaches {
+  secUserId: Map<string, Promise<string>>;
+  profile: Map<string, Promise<CrawlerProfile>>;
+  videoList: Map<string, Promise<CrawlerVideoListResult>>;
+  videoDetail: Map<string, Promise<CrawlerVideoDetail>>;
+}
+
+interface AccountSyncAdapter {
+  label: string;
+  updateSecUserId: (id: string, secUserId: string) => Promise<unknown>;
+  updateAccountInfo: (
+    id: string,
+    data: {
+      nickname: string;
+      avatar: string;
+      bio: string | null;
+      signature: string | null;
+      followersCount: number;
+      followingCount: number;
+      likesCount: number;
+      videosCount: number;
+      douyinNumber: string | null;
+      ipLocation: string | null;
+      age: number | null;
+      province: string | null;
+      city: string | null;
+      verificationLabel: string | null;
+      verificationIconUrl: string | null;
+      verificationType: number | null;
+      lastSyncedAt: Date;
+    },
+  ) => Promise<{ lastSyncedAt: Date | null }>;
+}
+
+interface VideoSyncAdapter {
+  label: string;
+  countByAccountId: (accountId: string) => Promise<number>;
+  findExistingVideo: (accountId: string, videoId: string) => Promise<unknown | null>;
+  updateExistingVideoStats: (
+    accountId: string,
+    videoId: string,
+    stats: {
+      playCount: number;
+      likeCount: number;
+      commentCount: number;
+      shareCount: number;
+      collectCount: number;
+      admireCount: number;
+      recommendCount: number;
+    },
+  ) => Promise<void>;
+  upsertVideo: (data: {
+    videoId: string;
+    accountId: string;
+    organizationId?: string;
+    title: string;
+    coverUrl: string | null;
+    coverSourceUrl: string | null;
+    coverStoragePath: string | null;
+    videoUrl: string | null;
+    videoSourceUrl: string | null;
+    videoStoragePath: string | null;
+    publishedAt: Date | null;
+    playCount: number;
+    likeCount: number;
+    commentCount: number;
+    shareCount: number;
+    collectCount: number;
+    admireCount: number;
+    recommendCount: number;
+    tags: string[];
+  }) => Promise<void>;
+}
+
+interface SnapshotSyncAdapter {
+  label: string;
+  createSnapshot: (data: {
+    videoId: string;
+    playsCount: number;
+    likesCount: number;
+    commentsCount: number;
+    sharesCount: number;
+  }) => Promise<unknown>;
+  updateStats: (
+    id: string,
+    data: {
+      playCount: number;
+      likeCount: number;
+      commentCount: number;
+      shareCount: number;
+      collectCount: number;
+      admireCount: number;
+      recommendCount: number;
+    },
+  ) => Promise<unknown>;
+}
+
 class SyncService {
   async runAccountInfoBatchSync(): Promise<void> {
-    const accounts = await douyinAccountRepository.findAll();
+    const [myAccounts, benchmarkAccounts] = await Promise.all([
+      douyinAccountRepository.findAll(),
+      benchmarkAccountRepository.findAll(),
+    ]);
+    const caches = this.createCaches();
 
-    for (const account of accounts) {
+    for (const account of myAccounts) {
       try {
-        await this.syncAccountInfo(account);
+        await this.syncAccountInfoRecord(account, this.myAccountSyncAdapter(), caches);
       } catch (error) {
-        console.error("Failed to sync douyin account info:", {
+        console.error("Failed to sync my-account info:", {
+          accountId: account.id,
+          error,
+        });
+      }
+    }
+
+    for (const account of benchmarkAccounts) {
+      try {
+        await this.syncAccountInfoRecord(account, this.benchmarkAccountSyncAdapter(), caches);
+      } catch (error) {
+        console.error("Failed to sync benchmark account info:", {
           accountId: account.id,
           error,
         });
@@ -33,19 +221,33 @@ class SyncService {
   }
 
   async runVideoBatchSync(): Promise<void> {
-    const accounts = await douyinAccountRepository.findAll();
-    const myCount = accounts.filter((a) => a.type === "MY_ACCOUNT").length;
-    const benchmarkCount = accounts.filter((a) => a.type === "BENCHMARK_ACCOUNT").length;
+    const [myAccounts, benchmarkAccounts] = await Promise.all([
+      douyinAccountRepository.findAll(),
+      benchmarkAccountRepository.findAll(),
+    ]);
+    const caches = this.createCaches();
+
     console.log(
-      `[VideoSync] 开始批量视频同步，共 ${accounts.length} 个账号` +
-        `（MY_ACCOUNT: ${myCount}，BENCHMARK_ACCOUNT: ${benchmarkCount}）`,
+      `[VideoSync] 开始批量视频同步，共 ${myAccounts.length + benchmarkAccounts.length} 个账号` +
+        `（MY_ACCOUNT: ${myAccounts.length}，BENCHMARK_ACCOUNT: ${benchmarkAccounts.length}）`,
     );
 
-    for (const account of accounts) {
+    for (const account of myAccounts) {
       try {
-        await this.syncAccountVideos(account);
+        await this.syncAccountVideosRecord(account, this.myVideoSyncAdapter(), caches);
       } catch (error) {
-        console.error("Failed to sync douyin account videos:", {
+        console.error("Failed to sync my-account videos:", {
+          accountId: account.id,
+          error,
+        });
+      }
+    }
+
+    for (const account of benchmarkAccounts) {
+      try {
+        await this.syncAccountVideosRecord(account, this.benchmarkVideoSyncAdapter(), caches);
+      } catch (error) {
+        console.error("Failed to sync benchmark videos:", {
           accountId: account.id,
           error,
         });
@@ -54,67 +256,20 @@ class SyncService {
   }
 
   async runVideoSnapshotCollection(): Promise<void> {
-    const videos = await douyinVideoRepository.findAllActiveForSnapshotSync();
+    const [myVideos, benchmarkVideos] = await Promise.all([
+      douyinVideoRepository.findAllActiveForSnapshotSync(),
+      benchmarkVideoRepository.findAllActiveForSnapshotSync(),
+    ]);
+    const caches = this.createCaches();
     const now = Date.now();
 
-    for (const video of videos) {
-      const latestSnapshotAt = video.snapshots[0]?.timestamp ?? null;
-      if (!this.shouldSyncVideoSnapshot(video.publishedAt, latestSnapshotAt, now)) {
-        continue;
-      }
-
-      try {
-        const detail = await crawlerService.fetchOneVideo(video.videoId);
-
-        await videoSnapshotRepository.create({
-          videoId: video.id,
-          playsCount: detail.playCount,
-          likesCount: detail.likeCount,
-          commentsCount: detail.commentCount,
-          sharesCount: detail.shareCount,
-        });
-
-        await douyinVideoRepository.updateStats(video.id, {
-          playCount: detail.playCount,
-          likeCount: detail.likeCount,
-          commentCount: detail.commentCount,
-          shareCount: detail.shareCount,
-          collectCount: video.collectCount,
-          admireCount: video.admireCount,
-          recommendCount: video.recommendCount,
-        });
-      } catch (error) {
-        console.error("Failed to collect video snapshot:", {
-          videoId: video.id,
-          error,
-        });
-      }
-    }
-  }
-
-  private shouldSyncVideoSnapshot(
-    publishedAt: Date | null,
-    lastSnapshotAt: Date | null,
-    nowMs: number,
-  ): boolean {
-    if (!publishedAt) {
-      return true;
-    }
-
-    const ageMs = nowMs - publishedAt.getTime();
-    if (ageMs <= RECENT_VIDEO_WINDOW_MS) {
-      return true;
-    }
-
-    if (ageMs > MID_TERM_VIDEO_WINDOW_MS) {
-      return false;
-    }
-
-    if (!lastSnapshotAt) {
-      return true;
-    }
-
-    return nowMs - lastSnapshotAt.getTime() >= MID_TERM_VIDEO_SYNC_INTERVAL_MS;
+    await this.collectSnapshots(myVideos, this.mySnapshotSyncAdapter(), caches, now);
+    await this.collectSnapshots(
+      benchmarkVideos,
+      this.benchmarkSnapshotSyncAdapter(),
+      caches,
+      now,
+    );
   }
 
   async syncAccount(
@@ -132,10 +287,15 @@ class SyncService {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    const lastSyncedAt = await this.syncAccountInfo(account);
+    const caches = this.createCaches();
+    const lastSyncedAt = await this.syncAccountInfoRecord(
+      account,
+      this.myAccountSyncAdapter(),
+      caches,
+    );
 
     try {
-      await this.syncAccountVideos(account);
+      await this.syncAccountVideosRecord(account, this.myVideoSyncAdapter(), caches);
     } catch (error) {
       console.error("Failed to sync douyin account videos during manual sync:", {
         accountId: account.id,
@@ -149,6 +309,7 @@ class SyncService {
   async runCollectionSync(): Promise<void> {
     try {
       const accounts = await douyinAccountRepository.findAllMyAccountsForCollection();
+      const caches = this.createCaches();
 
       console.log(`[CollectionSync] 开始，共扫描 ${accounts.length} 个员工账号`);
 
@@ -178,7 +339,6 @@ class SyncService {
               cursor,
               count: COLLECTION_BATCH_SIZE,
             });
-
             let pageHitExistingCollection = false;
 
             for (const item of result.items) {
@@ -215,64 +375,7 @@ class SyncService {
                 continue;
               }
 
-              const existing = await douyinAccountRepository.findBySecUserIdIncludingDeleted(
-                item.authorSecUserId,
-              );
-              if (existing) {
-                continue;
-              }
-
-              try {
-                console.log(
-                  `[CollectionSync] 发现新博主 secUserId=${item.authorSecUserId}，准备创建 BENCHMARK_ACCOUNT`,
-                );
-                const profile = await crawlerService.fetchUserProfile(item.authorSecUserId);
-
-                const created = await douyinAccountRepository.createBenchmark({
-                  profileUrl:
-                    profile.secUserId
-                      ? `https://www.douyin.com/user/${profile.secUserId}`
-                      : `https://www.douyin.com/user/${item.authorSecUserId}`,
-                  secUserId: item.authorSecUserId,
-                  nickname: profile.nickname,
-                  avatar: profile.avatar,
-                  bio: profile.bio,
-                  signature: profile.signature,
-                  followersCount: profile.followersCount,
-                  followingCount: profile.followingCount,
-                  likesCount: profile.likesCount,
-                  videosCount: profile.videosCount,
-                  douyinNumber: profile.douyinNumber,
-                  ipLocation: profile.ipLocation,
-                  age: profile.age,
-                  province: profile.province,
-                  city: profile.city,
-                  verificationLabel: profile.verificationLabel,
-                  verificationIconUrl: profile.verificationIconUrl,
-                  verificationType: profile.verificationType,
-                  userId: account.userId,
-                  organizationId: account.organizationId,
-                });
-                console.log(
-                  `[CollectionSync] BENCHMARK_ACCOUNT 创建成功 secUserId=${item.authorSecUserId} id=${created.id}`,
-                );
-              } catch (error) {
-                if (
-                  error instanceof Prisma.PrismaClientKnownRequestError &&
-                  error.code === "P2002"
-                ) {
-                  console.log(
-                    `[CollectionSync] secUserId=${item.authorSecUserId} 已存在（并发写冲突），跳过`,
-                  );
-                  continue;
-                }
-
-                console.error("[CollectionSync] 创建 BENCHMARK_ACCOUNT 失败", {
-                  accountId: account.id,
-                  authorSecUserId: item.authorSecUserId,
-                  error,
-                });
-              }
+              await this.ensureBenchmarkAccountMemberFromCollection(account, item.authorSecUserId, caches);
             }
 
             if (!hasCollectionBaseline || pageHitExistingCollection || !result.hasMore) {
@@ -302,10 +405,121 @@ class SyncService {
     }
   }
 
-  private async syncAccountInfo(account: DouyinAccount): Promise<Date> {
-    const secUserId = await this.ensureSecUserId(account);
-    const profile = await crawlerService.fetchUserProfile(secUserId);
-    const updatedAccount = await douyinAccountRepository.updateAccountInfo(account.id, {
+  private createCaches(): SyncCaches {
+    return {
+      secUserId: new Map(),
+      profile: new Map(),
+      videoList: new Map(),
+      videoDetail: new Map(),
+    };
+  }
+
+  private myAccountSyncAdapter(): AccountSyncAdapter {
+    return {
+      label: "MY_ACCOUNT",
+      updateSecUserId: (id, secUserId) => douyinAccountRepository.updateSecUserId(id, secUserId),
+      updateAccountInfo: (id, data) => douyinAccountRepository.updateAccountInfo(id, data),
+    };
+  }
+
+  private benchmarkAccountSyncAdapter(): AccountSyncAdapter {
+    return {
+      label: "BENCHMARK_ACCOUNT",
+      updateSecUserId: (id, secUserId) => benchmarkAccountRepository.updateSecUserId(id, secUserId),
+      updateAccountInfo: (id, data) => benchmarkAccountRepository.updateAccountInfo(id, data),
+    };
+  }
+
+  private myVideoSyncAdapter(): VideoSyncAdapter {
+    return {
+      label: "MY_ACCOUNT",
+      countByAccountId: (accountId) => douyinVideoRepository.countByAccountId(accountId),
+      findExistingVideo: (_accountId, videoId) => douyinVideoRepository.findByVideoId(videoId),
+      updateExistingVideoStats: (_accountId, videoId, stats) =>
+        douyinVideoRepository.updateStatsByVideoId(videoId, stats),
+      upsertVideo: async (data) => {
+        await douyinVideoRepository.upsertByVideoId({
+          videoId: data.videoId,
+          accountId: data.accountId,
+          title: data.title,
+          coverUrl: data.coverUrl,
+          coverSourceUrl: data.coverSourceUrl,
+          coverStoragePath: data.coverStoragePath,
+          videoUrl: data.videoUrl,
+          videoSourceUrl: data.videoSourceUrl,
+          videoStoragePath: data.videoStoragePath,
+          publishedAt: data.publishedAt,
+          playCount: data.playCount,
+          likeCount: data.likeCount,
+          commentCount: data.commentCount,
+          shareCount: data.shareCount,
+          collectCount: data.collectCount,
+          admireCount: data.admireCount,
+          recommendCount: data.recommendCount,
+          tags: data.tags,
+        });
+      },
+    };
+  }
+
+  private benchmarkVideoSyncAdapter(): VideoSyncAdapter {
+    return {
+      label: "BENCHMARK_ACCOUNT",
+      countByAccountId: (accountId) => benchmarkVideoRepository.countByAccountId(accountId),
+      findExistingVideo: (accountId, videoId) =>
+        benchmarkVideoRepository.findByAccountAndVideoId(accountId, videoId),
+      updateExistingVideoStats: (accountId, videoId, stats) =>
+        benchmarkVideoRepository.updateStatsByAccountVideoId(accountId, videoId, stats),
+      upsertVideo: async (data) => {
+        await benchmarkVideoRepository.upsertByVideoId({
+          videoId: data.videoId,
+          accountId: data.accountId,
+          organizationId: data.organizationId ?? "",
+          title: data.title,
+          coverUrl: data.coverUrl,
+          coverSourceUrl: data.coverSourceUrl,
+          coverStoragePath: data.coverStoragePath,
+          videoUrl: data.videoUrl,
+          videoSourceUrl: data.videoSourceUrl,
+          videoStoragePath: data.videoStoragePath,
+          publishedAt: data.publishedAt,
+          playCount: data.playCount,
+          likeCount: data.likeCount,
+          commentCount: data.commentCount,
+          shareCount: data.shareCount,
+          collectCount: data.collectCount,
+          admireCount: data.admireCount,
+          recommendCount: data.recommendCount,
+          tags: data.tags,
+        });
+      },
+    };
+  }
+
+  private mySnapshotSyncAdapter(): SnapshotSyncAdapter {
+    return {
+      label: "MY_ACCOUNT",
+      createSnapshot: (data) => videoSnapshotRepository.create(data),
+      updateStats: (id, data) => douyinVideoRepository.updateStats(id, data),
+    };
+  }
+
+  private benchmarkSnapshotSyncAdapter(): SnapshotSyncAdapter {
+    return {
+      label: "BENCHMARK_ACCOUNT",
+      createSnapshot: (data) => benchmarkVideoSnapshotRepository.create(data),
+      updateStats: (id, data) => benchmarkVideoRepository.updateStats(id, data),
+    };
+  }
+
+  private async syncAccountInfoRecord<AccountRecord extends SyncableAccount>(
+    account: AccountRecord,
+    adapter: AccountSyncAdapter,
+    caches: SyncCaches,
+  ): Promise<Date> {
+    const secUserId = await this.ensureSecUserId(account, adapter.updateSecUserId, caches);
+    const profile = await this.getCachedUserProfile(secUserId, caches);
+    const updatedAccount = await adapter.updateAccountInfo(account.id, {
       nickname: profile.nickname,
       avatar: profile.avatar,
       bio: profile.bio,
@@ -328,15 +542,25 @@ class SyncService {
     return updatedAccount.lastSyncedAt as Date;
   }
 
-  private async syncAccountVideos(account: DouyinAccount): Promise<void> {
-    const secUserId = await this.ensureSecUserId(account);
-    const existingVideoCount = await douyinVideoRepository.countByAccountId(account.id);
+  private async syncAccountVideosRecord<AccountRecord extends SyncableAccount>(
+    account: AccountRecord,
+    adapter: VideoSyncAdapter,
+    caches: SyncCaches,
+  ): Promise<void> {
+    const secUserId = await this.ensureSecUserId(
+      account,
+      adapter.label === "MY_ACCOUNT"
+        ? this.myAccountSyncAdapter().updateSecUserId
+        : this.benchmarkAccountSyncAdapter().updateSecUserId,
+      caches,
+    );
+    const existingVideoCount = await adapter.countByAccountId(account.id);
 
     if (existingVideoCount === 0) {
-      const result = await crawlerService.fetchVideoList(secUserId, 0, INITIAL_SYNC_LIMIT);
+      const result = await this.getCachedVideoList(secUserId, 0, INITIAL_SYNC_LIMIT, caches);
 
       for (const video of result.videos.slice(0, INITIAL_SYNC_LIMIT)) {
-        await this.upsertCrawlerVideo(account.id, video);
+        await this.upsertCrawlerVideo(account, video, adapter);
       }
 
       return;
@@ -345,22 +569,23 @@ class SyncService {
     let cursor = 0;
 
     for (let batchIndex = 0; batchIndex < MAX_INCREMENTAL_BATCHES; batchIndex += 1) {
-      const result = await crawlerService.fetchVideoList(
+      const result = await this.getCachedVideoList(
         secUserId,
         cursor,
         INCREMENTAL_BATCH_SIZE,
+        caches,
       );
       let foundExisting = false;
 
       for (const video of result.videos.slice(0, INCREMENTAL_BATCH_SIZE)) {
-        const existing = await douyinVideoRepository.findByVideoId(video.awemeId);
+        const existing = await adapter.findExistingVideo(account.id, video.awemeId);
 
         if (existing) {
           foundExisting = true;
           break;
         }
 
-        await this.upsertCrawlerVideo(account.id, video);
+        await this.upsertCrawlerVideo(account, video, adapter);
       }
 
       if (foundExisting || !result.hasMore) {
@@ -371,41 +596,97 @@ class SyncService {
     }
   }
 
-  private async ensureSecUserId(account: DouyinAccount): Promise<string> {
+  private async collectSnapshots<VideoRecord extends SyncableVideo>(
+    videos: VideoRecord[],
+    adapter: SnapshotSyncAdapter,
+    caches: SyncCaches,
+    nowMs: number,
+  ): Promise<void> {
+    for (const video of videos) {
+      const latestSnapshotAt = video.snapshots[0]?.timestamp ?? null;
+      if (!this.shouldSyncVideoSnapshot(video.publishedAt, latestSnapshotAt, nowMs)) {
+        continue;
+      }
+
+      try {
+        const detail = await this.getCachedVideoDetail(video.videoId, caches);
+
+        await adapter.createSnapshot({
+          videoId: video.id,
+          playsCount: detail.playCount,
+          likesCount: detail.likeCount,
+          commentsCount: detail.commentCount,
+          sharesCount: detail.shareCount,
+        });
+
+        await adapter.updateStats(video.id, {
+          playCount: detail.playCount,
+          likeCount: detail.likeCount,
+          commentCount: detail.commentCount,
+          shareCount: detail.shareCount,
+          collectCount: video.collectCount,
+          admireCount: video.admireCount,
+          recommendCount: video.recommendCount,
+        });
+      } catch (error) {
+        console.error("Failed to collect video snapshot:", {
+          videoId: video.id,
+          label: adapter.label,
+          error,
+        });
+      }
+    }
+  }
+
+  private shouldSyncVideoSnapshot(
+    publishedAt: Date | null,
+    lastSnapshotAt: Date | null,
+    nowMs: number,
+  ): boolean {
+    if (!publishedAt) {
+      return true;
+    }
+
+    const ageMs = nowMs - publishedAt.getTime();
+    if (ageMs <= RECENT_VIDEO_WINDOW_MS) {
+      return true;
+    }
+
+    if (ageMs > MID_TERM_VIDEO_WINDOW_MS) {
+      return false;
+    }
+
+    if (!lastSnapshotAt) {
+      return true;
+    }
+
+    return nowMs - lastSnapshotAt.getTime() >= MID_TERM_VIDEO_SYNC_INTERVAL_MS;
+  }
+
+  private async ensureSecUserId<AccountRecord extends SyncableAccount>(
+    account: AccountRecord,
+    updateSecUserId: (id: string, secUserId: string) => Promise<unknown>,
+    caches: SyncCaches,
+  ): Promise<string> {
     if (account.secUserId) {
       return account.secUserId;
     }
 
-    const secUserId = await crawlerService.getSecUserId(account.profileUrl);
-    await douyinAccountRepository.updateSecUserId(account.id, secUserId);
+    const secUserId = await this.getCachedSecUserId(account.profileUrl, caches);
+    await updateSecUserId(account.id, secUserId);
     account.secUserId = secUserId;
 
     return secUserId;
   }
 
-  private async upsertCrawlerVideo(
-    accountId: string,
-    video: {
-      awemeId: string;
-      title: string;
-      coverUrl: string | null;
-      coverSourceUrl: string | null;
-      videoUrl: string | null;
-      videoSourceUrl: string | null;
-      publishedAt: string | null;
-      playCount: number;
-      likeCount: number;
-      commentCount: number;
-      shareCount: number;
-      collectCount: number;
-      admireCount: number;
-      recommendCount: number;
-    },
+  private async upsertCrawlerVideo<AccountRecord extends SyncableAccount>(
+    account: AccountRecord,
+    video: CrawlerVideo,
+    adapter: VideoSyncAdapter,
   ): Promise<void> {
-    // 预检查：已存在则仅更新数据指标，不重新下载文件
-    const existing = await douyinVideoRepository.findByVideoId(video.awemeId);
+    const existing = await adapter.findExistingVideo(account.id, video.awemeId);
     if (existing) {
-      await douyinVideoRepository.updateStatsByVideoId(video.awemeId, {
+      await adapter.updateExistingVideoStats(account.id, video.awemeId, {
         playCount: video.playCount,
         likeCount: video.likeCount,
         commentCount: video.commentCount,
@@ -417,7 +698,6 @@ class SyncService {
       return;
     }
 
-    // 不存在：正常下载文件并创建记录
     const coverStoragePath = video.coverSourceUrl
       ? await storageService.downloadAndStore(video.coverSourceUrl, "covers")
       : null;
@@ -425,9 +705,10 @@ class SyncService {
       ? await storageService.downloadAndStore(video.videoSourceUrl, "videos")
       : null;
 
-    await douyinVideoRepository.upsertByVideoId({
+    await adapter.upsertVideo({
       videoId: video.awemeId,
-      accountId,
+      accountId: account.id,
+      organizationId: account.organizationId,
       title: video.title,
       coverUrl: coverStoragePath,
       coverSourceUrl: video.coverSourceUrl,
@@ -445,6 +726,132 @@ class SyncService {
       recommendCount: video.recommendCount,
       tags: [],
     });
+  }
+
+  private async ensureBenchmarkAccountMemberFromCollection(
+    account: DouyinAccount,
+    authorSecUserId: string,
+    caches: SyncCaches,
+  ): Promise<void> {
+    const existing = await benchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted(
+      account.organizationId,
+      authorSecUserId,
+    );
+
+    if (existing?.deletedAt) {
+      return;
+    }
+
+    if (existing) {
+      await benchmarkAccountRepository.upsertMember({
+        benchmarkAccountId: existing.id,
+        userId: account.userId,
+        organizationId: account.organizationId,
+        source: BenchmarkAccountMemberSource.COLLECTION_SYNC,
+      });
+      return;
+    }
+
+    const profile = await this.getCachedUserProfile(authorSecUserId, caches);
+
+    try {
+      await benchmarkAccountRepository.createWithMember(
+        {
+          profileUrl:
+            profile.secUserId
+              ? `https://www.douyin.com/user/${profile.secUserId}`
+              : `https://www.douyin.com/user/${authorSecUserId}`,
+          secUserId: authorSecUserId,
+          nickname: profile.nickname,
+          avatar: profile.avatar,
+          bio: profile.bio,
+          signature: profile.signature,
+          followersCount: profile.followersCount,
+          followingCount: profile.followingCount,
+          likesCount: profile.likesCount,
+          videosCount: profile.videosCount,
+          douyinNumber: profile.douyinNumber,
+          ipLocation: profile.ipLocation,
+          age: profile.age,
+          province: profile.province,
+          city: profile.city,
+          verificationLabel: profile.verificationLabel,
+          verificationIconUrl: profile.verificationIconUrl,
+          verificationType: profile.verificationType,
+          createdByUserId: account.userId,
+          organizationId: account.organizationId,
+        },
+        BenchmarkAccountMemberSource.COLLECTION_SYNC,
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const concurrentExisting = await benchmarkAccountRepository.findByOrganizationAndSecUserIdIncludingDeleted(
+          account.organizationId,
+          authorSecUserId,
+        );
+        if (concurrentExisting && concurrentExisting.deletedAt === null) {
+          await benchmarkAccountRepository.upsertMember({
+            benchmarkAccountId: concurrentExisting.id,
+            userId: account.userId,
+            organizationId: account.organizationId,
+            source: BenchmarkAccountMemberSource.COLLECTION_SYNC,
+          });
+          return;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  private getCachedSecUserId(profileUrl: string, caches: SyncCaches): Promise<string> {
+    return this.getOrCreateCacheEntry(caches.secUserId, profileUrl, () =>
+      crawlerService.getSecUserId(profileUrl),
+    );
+  }
+
+  private getCachedUserProfile(secUserId: string, caches: SyncCaches): Promise<CrawlerProfile> {
+    return this.getOrCreateCacheEntry(caches.profile, secUserId, () =>
+      crawlerService.fetchUserProfile(secUserId),
+    );
+  }
+
+  private getCachedVideoList(
+    secUserId: string,
+    cursor: number,
+    count: number,
+    caches: SyncCaches,
+  ): Promise<CrawlerVideoListResult> {
+    return this.getOrCreateCacheEntry(caches.videoList, `${secUserId}:${cursor}:${count}`, () =>
+      crawlerService.fetchVideoList(secUserId, cursor, count),
+    );
+  }
+
+  private getCachedVideoDetail(videoId: string, caches: SyncCaches): Promise<CrawlerVideoDetail> {
+    return this.getOrCreateCacheEntry(caches.videoDetail, videoId, () =>
+      crawlerService.fetchOneVideo(videoId),
+    );
+  }
+
+  private getOrCreateCacheEntry<T>(
+    cache: Map<string, Promise<T>>,
+    key: string,
+    factory: () => Promise<T>,
+  ): Promise<T> {
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    const created = factory().catch((error) => {
+      cache.delete(key);
+      throw error;
+    });
+    cache.set(key, created);
+    return created;
   }
 }
 

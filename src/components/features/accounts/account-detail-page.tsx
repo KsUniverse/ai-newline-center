@@ -3,19 +3,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { ApiError, apiClient } from "@/lib/api-client";
 import { useAutoRefresh } from "@/lib/hooks/use-auto-refresh";
 import type { PaginatedData } from "@/types/api";
 import type { DouyinAccountDetailDTO, DouyinVideoDTO } from "@/types/douyin-account";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
+import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { Button } from "@/components/ui/button";
 
 import { AccountDetailHeader } from "./account-detail-header";
 import { AccountReloginDialog } from "./account-relogin-dialog";
 import { VideoDetailDialog } from "./video-detail-dialog";
 import { VideoList } from "./video-list";
+import {
+  ACCOUNTS_BACK_LABEL,
+  ACCOUNTS_DETAIL_EYEBROW,
+  ACCOUNTS_DETAIL_TITLE,
+  ACCOUNTS_VIDEO_SECTION_DESCRIPTION,
+  ACCOUNTS_VIDEO_SECTION_TITLE,
+  getAccountDetailDescription,
+  getAccountLoadErrorMessage,
+  getAccountsSyncHint,
+  getAccountsVideoCountLabel,
+  getAccountVideoLoadErrorMessage,
+} from "./accounts-copy";
 
 const VIDEOS_PER_PAGE = 20;
 
@@ -63,7 +77,7 @@ export function AccountDetailPageView() {
         }
       } catch (error) {
         if (!cancelled) {
-          const message = error instanceof ApiError ? error.message : "鍔犺浇璐﹀彿淇℃伅澶辫触";
+          const message = error instanceof ApiError ? error.message : getAccountLoadErrorMessage();
           setError(message);
           toast.error(message);
         }
@@ -103,7 +117,7 @@ export function AccountDetailPageView() {
         }
       } catch (error) {
         if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "鍔犺浇瑙嗛鍒楄〃澶辫触");
+          toast.error(error instanceof ApiError ? error.message : getAccountVideoLoadErrorMessage());
         }
       } finally {
         if (!cancelled && shouldShowLoading) {
@@ -139,38 +153,40 @@ export function AccountDetailPageView() {
 
   if (error && !account) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <p className="text-sm text-muted-foreground">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => router.push("/accounts")}>
-          杩斿洖璐﹀彿鍒楄〃
-        </Button>
-      </div>
+      <DashboardPageShell
+        eyebrow={ACCOUNTS_DETAIL_EYEBROW}
+        title={ACCOUNTS_DETAIL_TITLE}
+        description={getAccountDetailDescription(account)}
+        backHref="/accounts"
+        backLabel={ACCOUNTS_BACK_LABEL}
+      >
+        <SurfaceSection title="账号档案暂时不可用" description={error}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" className="h-8 rounded-md px-3 text-sm" onClick={() => router.push("/accounts")}>
+              返回账号列表
+            </Button>
+            <Button variant="ghost" size="sm" className="h-8 rounded-md px-3 text-sm" onClick={() => setRefreshKey((key) => key + 1)}>
+              重试加载
+            </Button>
+          </div>
+        </SurfaceSection>
+      </DashboardPageShell>
     );
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 px-8 py-6 max-w-6xl mx-auto w-full">
-      <div className="animate-in-up flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-muted-foreground hover:text-foreground"
-          onClick={() => router.push("/accounts")}
-        >
-          <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-          杩斿洖
-        </Button>
-      </div>
-
+    <DashboardPageShell
+      eyebrow={ACCOUNTS_DETAIL_EYEBROW}
+      title={ACCOUNTS_DETAIL_TITLE}
+      description={getAccountDetailDescription(account)}
+      backHref="/accounts"
+      backLabel={ACCOUNTS_BACK_LABEL}
+      maxWidth="wide"
+      surfaceHeader
+    >
       <div className="animate-in-up-d1">
         {loading || !account ? (
-          <div className="flex items-start gap-5">
-            <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
-            <div className="flex-1 space-y-2">
-              <div className="h-5 w-32 animate-pulse rounded bg-muted" />
-              <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-            </div>
-          </div>
+          <div className="h-105 animate-pulse rounded-3xl border border-border/60 bg-card" />
         ) : (
           <AccountDetailHeader
             account={account}
@@ -181,9 +197,20 @@ export function AccountDetailPageView() {
         )}
       </div>
 
-      <div className="animate-in-up-d2 min-w-0 space-y-3">
-        <div className="min-w-0 flex-1 space-y-3">
-          <h3 className="text-lg font-semibold tracking-tight text-foreground/90">瑙嗛鍒楄〃</h3>
+      <div className="animate-in-up-d2 min-w-0">
+        <SurfaceSection
+          eyebrow="Content Samples"
+          title={ACCOUNTS_VIDEO_SECTION_TITLE}
+          description={ACCOUNTS_VIDEO_SECTION_DESCRIPTION}
+          actions={
+            <MetaPillList
+              items={[
+                { label: getAccountsVideoCountLabel(videosTotal), tone: "primary" },
+                { label: getAccountsSyncHint() },
+              ]}
+            />
+          }
+        >
           <VideoList
             videos={videos}
             total={videosTotal}
@@ -193,8 +220,7 @@ export function AccountDetailPageView() {
             onVideoClick={handleVideoClick}
             loading={videosLoading}
           />
-        </div>
-
+        </SurfaceSection>
       </div>
 
       <VideoDetailDialog
@@ -214,7 +240,7 @@ export function AccountDetailPageView() {
           }}
         />
       )}
-    </div>
+    </DashboardPageShell>
   );
 }
 

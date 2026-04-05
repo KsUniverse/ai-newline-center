@@ -67,7 +67,6 @@ export interface DouyinAccountDTO {
   verificationLabel: string | null;
   verificationIconUrl: string | null;
   verificationType: number | null;
-  type: "MY_ACCOUNT" | "BENCHMARK_ACCOUNT";
   loginStatus: DouyinAccountLoginStatus;
   loginStateUpdatedAt: string | null;
   loginStateCheckedAt: string | null;
@@ -137,10 +136,51 @@ export interface DouyinVideoWithAccountDTO extends DouyinVideoDTO {
 export interface BenchmarkAccountDTO extends DouyinAccountDTO {
   creatorName: string;
   deletedAt: string | null;
+  canArchive: boolean;
 }
 
 export interface BenchmarkAccountDetailDTO extends BenchmarkAccountDTO {
   lastSyncedAt: string | null;
+}
+
+export interface BenchmarkAccountView extends Omit<BenchmarkAccountDTO, "userId"> {
+  createdByUserId: string;
+}
+
+export interface BenchmarkAccountDetailView extends Omit<BenchmarkAccountDetailDTO, "userId"> {
+  createdByUserId: string;
+}
+
+export interface CreateBenchmarkResultDTO {
+  id: string;
+  profileUrl: string;
+  secUserId: string;
+}
+
+export function normalizeBenchmarkAccount(account: BenchmarkAccountDTO): BenchmarkAccountView {
+  const { userId, ...rest } = account;
+
+  return {
+    ...rest,
+    createdByUserId: userId,
+  };
+}
+
+export function normalizeBenchmarkAccounts(
+  accounts: BenchmarkAccountDTO[],
+): BenchmarkAccountView[] {
+  return accounts.map(normalizeBenchmarkAccount);
+}
+
+export function normalizeBenchmarkAccountDetail(
+  account: BenchmarkAccountDetailDTO,
+): BenchmarkAccountDetailView {
+  const { userId, ...rest } = account;
+
+  return {
+    ...rest,
+    createdByUserId: userId,
+  };
 }
 
 export interface DouyinLoginSessionDTO {

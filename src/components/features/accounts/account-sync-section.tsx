@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { formatRelativeTime } from "@/lib/utils";
 
+import { getAccountSyncFailureMessage, getAccountSyncSuccessMessage } from "./accounts-copy";
+
 interface AccountSyncSectionProps {
   accountId: string;
   lastSyncedAt: string | null;
@@ -32,9 +34,9 @@ export function AccountSyncSection({
         `/douyin-accounts/${accountId}/sync`,
       );
       onSyncSuccess(data.lastSyncedAt);
-      toast.success("同步成功");
+      toast.success(getAccountSyncSuccessMessage());
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "同步失败，请稍后再试";
+      const message = err instanceof ApiError ? err.message : getAccountSyncFailureMessage();
       toast.error(message);
     } finally {
       setSyncing(false);
@@ -42,29 +44,37 @@ export function AccountSyncSection({
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-muted-foreground">
-        最后同步时间：{formatRelativeTime(lastSyncedAt)}
-      </span>
-      <Button size="sm" variant="outline" disabled={syncing} onClick={handleSync}>
-        {syncing ? (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            同步中…
-          </>
-        ) : (
-          <>
-            <RefreshCw className="h-3 w-3" />
-            立即同步
-          </>
-        )}
-      </Button>
-      {canRelogin && onReloginOpen && (
-        <Button size="sm" variant="outline" onClick={onReloginOpen}>
-          <LogIn className="h-3 w-3" />
-          更新登录
-        </Button>
-      )}
+    <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1">
+          <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">Sync Control</p>
+          <p className="text-sm font-medium text-foreground/90">最近同步 {formatRelativeTime(lastSyncedAt)}</p>
+          <p className="text-sm leading-6 text-muted-foreground/80">
+            手动同步会刷新账号资料，并继续拉取最新视频样本与数据指标。
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" disabled={syncing} onClick={handleSync} className="h-8 rounded-md px-3 text-sm">
+            {syncing ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                同步中…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                立即同步
+              </>
+            )}
+          </Button>
+          {canRelogin && onReloginOpen ? (
+            <Button size="sm" variant="outline" onClick={onReloginOpen} className="h-8 rounded-md px-3 text-sm">
+              <LogIn className="mr-1.5 h-3.5 w-3.5" />
+              更新登录
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

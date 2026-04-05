@@ -1,6 +1,6 @@
 # 技术架构总览
 
-> 摘要：Next.js 15 全栈应用。后端三层架构 + AI Gateway + BullMQ 任务队列。前端 Linear 风格 + 弹框/抽屉交互，暗色主题为主。自托管部署。
+> 摘要：Next.js 15 全栈应用。后端三层架构 + AI Gateway + BullMQ 任务队列。前端采用品牌化运营工作台：亮色优先、暗色兼容、页面壳统一、弹层优先。自托管部署。
 
 ## 架构图
 
@@ -8,7 +8,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                      Client (Browser)                         │
 │  ┌──────────────────────────────────────────────────────┐    │
-│  │  Next.js App Router (Linear风格布局)                   │    │
+│  │  Next.js App Router (品牌化 Dashboard 布局)            │    │
 │  │  ┌──────────┐ ┌─────────────────────────────────┐    │    │
 │  │  │ Pages/   │ │ Components/                      │    │    │
 │  │  │ Layouts  │ │ ├── ui/ (shadcn)                 │    │    │
@@ -83,13 +83,14 @@
 | 认证 | NextAuth Credentials | 账号密码登录，管理员创建账号 |
 | 数据隔离 | Repository 层手动过滤 orgId | 每个查询显式传入 organizationId |
 | 领域复用 | Repository 共享 where/include 构建 + Service 暴露语义方法 | 避免同领域 `type` 分支复制近似实现 |
+| 账号域建模 | DouyinAccount / DouyinVideo 与 BenchmarkAccount / BenchmarkVideo 分表 | 区分“我的账号”私有链路与“对标账号”组织共享链路，避免跨域耦合 |
 | AI 调用 | AI Gateway + BullMQ + SSE | 异步可靠 + 流式体验 |
 | 爬虫 | Service 层封装 + 自动重试 | 统一错误处理和日志 |
 | 定时任务 | node-cron + instrumentation.ts | 自托管环境，简单可靠；服务启动时由 `instrumentation.ts` 调用 `startScheduler()`；多个独立定时器（当前 4 个，见 Scheduler 模块）；`globalThis.__schedulerInitialized` 防热重载重复注册 |
 | 部署 | 自托管 VPS (Docker) | 完全可控 |
-| 前端布局 | Linear 风格分栏 | 紧凑侧边栏 + 列表/详情分栏 |
-| 交互模式 | 弹框/抽屉/Slide-over | 减少页面跳转，保持上下文 |
-| 主题 | 暗色为主 + 亮色可切 | 双套 CSS 变量 |
+| 前端布局 | 品牌化工作台分层 | 统一页面壳 + 品牌导航壳 + 卡片化内容表面 |
+| 交互模式 | 共享弹层原语 | Dialog / AlertDialog / Sheet / DropdownMenu 统一收敛 |
+| 主题 | 亮色优先 + 暗色兼容 | 双套 CSS 变量 + 全局滚动条与动效 |
 
 ## 详细文档导航
 

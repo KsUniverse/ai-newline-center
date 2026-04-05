@@ -8,6 +8,8 @@ import type { TranscriptionDTO } from "@/types/transcription";
 import { ApiError, apiClient } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+import { getBenchmarkTranscriptionUnavailableHint } from "./benchmark-copy";
 import { VideoTranscriptionEditor } from "./video-transcription-editor";
 
 interface VideoTranscriptionPanelProps {
@@ -155,9 +157,10 @@ export function VideoTranscriptionPanel({
 
   if (videoStoragePath === null) {
     return (
-      <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm text-muted-foreground">
-          视频文件尚未下载，请等待同步完成后再试
+      <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+        <p className="text-sm font-medium text-foreground/90">暂不可生成研究转录</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
+          {getBenchmarkTranscriptionUnavailableHint()}
         </p>
       </div>
     );
@@ -165,38 +168,56 @@ export function VideoTranscriptionPanel({
 
   if (transcription === null) {
     return (
-      <Button variant="default" disabled={submitting} onClick={() => void handleSubmit()}>
-        {submitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            提交中…
-          </>
-        ) : (
-          <>
-            <Wand2 className="mr-2 h-4 w-4" />
-            AI 转录
-          </>
-        )}
-      </Button>
+      <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+        <p className="text-sm font-medium text-foreground/90">尚未生成研究转录</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
+          可对该 benchmark video 发起 AI 转录，生成的文本支持人工校对与重新生成。
+        </p>
+        <Button
+          variant="default"
+          disabled={submitting}
+          onClick={() => void handleSubmit()}
+          className="mt-4 h-8 rounded-md px-3 text-sm"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              提交中…
+            </>
+          ) : (
+            <>
+              <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+              生成研究转录
+            </>
+          )}
+        </Button>
+      </div>
     );
   }
 
   if (transcription.status === "PENDING" || transcription.status === "PROCESSING") {
     return (
-      <div className="flex items-center gap-3">
-        <Button variant="default" size="sm" disabled>
-          <Loader2 className="h-4 w-4 animate-spin" />
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          {transcription.status === "PENDING" ? "转录中…" : "AI 处理中，请稍候…"}
-        </span>
+      <div className="rounded-2xl border border-border/60 bg-card/80 p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Button variant="default" size="sm" disabled className="h-8 w-8 rounded-md px-0">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </Button>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground/90">
+              {transcription.status === "PENDING" ? "研究转录排队中" : "AI 正在处理研究转录"}
+            </p>
+            <p className="text-sm text-muted-foreground/80">
+              完成后会自动刷新当前样本详情。
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (transcription.status === "FAILED") {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 shadow-sm">
         <p className="text-sm text-destructive">
           AI 转录失败：{transcription.errorMessage ?? "未知错误，请重试"}
         </p>
@@ -204,6 +225,7 @@ export function VideoTranscriptionPanel({
           variant="outline"
           size="sm"
           disabled={submitting}
+          className="h-8 rounded-md px-3 text-sm"
           onClick={() => void handleSubmit()}
         >
           {submitting ? (
@@ -227,12 +249,15 @@ export function VideoTranscriptionPanel({
     <div className="space-y-3">
       {!editing && (
         <>
-          {hasEditedText && (
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="text-xs">
-              已手工校对
+              {hasEditedText ? "已人工校对" : "AI 原文"}
             </Badge>
-          )}
-          <div className="rounded-lg border border-border bg-card p-4 text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+            <span className="text-sm text-muted-foreground/80">
+              仅用于研究对象档案内的样本分析与回溯。
+            </span>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-card/80 p-4 text-sm leading-relaxed text-foreground whitespace-pre-wrap shadow-sm">
             {displayText === "" || displayText === null ? (
               <span className="text-muted-foreground">
                 未识别到有效语音内容，可手动输入文案
@@ -242,7 +267,7 @@ export function VideoTranscriptionPanel({
             )}
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+            <Button variant="outline" size="sm" className="h-8 rounded-md px-3 text-sm" onClick={() => setEditing(true)}>
               编辑
             </Button>
             {hasEditedText && (
@@ -250,7 +275,7 @@ export function VideoTranscriptionPanel({
                 variant="link"
                 size="sm"
                 disabled={restoring}
-                className="text-muted-foreground"
+                className="h-auto p-0 text-muted-foreground"
                 onClick={() => void handleRestore()}
               >
                 {restoring ? "恢复中…" : "恢复 AI 原文"}
@@ -261,7 +286,7 @@ export function VideoTranscriptionPanel({
             variant="link"
             size="sm"
             disabled={submitting}
-            className="p-0 h-auto text-muted-foreground"
+            className="h-auto p-0 text-muted-foreground"
             onClick={() => void handleSubmit()}
           >
             {submitting ? "重新提交中…" : "重新转录"}

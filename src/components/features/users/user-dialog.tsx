@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -113,145 +114,147 @@ export function UserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-base font-semibold">
+      <DialogContent className="max-w-lg border-border/60 bg-card/95 p-0 shadow-2xl shadow-black/15">
+        <DialogHeader className="border-b border-border/60 px-6 py-6 text-left">
+          <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
+            Administration
+          </p>
+          <DialogTitle className="text-lg font-semibold tracking-tight text-foreground/95">
             {mode === "create" ? "新建用户" : "编辑用户"}
           </DialogTitle>
+          <DialogDescription className="text-sm leading-6 text-muted-foreground/80">
+            {mode === "create"
+              ? "创建后即可分配角色与组织归属，并进入统一的用户管理列表。"
+              : "只允许编辑用户名称与角色；账号与组织归属保持只读。"}
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-1">
-          {/* 姓名 */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="user-name" className="text-sm font-medium">
-              姓名 <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="user-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="请输入姓名"
-              maxLength={50}
-              disabled={loading}
-              autoFocus
-            />
-            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
-          </div>
-
-          {/* 账号 */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="user-account" className="text-sm font-medium">
-              账号 {mode === "create" && <span className="text-destructive">*</span>}
-            </Label>
-            <Input
-              id="user-account"
-              value={mode === "create" ? account : (defaultValues?.account ?? "")}
-              onChange={(e) => mode === "create" && setAccount(e.target.value)}
-              placeholder={mode === "create" ? "字母/数字/下划线" : undefined}
-              readOnly={mode === "edit"}
-              disabled={loading}
-              className={mode === "edit" ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}
-            />
-            {errors.account && <p className="text-xs text-destructive">{errors.account}</p>}
-            {mode === "edit" && (
-              <p className="text-xs text-muted-foreground">账号创建后不可修改</p>
-            )}
-          </div>
-
-          {/* 密码 — 仅创建时 */}
-          {mode === "create" && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-6 py-6">
+          <div className="grid gap-4 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm sm:p-5">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="user-password" className="text-sm font-medium">
-                密码 <span className="text-destructive">*</span>
+              <Label htmlFor="user-name" className="text-sm font-medium">
+                姓名 <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="user-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="至少 6 位"
+                id="user-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="请输入姓名"
+                maxLength={50}
                 disabled={loading}
+                autoFocus
+                className="border-border/60 bg-card"
               />
-              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
-          )}
 
-          {/* 角色 */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm font-medium">
-              角色 <span className="text-destructive">*</span>
-            </Label>
-            <Select
-              value={role}
-              onValueChange={(v) => setRole(v as UserDTO["role"])}
-              disabled={loading}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map((r) => (
-                  <SelectItem key={r.value} value={r.value} className="text-sm">
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="user-account" className="text-sm font-medium">
+                  账号 {mode === "create" && <span className="text-destructive">*</span>}
+                </Label>
+                <Input
+                  id="user-account"
+                  value={mode === "create" ? account : (defaultValues?.account ?? "")}
+                  onChange={(e) => mode === "create" && setAccount(e.target.value)}
+                  placeholder={mode === "create" ? "字母/数字/下划线" : undefined}
+                  readOnly={mode === "edit"}
+                  disabled={loading}
+                  className={mode === "edit" ? "cursor-not-allowed border-border/60 bg-muted text-muted-foreground" : "border-border/60 bg-card"}
+                />
+                {errors.account && <p className="text-xs text-destructive">{errors.account}</p>}
+                {mode === "edit" ? <p className="text-xs text-muted-foreground">账号创建后不可修改</p> : null}
+              </div>
+
+              {mode === "create" ? (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="user-password" className="text-sm font-medium">
+                    密码 <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="user-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="至少 6 位"
+                    disabled={loading}
+                    className="border-border/60 bg-card"
+                  />
+                  {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          {/* 所属分公司 */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-sm font-medium">
-              所属分公司 {mode === "create" && <span className="text-destructive">*</span>}
-            </Label>
-            {mode === "create" ? (
+          <div className="grid gap-4 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm sm:grid-cols-2 sm:p-5">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm font-medium">
+                角色 <span className="text-destructive">*</span>
+              </Label>
               <Select
-                value={organizationId}
-                onValueChange={setOrganizationId}
+                value={role}
+                onValueChange={(value) => setRole(value as UserDTO["role"])}
                 disabled={loading}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="请选择分公司" />
+                <SelectTrigger className="border-border/60 bg-card">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {organizations.map((org) => (
-                    <SelectItem key={org.id} value={org.id} className="text-sm">
-                      {org.name}
+                  {availableRoles.map((currentRole) => (
+                    <SelectItem key={currentRole.value} value={currentRole.value} className="text-sm">
+                      {currentRole.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
-              <Input
-                value={
-                  organizations.find((o) => o.id === defaultValues?.organizationId)?.name ??
-                  defaultValues?.organizationId ?? ""
-                }
-                readOnly
-                disabled={loading}
-                className="bg-muted text-muted-foreground cursor-not-allowed"
-              />
-            )}
-            {errors.organizationId && (
-              <p className="text-xs text-destructive">{errors.organizationId}</p>
-            )}
-            {mode === "edit" && (
-              <p className="text-xs text-muted-foreground">用户归属组织创建后不可修改</p>
-            )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm font-medium">
+                所属分公司 {mode === "create" && <span className="text-destructive">*</span>}
+              </Label>
+              {mode === "create" ? (
+                <Select value={organizationId} onValueChange={setOrganizationId} disabled={loading}>
+                  <SelectTrigger className="border-border/60 bg-card">
+                    <SelectValue placeholder="请选择分公司" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id} className="text-sm">
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={
+                    organizations.find((o) => o.id === defaultValues?.organizationId)?.name ??
+                    defaultValues?.organizationId ?? ""
+                  }
+                  readOnly
+                  disabled={loading}
+                  className="cursor-not-allowed border-border/60 bg-muted text-muted-foreground"
+                />
+              )}
+              {errors.organizationId ? <p className="text-xs text-destructive">{errors.organizationId}</p> : null}
+              {mode === "edit" ? <p className="text-xs text-muted-foreground">用户归属组织创建后不可修改</p> : null}
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-2">
+          <DialogFooter className="gap-2 border-t border-border/60 pt-5">
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="h-8 rounded-md px-3 text-sm"
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
               取消
             </Button>
-            <Button type="submit" size="sm" disabled={loading}>
-              {loading ? "提交中..." : "确认"}
+            <Button type="submit" size="sm" className="h-8 rounded-md px-3 text-sm" disabled={loading}>
+              {loading ? "提交中..." : mode === "create" ? "创建用户" : "保存修改"}
             </Button>
           </DialogFooter>
         </form>

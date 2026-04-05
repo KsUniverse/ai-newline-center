@@ -491,7 +491,7 @@ class DouyinLoginSessionManager {
         waitRemainingMs: Math.max(resolveDeadline - Date.now(), 0),
       });
 
-      if (identity.secUserId && identity.rawCookie) {
+      if (identity.rawCookie) {
         return identity;
       }
 
