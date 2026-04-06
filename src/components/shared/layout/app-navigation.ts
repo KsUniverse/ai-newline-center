@@ -2,6 +2,7 @@ import {
   Building2,
   LayoutDashboard,
   MonitorPlay,
+  Sparkles,
   Target,
   Users,
   type LucideIcon,
@@ -44,6 +45,12 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     label: "用户管理",
     href: "/users",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER"],
+  },
+  {
+    icon: Sparkles,
+    label: "AI 配置",
+    href: "/system-settings/ai",
+    roles: ["SUPER_ADMIN"],
   },
 ] as const;
 

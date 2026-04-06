@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import type { PaginatedData } from "@/types/api";
+import type { AiSettingsDTO, UpdateAiSettingsInput } from "@/types/ai-config";
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
 
@@ -40,6 +41,24 @@ interface ListUsersParams {
 interface OrganizationStatusResult {
   org: OrganizationDTO;
   affectedUserCount: number;
+}
+
+function normalizeAiConfig(data: AiSettingsDTO): AiSettingsDTO {
+  if (data.steps && !data.bindings) {
+    return {
+      ...data,
+      bindings: data.steps,
+    };
+  }
+
+  if (data.bindings && !data.steps) {
+    return {
+      ...data,
+      steps: data.bindings,
+    };
+  }
+
+  return data;
 }
 
 function buildUserListPath(params: ListUsersParams): string {
@@ -97,5 +116,15 @@ export const managementClient = {
 
   setUserStatus(id: string, payload: UpdateUserStatusPayload): Promise<UserDTO> {
     return apiClient.patch<UserDTO>(`/users/${id}/status`, payload);
+  },
+
+  async getAiConfig(): Promise<AiSettingsDTO> {
+    const result = await apiClient.get<AiSettingsDTO>("/system-settings/ai");
+    return normalizeAiConfig(result);
+  },
+
+  async updateAiConfig(payload: UpdateAiSettingsInput): Promise<AiSettingsDTO> {
+    const result = await apiClient.put<AiSettingsDTO>("/system-settings/ai", payload);
+    return normalizeAiConfig(result);
   },
 };

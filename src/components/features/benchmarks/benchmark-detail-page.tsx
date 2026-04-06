@@ -18,7 +18,7 @@ import { BenchmarkArchiveDialog } from "./benchmark-archive-dialog";
 import { BenchmarkDetailHeader } from "./benchmark-detail-header";
 import { BenchmarkSurfaceSection } from "./benchmark-surface-section";
 import { BenchmarkVideoList } from "./benchmark-video-list";
-import { BenchmarkVideoDetailPanel } from "./benchmark-video-detail-panel";
+import { BenchmarkVideoDetailPanel } from "./benchmark-ai-workspace-panel";
 import {
   BENCHMARK_BACK_TO_LIBRARY_LABEL,
   BENCHMARK_DETAIL_DESCRIPTION,

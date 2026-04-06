@@ -42,6 +42,7 @@ class VideoService {
         id: item.id,
         videoId: item.videoId,
         title: item.title,
+        shareUrl: item.shareUrl,
         coverUrl: item.coverUrl,
         coverSourceUrl: item.coverSourceUrl,
         coverStoragePath: item.coverStoragePath,

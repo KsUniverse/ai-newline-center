@@ -20,6 +20,11 @@ model Organization {
   benchmarkAccounts BenchmarkAccount[]
   benchmarkAccountMembers BenchmarkAccountMember[]
   benchmarkVideos BenchmarkVideo[]
+  aiWorkspaces AiWorkspace[]
+  aiWorkspaceTranscripts AiWorkspaceTranscript[]
+  aiTranscriptSegments AiTranscriptSegment[]
+  aiDecompositionAnnotations AiDecompositionAnnotation[]
+  aiRewriteDrafts AiRewriteDraft[]
   douyinLoginSessions DouyinLoginSession[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -40,6 +45,8 @@ model User {
   createdBenchmarkAccounts BenchmarkAccount[] @relation("BenchmarkAccountCreator")
   benchmarkAccountMembers BenchmarkAccountMember[]
   douyinLoginSessions DouyinLoginSession[]
+  aiWorkspaces AiWorkspace[]
+  aiDecompositionAnnotations AiDecompositionAnnotation[]
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -244,6 +251,7 @@ model DouyinVideo {
   accountId    String
   account      DouyinAccount @relation(fields: [accountId], references: [id])
   title        String
+  shareUrl     String?
   coverUrl     String?
   coverSourceUrl String?
   coverStoragePath String?
@@ -276,6 +284,7 @@ model BenchmarkVideo {
   organizationId   String
   organization     Organization            @relation(fields: [organizationId], references: [id])
   title            String
+  shareUrl         String?
   coverUrl         String?
   coverSourceUrl   String?
   coverStoragePath String?
@@ -293,6 +302,7 @@ model BenchmarkVideo {
   tags             String[]                @default([])
   snapshots        BenchmarkVideoSnapshot[]
   transcription    Transcription?
+  aiWorkspaces     AiWorkspace[]
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   deletedAt        DateTime?
@@ -344,6 +354,139 @@ enum TranscriptionStatus {
   FAILED
 }
 
+enum AiStep {
+  TRANSCRIBE
+  DECOMPOSE
+  REWRITE
+}
+
+enum AiWorkspaceStatus {
+  IDLE
+  TRANSCRIBING
+  TRANSCRIPT_DRAFT
+  TRANSCRIPT_CONFIRMED
+  DECOMPOSING
+  DECOMPOSED
+  REWRITING
+}
+
+model AiStepBinding {
+  id                String   @id @default(cuid())
+  step              AiStep   @unique
+  implementationKey String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("ai_step_bindings")
+}
+
+model AiWorkspace {
+  id               String            @id @default(cuid())
+  videoId          String
+  video            BenchmarkVideo    @relation(fields: [videoId], references: [id])
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  status           AiWorkspaceStatus @default(IDLE)
+  enteredRewriteAt DateTime?
+  transcript       AiWorkspaceTranscript?
+  segments         AiTranscriptSegment[]
+  annotations      AiDecompositionAnnotation[]
+  rewriteDraft     AiRewriteDraft?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([videoId, userId])
+  @@index([organizationId])
+  @@map("ai_workspaces")
+}
+
+model AiWorkspaceTranscript {
+  id            String      @id @default(cuid())
+  workspaceId   String      @unique
+  workspace     AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  originalText  String?
+  currentText   String?
+  isConfirmed   Boolean     @default(false)
+  confirmedAt   DateTime?
+  lastEditedAt  DateTime?
+  aiProviderKey String?
+  aiModel       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@map("ai_workspace_transcripts")
+}
+
+model AiTranscriptSegment {
+  id          String      @id @default(cuid())
+  workspaceId String
+  workspace   AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sortOrder   Int
+  text        String
+  summary     String?
+  purpose     String?
+  startOffset Int
+  endOffset   Int
+  annotations AiDecompositionAnnotation[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([workspaceId, sortOrder])
+  @@index([organizationId])
+  @@map("ai_transcript_segments")
+}
+
+model AiDecompositionAnnotation {
+  id             String      @id @default(cuid())
+  workspaceId     String
+  workspace       AiWorkspace @relation(fields: [workspaceId], references: [id])
+  segmentId       String?
+  segment         AiTranscriptSegment? @relation(fields: [segmentId], references: [id])
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  startOffset     Int
+  endOffset       Int
+  quotedText      String
+  function        String?
+  argumentRole    String?
+  technique       String?
+  purpose         String?
+  effectiveness   String?
+  note            String?
+  createdByUserId String
+  createdByUser   User        @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([workspaceId])
+  @@index([organizationId])
+  @@index([workspaceId, startOffset, endOffset])
+  @@map("ai_decomposition_annotations")
+}
+
+model AiRewriteDraft {
+  id                          String      @id @default(cuid())
+  workspaceId                 String      @unique
+  workspace                   AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId              String
+  organization                Organization @relation(fields: [organizationId], references: [id])
+  sourceTranscriptText        String?
+  sourceDecompositionSnapshot Json?
+  currentDraft                String?
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@map("ai_rewrite_drafts")
+}
+
 model Transcription {
   id           String              @id @default(cuid())
   videoId      String              @unique
@@ -358,3 +501,4 @@ model Transcription {
 
   @@map("transcriptions")
 }
+

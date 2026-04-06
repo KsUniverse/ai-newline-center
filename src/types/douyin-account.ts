@@ -110,6 +110,7 @@ export interface DouyinVideoDTO {
   id: string;
   videoId: string;
   title: string;
+  shareUrl: string | null;
   coverUrl: string | null;
   coverSourceUrl: string | null;
   coverStoragePath: string | null;

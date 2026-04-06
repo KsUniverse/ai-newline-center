@@ -131,4 +131,57 @@ describe("managementClient", () => {
       status: "DISABLED",
     });
   });
+
+  it("loads AI configuration bindings from the management endpoint", async () => {
+    getMock.mockResolvedValue({
+      steps: [
+        {
+          step: "TRANSCRIBE",
+          implementationKey: "openai-transcribe",
+          name: "OpenAI 转录",
+          provider: "OpenAI",
+          available: true,
+          requiredEnvKeys: ["OPENAI_API_KEY"],
+        },
+      ],
+    });
+
+    const result = await managementClient.getAiConfig();
+
+    expect(getMock).toHaveBeenCalledWith("/system-settings/ai");
+    expect(result.steps[0]?.step).toBe("TRANSCRIBE");
+  });
+
+  it("saves AI configuration bindings through the management endpoint", async () => {
+    putMock.mockResolvedValue({
+      steps: [
+        {
+          step: "REWRITE",
+          implementationKey: "qwen-rewrite",
+          name: "Qwen 仿写",
+          provider: "DashScope",
+          available: false,
+          requiredEnvKeys: ["DASHSCOPE_API_KEY"],
+        },
+      ],
+    });
+
+    await managementClient.updateAiConfig({
+      bindings: [
+        {
+          step: "REWRITE",
+          implementationKey: "qwen-rewrite",
+        },
+      ],
+    });
+
+    expect(putMock).toHaveBeenCalledWith("/system-settings/ai", {
+      bindings: [
+        {
+          step: "REWRITE",
+          implementationKey: "qwen-rewrite",
+        },
+      ],
+    });
+  });
 });

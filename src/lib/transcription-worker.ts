@@ -10,6 +10,18 @@ import {
 import { transcriptionRepository } from "@/server/repositories/transcription.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 
+function buildShareUrlPrompt(shareUrl: string): string {
+  return [
+    "你是短视频文案研究助手。",
+    "请基于下面的短视频分享链接，整理出一份结构清晰、便于后续人工拆解的转录主文档。",
+    "要求：",
+    "1. 保留原视频表达顺序；",
+    "2. 语义连贯地分段；",
+    "3. 输出为可读中文正文，不要解释你的推理过程；",
+    `分享链接：${shareUrl}`,
+  ].join("\n");
+}
+
 declare global {
   // Persist worker startup across Next.js dev hot reloads in the same process.
   var __transcriptionWorkerInitialized: boolean | undefined;
@@ -34,7 +46,7 @@ export function startTranscriptionWorker(): void {
   const worker = new Worker<TranscriptionJobData>(
     TRANSCRIPTION_QUEUE_NAME,
     async (job) => {
-      const { transcriptionId, videoStoragePath, aiModel } = job.data;
+      const { transcriptionId, shareUrl, videoStoragePath, aiProviderKey } = job.data;
 
       await transcriptionRepository.updateStatus(transcriptionId, {
         status: "PROCESSING",
@@ -48,7 +60,16 @@ export function startTranscriptionWorker(): void {
         }),
       );
 
-      const originalText = await aiGateway.transcribe(videoStoragePath, aiModel);
+      const promptSource = shareUrl ?? videoStoragePath;
+      if (!promptSource) {
+        throw new Error("Transcription job is missing shareUrl");
+      }
+
+      const { text: originalText } = await aiGateway.generateText(
+        "TRANSCRIBE",
+        buildShareUrlPrompt(promptSource),
+        aiProviderKey ?? undefined,
+      );
 
       await transcriptionRepository.updateStatus(transcriptionId, {
         status: "COMPLETED",

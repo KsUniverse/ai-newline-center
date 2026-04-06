@@ -139,4 +139,26 @@ describe("parseEnv", () => {
     expect(result.DOUYIN_LOGIN_TIMEOUT_MS).toBe(180000);
     expect(result.DOUYIN_LOGIN_STATE_DIR).toBeUndefined();
   });
+
+  it("accepts Ark AI runtime configuration", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+      ARK_API_KEY: "ark_test_key",
+      ARK_BASE_URL: "https://ark.example.com",
+      ARK_TRANSCRIBE_MODEL: "ark/transcribe",
+      ARK_DECOMPOSE_MODEL: "ark/decompose",
+      ARK_REWRITE_MODEL: "ark/rewrite",
+    });
+
+    expect(result.ARK_API_KEY).toBe("ark_test_key");
+    expect(result.ARK_BASE_URL).toBe("https://ark.example.com");
+    expect(result.ARK_TRANSCRIBE_MODEL).toBe("ark/transcribe");
+    expect(result.ARK_DECOMPOSE_MODEL).toBe("ark/decompose");
+    expect(result.ARK_REWRITE_MODEL).toBe("ark/rewrite");
+  });
 });

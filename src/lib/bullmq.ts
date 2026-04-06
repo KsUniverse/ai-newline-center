@@ -6,9 +6,13 @@ export const TRANSCRIPTION_QUEUE_NAME = "transcription";
 
 export interface TranscriptionJobData {
   transcriptionId: string;
-  videoStoragePath: string;
-  aiModel: string;
+  videoStoragePath?: string | null;
+  shareUrl?: string | null;
+  aiModel?: string | null;
+  aiProviderKey?: string | null;
   organizationId: string;
+  workspaceId?: string;
+  userId?: string;
 }
 
 let transcriptionQueue: Queue<TranscriptionJobData> | null = null;
