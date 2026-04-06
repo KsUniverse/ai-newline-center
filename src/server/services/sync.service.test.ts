@@ -26,6 +26,7 @@ const {
   fetchOneVideoMock,
   fetchUserProfileMock,
   fetchVideoListMock,
+  findFirstActiveShareCookieMock,
   findAllActiveVideosForSnapshotSyncMock,
   findAllAccountsMock,
   findAllMyAccountsForCollectionMock,
@@ -59,6 +60,7 @@ const {
   fetchOneVideoMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
   fetchVideoListMock: vi.fn(),
+  findFirstActiveShareCookieMock: vi.fn(),
   findAllActiveVideosForSnapshotSyncMock: vi.fn(),
   findAllAccountsMock: vi.fn(),
   findAllMyAccountsForCollectionMock: vi.fn(),
@@ -85,6 +87,7 @@ vi.mock("@/server/services/crawler.service", () => ({
 vi.mock("@/server/repositories/douyin-account.repository", () => ({
   douyinAccountRepository: {
     findAll: findAllAccountsMock,
+    findFirstActiveShareCookie: findFirstActiveShareCookieMock,
     findAllMyAccountsForCollection: findAllMyAccountsForCollectionMock,
     findById: douyinFindAccountByIdMock,
     markLoginExpired: markLoginExpiredMock,
@@ -175,6 +178,7 @@ describe("syncService", () => {
     fetchOneVideoMock.mockReset();
     fetchUserProfileMock.mockReset();
     fetchVideoListMock.mockReset();
+    findFirstActiveShareCookieMock.mockReset();
     findAllActiveVideosForSnapshotSyncMock.mockReset();
     findAllAccountsMock.mockReset();
     findAllMyAccountsForCollectionMock.mockReset();
@@ -195,6 +199,7 @@ describe("syncService", () => {
     downloadAndStoreMock.mockResolvedValue(null);
     findAllActiveVideosForSnapshotSyncMock.mockResolvedValue([]);
     findAllAccountsMock.mockResolvedValue([]);
+    findFirstActiveShareCookieMock.mockResolvedValue(null);
     findByVideoIdMock.mockResolvedValue(null);
     updateAccountInfoMock.mockResolvedValue({
       id: "account_1",
@@ -237,6 +242,7 @@ describe("syncService", () => {
         {
           awemeId: "video_1",
           title: "视频 1",
+          shareUrl: "https://www.iesdouyin.com/share/video/1",
           coverSourceUrl: "https://cdn.example.com/cover-a.gif",
           videoSourceUrl: "https://cdn.example.com/video-a.mp4",
           publishedAt: "2026-04-03T00:00:00.000Z",
@@ -283,6 +289,7 @@ describe("syncService", () => {
       expect.objectContaining({
         accountId: "account_1",
         videoId: "video_1",
+        shareUrl: "https://www.iesdouyin.com/share/video/1",
         coverSourceUrl: "https://cdn.example.com/cover-a.gif",
         coverStoragePath: "/storage/covers/2026-04-03/cover.gif",
         coverUrl: "/storage/covers/2026-04-03/cover.gif",
@@ -326,6 +333,7 @@ describe("syncService", () => {
         {
           awemeId: "video_1",
           title: "视频 1",
+          shareUrl: "https://www.iesdouyin.com/share/video/1",
           coverSourceUrl: null,
           videoSourceUrl: null,
           publishedAt: null,

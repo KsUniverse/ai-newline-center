@@ -7,10 +7,12 @@ import {
 } from "@/lib/bullmq";
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
+import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import {
   aiWorkspaceRepository,
   type AiWorkspaceWithDetails,
 } from "@/server/repositories/ai-workspace.repository";
+import { crawlerService } from "@/server/services/crawler.service";
 import type { SessionUser } from "@/types/session";
 import type {
   AiWorkspaceDTO,
@@ -20,6 +22,11 @@ import type {
 } from "@/types/ai-workspace";
 
 class AiWorkspaceService {
+  private async getShareResolveCookieHeader(): Promise<string | null> {
+    const account = await douyinAccountRepository.findFirstActiveShareCookie();
+    return account?.favoriteCookieHeader ?? null;
+  }
+
   private async getAccessibleBenchmarkVideo(videoId: string, caller: SessionUser) {
     const video = await benchmarkVideoRepository.findByIdWithAccountOrganization(videoId);
     if (!video) {
@@ -49,12 +56,23 @@ class AiWorkspaceService {
     }
   }
 
-  private requireTranscriptShareUrl(video: Pick<BenchmarkVideo, "shareUrl">): string {
-    if (!video.shareUrl) {
-      throw new AppError("AI_SHARE_URL_REQUIRED", "视频尚未补齐 shareUrl，无法发起转录", 400);
+  private async ensureTranscriptShareUrl(video: Pick<BenchmarkVideo, "id" | "videoId" | "shareUrl">): Promise<string> {
+    if (video.shareUrl) {
+      return video.shareUrl;
     }
 
-    return video.shareUrl;
+    const shareCookieHeader = await this.getShareResolveCookieHeader();
+    const detail = await crawlerService.fetchOneVideo(
+      video.videoId,
+      shareCookieHeader ? { cookieHeader: shareCookieHeader } : undefined,
+    );
+    const shareUrl = detail.shareUrl?.trim();
+    if (!shareUrl) {
+      throw new AppError("AI_SHARE_URL_REQUIRED", "视频尚未补齐分享链接，无法发起转录", 400);
+    }
+
+    await benchmarkVideoRepository.updateShareUrl(video.id, shareUrl);
+    return shareUrl;
   }
 
   private async ensureWorkspaceForVideo(
@@ -116,13 +134,13 @@ class AiWorkspaceService {
     }
   }
 
-  private assertRetranscriptionAllowed(workspace: AiWorkspaceWithDetails): void {
+  private assertTranscriptionStartAllowed(workspace: AiWorkspaceWithDetails): void {
     if (workspace.status === "TRANSCRIBING") {
       throw new AppError("TRANSCRIPTION_IN_PROGRESS", "转录任务正在处理中", 409);
     }
 
-    if (workspace.transcript?.isConfirmed || workspace.annotations.length > 0 || workspace.rewriteDraft) {
-      throw new AppError("TRANSCRIPT_UNLOCK_REQUIRED", "请先解锁当前转录稿，再重新转录", 409);
+    if (workspace.status === "REWRITING" || workspace.enteredRewriteAt || workspace.rewriteDraft) {
+      throw new AppError("REWRITE_STAGE_LOCKED", "已进入仿写阶段，不能回到转录或拆解状态", 409);
     }
   }
 
@@ -157,11 +175,23 @@ class AiWorkspaceService {
     videoId: string,
   ): Promise<AiWorkspaceDTO> {
     const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
-    const shareUrl = this.requireTranscriptShareUrl(video);
+    const shareUrl = await this.ensureTranscriptShareUrl(video);
     const workspace = await this.ensureWorkspaceForVideo(video, caller);
     const workspaceDetails = await this.getWorkspaceRecordOrThrow(workspace.id, caller);
-    this.assertRetranscriptionAllowed(workspaceDetails);
+    this.assertTranscriptionStartAllowed(workspaceDetails);
     const previousStatus = workspaceDetails.status;
+
+    if (
+      workspaceDetails.transcript ||
+      workspaceDetails.segments.length > 0 ||
+      workspaceDetails.annotations.length > 0 ||
+      workspaceDetails.status === "TRANSCRIPT_CONFIRMED" ||
+      workspaceDetails.status === "DECOMPOSED"
+    ) {
+      await aiWorkspaceRepository.resetTranscriptToDraft(workspace.id, workspace.organizationId, {
+        lastEditedAt: new Date(),
+      });
+    }
 
     const payload: TranscriptionJobData = {
       transcriptionId: workspace.id,

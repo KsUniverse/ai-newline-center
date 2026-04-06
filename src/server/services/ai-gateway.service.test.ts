@@ -12,6 +12,9 @@ const {
 
 const envMock = {
   NODE_ENV: "development",
+  TRANSCRIBE_BASE_URL: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+  TRANSCRIBE_API_KEY: "transcribe_test_key",
+  TRANSCRIBE_MODEL_NAME: "doubao-seed-2-0-lite-260215",
   ARK_API_KEY: "ark_test_key",
   ARK_BASE_URL: "https://ark.example.com",
   ARK_TRANSCRIBE_MODEL: "ark/transcribe",
@@ -42,6 +45,7 @@ describe("aiGateway", () => {
     findByStepMock.mockReset();
     createOpenAIMock.mockReset();
     generateTextMock.mockReset();
+    vi.stubGlobal("fetch", vi.fn());
 
     createOpenAIMock.mockReturnValue(vi.fn().mockReturnValue("mock-model"));
     generateTextMock.mockResolvedValue({
@@ -57,10 +61,16 @@ describe("aiGateway", () => {
     expect(implementations).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "ark-default",
-          name: "Ark Default",
+          key: "volcengine-transcribe",
+          name: "火山引擎转录",
           available: true,
-          supportedSteps: ["TRANSCRIBE", "DECOMPOSE", "REWRITE"],
+          supportedSteps: ["TRANSCRIBE"],
+        }),
+        expect.objectContaining({
+          key: "ark-decompose",
+          name: "Ark 拆解",
+          available: true,
+          supportedSteps: ["DECOMPOSE"],
         }),
       ]),
     );
@@ -69,7 +79,7 @@ describe("aiGateway", () => {
   it("generates text using the configured step binding", async () => {
     findByStepMock.mockResolvedValue({
       step: "DECOMPOSE",
-      implementationKey: "ark-default",
+      implementationKey: "ark-decompose",
     });
 
     const { aiGateway } = await import("@/server/services/ai-gateway.service");
@@ -82,9 +92,38 @@ describe("aiGateway", () => {
     });
     expect(generateTextMock).toHaveBeenCalled();
     expect(result).toEqual({
-      implementationKey: "ark-default",
+      implementationKey: "ark-decompose",
       modelId: "ark/decompose",
       text: "generated text",
+    });
+  });
+
+  it("calls the dedicated transcription endpoint for transcription", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "转录正文" } }],
+      }),
+    } as Response);
+    findByStepMock.mockResolvedValue({
+      step: "TRANSCRIBE",
+      implementationKey: "volcengine-transcribe",
+    });
+
+    const { aiGateway } = await import("@/server/services/ai-gateway.service");
+    const result = await aiGateway.generateText("TRANSCRIBE", "share url prompt");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(result).toEqual({
+      implementationKey: "volcengine-transcribe",
+      modelId: "doubao-seed-2-0-lite-260215",
+      text: "转录正文",
     });
   });
 
@@ -93,7 +132,7 @@ describe("aiGateway", () => {
     Object.defineProperty(envMock, "ARK_API_KEY", { value: "", writable: true });
     findByStepMock.mockResolvedValue({
       step: "REWRITE",
-      implementationKey: "ark-default",
+      implementationKey: "ark-rewrite",
     });
 
     const { aiGateway } = await import("@/server/services/ai-gateway.service");

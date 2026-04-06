@@ -146,6 +146,29 @@ class DouyinAccountRepository {
     });
   }
 
+  async findFirstActiveShareCookie(
+    db: DatabaseClient = prisma,
+  ): Promise<Pick<DouyinAccount, "id" | "favoriteCookieHeader"> | null> {
+    return db.douyinAccount.findFirst({
+      where: {
+        ...this.buildWhere({
+          archiveFilter: "active",
+        }),
+        loginStatus: DouyinAccountLoginStatus.LOGGED_IN,
+        favoriteCookieHeader: {
+          not: null,
+        },
+      },
+      select: {
+        id: true,
+        favoriteCookieHeader: true,
+      },
+      orderBy: {
+        loginStateUpdatedAt: "desc",
+      },
+    });
+  }
+
   async findByProfileUrl(
     profileUrl: string,
     includingDeleted = false,

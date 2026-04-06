@@ -137,11 +137,11 @@ describe("managementClient", () => {
       steps: [
         {
           step: "TRANSCRIBE",
-          implementationKey: "openai-transcribe",
-          name: "OpenAI 转录",
-          provider: "OpenAI",
+          implementationKey: "volcengine-transcribe",
+          name: "火山引擎转录",
+          provider: "Volcengine Ark",
           available: true,
-          requiredEnvKeys: ["OPENAI_API_KEY"],
+          requiredEnvKeys: ["TRANSCRIBE_API_KEY"],
         },
       ],
     });
@@ -157,11 +157,11 @@ describe("managementClient", () => {
       steps: [
         {
           step: "REWRITE",
-          implementationKey: "qwen-rewrite",
-          name: "Qwen 仿写",
-          provider: "DashScope",
-          available: false,
-          requiredEnvKeys: ["DASHSCOPE_API_KEY"],
+          implementationKey: "ark-rewrite",
+          name: "Ark 仿写",
+          provider: "Ark",
+          available: true,
+          requiredEnvKeys: ["ARK_API_KEY", "ARK_BASE_URL", "ARK_REWRITE_MODEL"],
         },
       ],
     });
@@ -170,7 +170,7 @@ describe("managementClient", () => {
       bindings: [
         {
           step: "REWRITE",
-          implementationKey: "qwen-rewrite",
+          implementationKey: "ark-rewrite",
         },
       ],
     });
@@ -179,7 +179,7 @@ describe("managementClient", () => {
       bindings: [
         {
           step: "REWRITE",
-          implementationKey: "qwen-rewrite",
+          implementationKey: "ark-rewrite",
         },
       ],
     });

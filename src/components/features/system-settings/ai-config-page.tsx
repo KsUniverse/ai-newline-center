@@ -16,16 +16,16 @@ import { managementClient } from "@/lib/management-client";
 import type { AiImplementationDTO, AiSettingsDTO, AiStep } from "@/types/ai-config";
 
 const STEPS: Array<{ step: AiStep; label: string; description: string }> = [
-  { step: "TRANSCRIBE", label: "转录", description: "固定 Prompt + 链接输入，优先保证主文档生成稳定。" },
-  { step: "DECOMPOSE", label: "拆解", description: "围绕语义段做结构化解释，后续沉淀样本。" },
-  { step: "REWRITE", label: "仿写", description: "当前交给工作台草稿编辑，先保留人工主导。" },
+  { step: "TRANSCRIBE", label: "转录", description: "从模型池中选择默认转录模型，负责分享链接转正文。" },
+  { step: "DECOMPOSE", label: "拆解", description: "从模型池中选择默认拆解模型，输出结构化理解。" },
+  { step: "REWRITE", label: "仿写", description: "预设默认仿写模型，当前工作台仍保留人工主导。" },
 ];
 
 function getDefaultBindings(): Record<AiStep, string | null> {
   return {
-    TRANSCRIBE: "openai-transcribe",
-    DECOMPOSE: "deepseek-decompose",
-    REWRITE: "manual-edit",
+    TRANSCRIBE: "volcengine-transcribe",
+    DECOMPOSE: "ark-decompose",
+    REWRITE: "ark-rewrite",
   };
 }
 

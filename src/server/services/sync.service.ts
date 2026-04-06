@@ -66,6 +66,7 @@ interface CrawlerProfile {
 interface CrawlerVideo {
   awemeId: string;
   title: string;
+  shareUrl: string | null;
   coverSourceUrl: string | null;
   videoSourceUrl: string | null;
   publishedAt: string | null;
@@ -97,6 +98,7 @@ interface SyncCaches {
   profile: Map<string, Promise<CrawlerProfile>>;
   videoList: Map<string, Promise<CrawlerVideoListResult>>;
   videoDetail: Map<string, Promise<CrawlerVideoDetail>>;
+  shareCookie: Promise<string | null> | null;
 }
 
 interface AccountSyncAdapter {
@@ -138,6 +140,7 @@ interface VideoSyncAdapter {
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      shareUrl: string | null;
       collectCount: number;
       admireCount: number;
       recommendCount: number;
@@ -148,6 +151,7 @@ interface VideoSyncAdapter {
     accountId: string;
     organizationId?: string;
     title: string;
+    shareUrl: string | null;
     coverUrl: string | null;
     coverSourceUrl: string | null;
     coverStoragePath: string | null;
@@ -411,6 +415,7 @@ class SyncService {
       profile: new Map(),
       videoList: new Map(),
       videoDetail: new Map(),
+      shareCookie: null,
     };
   }
 
@@ -442,6 +447,7 @@ class SyncService {
           videoId: data.videoId,
           accountId: data.accountId,
           title: data.title,
+          shareUrl: data.shareUrl,
           coverUrl: data.coverUrl,
           coverSourceUrl: data.coverSourceUrl,
           coverStoragePath: data.coverStoragePath,
@@ -476,6 +482,7 @@ class SyncService {
           accountId: data.accountId,
           organizationId: data.organizationId ?? "",
           title: data.title,
+          shareUrl: data.shareUrl,
           coverUrl: data.coverUrl,
           coverSourceUrl: data.coverSourceUrl,
           coverStoragePath: data.coverStoragePath,
@@ -555,9 +562,16 @@ class SyncService {
       caches,
     );
     const existingVideoCount = await adapter.countByAccountId(account.id);
+    const shareCookieHeader = await this.getCachedShareResolveCookie(caches);
 
     if (existingVideoCount === 0) {
-      const result = await this.getCachedVideoList(secUserId, 0, INITIAL_SYNC_LIMIT, caches);
+      const result = await this.getCachedVideoList(
+        secUserId,
+        0,
+        INITIAL_SYNC_LIMIT,
+        caches,
+        shareCookieHeader,
+      );
 
       for (const video of result.videos.slice(0, INITIAL_SYNC_LIMIT)) {
         await this.upsertCrawlerVideo(account, video, adapter);
@@ -574,6 +588,7 @@ class SyncService {
         cursor,
         INCREMENTAL_BATCH_SIZE,
         caches,
+        shareCookieHeader,
       );
       let foundExisting = false;
 
@@ -691,6 +706,7 @@ class SyncService {
         likeCount: video.likeCount,
         commentCount: video.commentCount,
         shareCount: video.shareCount,
+        shareUrl: video.shareUrl,
         collectCount: video.collectCount,
         admireCount: video.admireCount,
         recommendCount: video.recommendCount,
@@ -710,6 +726,7 @@ class SyncService {
       accountId: account.id,
       organizationId: account.organizationId,
       title: video.title,
+      shareUrl: video.shareUrl,
       coverUrl: coverStoragePath,
       coverSourceUrl: video.coverSourceUrl,
       coverStoragePath,
@@ -824,10 +841,26 @@ class SyncService {
     cursor: number,
     count: number,
     caches: SyncCaches,
+    shareCookieHeader: string | null,
   ): Promise<CrawlerVideoListResult> {
     return this.getOrCreateCacheEntry(caches.videoList, `${secUserId}:${cursor}:${count}`, () =>
-      crawlerService.fetchVideoList(secUserId, cursor, count),
+      crawlerService.fetchVideoList(
+        secUserId,
+        cursor,
+        count,
+        shareCookieHeader ? { cookieHeader: shareCookieHeader } : undefined,
+      ),
     );
+  }
+
+  private async getCachedShareResolveCookie(caches: SyncCaches): Promise<string | null> {
+    if (!caches.shareCookie) {
+      caches.shareCookie = douyinAccountRepository
+        .findFirstActiveShareCookie()
+        .then((account) => account?.favoriteCookieHeader ?? null);
+    }
+
+    return caches.shareCookie;
   }
 
   private getCachedVideoDetail(videoId: string, caches: SyncCaches): Promise<CrawlerVideoDetail> {

@@ -32,10 +32,26 @@ describe("aiSettingsService", () => {
 
     listImplementationsMock.mockReturnValue([
       {
-        key: "ark-default",
-        name: "Ark Default",
+        key: "volcengine-transcribe",
+        name: "火山引擎转录",
+        provider: "Volcengine Ark",
+        supportedSteps: ["TRANSCRIBE"],
+        available: true,
+        requiredEnvKeys: [],
+      },
+      {
+        key: "ark-decompose",
+        name: "Ark 拆解",
         provider: "Ark",
-        supportedSteps: ["TRANSCRIBE", "DECOMPOSE", "REWRITE"],
+        supportedSteps: ["DECOMPOSE"],
+        available: true,
+        requiredEnvKeys: [],
+      },
+      {
+        key: "ark-rewrite",
+        name: "Ark 仿写",
+        provider: "Ark",
+        supportedSteps: ["REWRITE"],
         available: true,
         requiredEnvKeys: [],
       },
@@ -44,9 +60,9 @@ describe("aiSettingsService", () => {
 
   it("returns implementation registry and current bindings for super admin", async () => {
     findAllMock.mockResolvedValue([
-      { step: "TRANSCRIBE", implementationKey: "ark-default" },
+      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
       { step: "DECOMPOSE", implementationKey: null },
-      { step: "REWRITE", implementationKey: "ark-default" },
+      { step: "REWRITE", implementationKey: "ark-rewrite" },
     ]);
 
     const { aiSettingsService } = await import("@/server/services/ai-settings.service");
@@ -70,9 +86,9 @@ describe("aiSettingsService", () => {
   it("persists updated bindings", async () => {
     replaceAllMock.mockResolvedValue(undefined);
     findAllMock.mockResolvedValue([
-      { step: "TRANSCRIBE", implementationKey: "ark-default" },
-      { step: "DECOMPOSE", implementationKey: "ark-default" },
-      { step: "REWRITE", implementationKey: "ark-default" },
+      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
+      { step: "DECOMPOSE", implementationKey: "ark-decompose" },
+      { step: "REWRITE", implementationKey: "ark-rewrite" },
     ]);
 
     const { aiSettingsService } = await import("@/server/services/ai-settings.service");
@@ -85,17 +101,17 @@ describe("aiSettingsService", () => {
       },
       {
         steps: [
-          { step: "TRANSCRIBE", implementationKey: "ark-default" },
-          { step: "DECOMPOSE", implementationKey: "ark-default" },
-          { step: "REWRITE", implementationKey: "ark-default" },
+          { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
+          { step: "DECOMPOSE", implementationKey: "ark-decompose" },
+          { step: "REWRITE", implementationKey: "ark-rewrite" },
         ],
       },
     );
 
     expect(replaceAllMock).toHaveBeenCalledWith([
-      { step: "TRANSCRIBE", implementationKey: "ark-default" },
-      { step: "DECOMPOSE", implementationKey: "ark-default" },
-      { step: "REWRITE", implementationKey: "ark-default" },
+      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
+      { step: "DECOMPOSE", implementationKey: "ark-decompose" },
+      { step: "REWRITE", implementationKey: "ark-rewrite" },
     ]);
   });
 
@@ -112,12 +128,12 @@ describe("aiSettingsService", () => {
         organizationId: "org_1",
       },
       {
-        steps: [{ step: "TRANSCRIBE", implementationKey: "ark-default" }],
+        steps: [{ step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" }],
       },
     );
 
     expect(replaceAllMock).toHaveBeenCalledWith([
-      { step: "TRANSCRIBE", implementationKey: "ark-default" },
+      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
       { step: "DECOMPOSE", implementationKey: null },
       { step: "REWRITE", implementationKey: null },
     ]);

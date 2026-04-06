@@ -30,6 +30,7 @@ interface CrawlerUserProfile {
 interface CrawlerVideoItem {
   awemeId: string;
   title: string;
+  shareUrl: string | null;
   coverUrl: string | null;
   coverSourceUrl: string | null;
   videoUrl: string | null;
@@ -52,6 +53,7 @@ interface CrawlerVideoListResult {
 
 interface CrawlerVideoDetail {
   awemeId: string;
+  shareUrl: string | null;
   playCount: number;
   likeCount: number;
   commentCount: number;
@@ -74,6 +76,11 @@ interface FetchCollectionVideosInput {
   cookieHeader: string;
   cursor?: number;
   count?: number;
+}
+
+interface ShareResolveRequestOptions {
+  cookieHeader?: string | null;
+  referer?: string | null;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -150,6 +157,7 @@ class CrawlerService {
     secUserId: string,
     cursor: number = 0,
     count: number = 35,
+    options: ShareResolveRequestOptions = {},
   ): Promise<CrawlerVideoListResult> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_user_post_videos",
@@ -161,7 +169,7 @@ class CrawlerService {
     );
 
     const rawVideos = this.pickArray(raw, ["aweme_list", "videos", "video_list"]);
-    const videos = await Promise.all(rawVideos.map((item) => this.mapVideoItem(item)));
+    const videos = await Promise.all(rawVideos.map((item) => this.mapVideoItem(item, options)));
 
     return {
       videos,
@@ -203,19 +211,27 @@ class CrawlerService {
     };
   }
 
-  async fetchOneVideo(awemeId: string): Promise<CrawlerVideoDetail> {
+  async fetchOneVideo(
+    awemeId: string,
+    options: ShareResolveRequestOptions = {},
+  ): Promise<CrawlerVideoDetail> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_one_video",
       { aweme_id: awemeId },
     );
     const detail = this.pickRecord(raw, ["aweme_detail", "aweme", "video"]) ?? raw;
     const statistics = this.pickRecord(detail, ["statistics", "stats"]) ?? detail;
+    const shareUrl = await this.resolveShareUrl(detail, {
+      ...options,
+      referer: options.referer ?? `https://www.douyin.com/video/${awemeId}`,
+    });
 
     return {
       awemeId:
         this.pickString(detail, ["aweme_id", "awemeId", "video_id"]) ??
         this.pickString(raw, ["aweme_id", "awemeId"]) ??
         awemeId,
+      shareUrl,
       playCount: this.pickNumber(statistics, ["play_count", "playCount"]) ?? 0,
       likeCount: this.pickNumber(statistics, ["digg_count", "like_count", "likeCount"]) ?? 0,
       commentCount:
@@ -311,10 +327,18 @@ class CrawlerService {
     throw new AppError("CRAWLER_ERROR", "爬虫服务调用失败，请稍后重试", 502);
   }
 
-  private async mapVideoItem(rawVideo: unknown): Promise<CrawlerVideoItem> {
+  private async mapVideoItem(
+    rawVideo: unknown,
+    options: ShareResolveRequestOptions = {},
+  ): Promise<CrawlerVideoItem> {
     const video = this.asRecord(rawVideo);
     const statistics = this.pickRecord(video, ["statistics", "stats"]) ?? {};
     const videoAsset = this.pickRecord(video, ["video"]) ?? video;
+    const awemeId = this.pickString(video, ["aweme_id", "awemeId", "video_id"]) ?? "";
+    const shareUrl = await this.resolveShareUrl(video, {
+      ...options,
+      referer: options.referer ?? (awemeId ? `https://www.douyin.com/video/${awemeId}` : null),
+    });
     const coverCandidates = this.pickNestedUrlList(videoAsset, [
       ["cover", "origin_cover"],
       ["origin_cover"],
@@ -339,8 +363,9 @@ class CrawlerService {
     }
 
     return {
-      awemeId: this.pickString(video, ["aweme_id", "awemeId", "video_id"]) ?? "",
+      awemeId,
       title: this.pickString(video, ["desc", "title"]) ?? "",
+      shareUrl,
       coverUrl: null,
       coverSourceUrl,
       videoUrl: null,
@@ -524,6 +549,70 @@ class CrawlerService {
     }
 
     return null;
+  }
+
+  private async resolveShareUrl(
+    record: unknown,
+    options: ShareResolveRequestOptions = {},
+  ): Promise<string | null> {
+    const shareInfo = this.pickRecord(record, ["share_info"]);
+    const shareRequestUrl =
+      this.pickString(record, ["share_info_share_url"]) ??
+      this.pickString(shareInfo, ["share_url"]);
+    const shareLinkDesc =
+      this.pickString(record, ["share_info_share_link_desc"]) ??
+      this.pickString(shareInfo, ["share_link_desc"]);
+
+    if (shareRequestUrl) {
+      const shortShareUrl = await this.fetchResolvedShareLink(shareRequestUrl, options);
+      if (shareLinkDesc && shortShareUrl) {
+        return shareLinkDesc.replace("%s", shortShareUrl);
+      }
+
+      return shortShareUrl ?? shareLinkDesc;
+    }
+
+    return shareLinkDesc ?? this.pickString(record, ["share_url"]);
+  }
+
+  private async fetchResolvedShareLink(
+    url: string,
+    options: ShareResolveRequestOptions = {},
+  ): Promise<string | null> {
+    try {
+      const shortenUrl =
+        `https://www.douyin.com/aweme/v1/web/web_shorten/?target=${encodeURIComponent(url)}`;
+      const response = await fetch(shortenUrl, {
+        method: "GET",
+        headers: {
+          accept: "application/json,text/plain,*/*",
+          ...(options.cookieHeader ? { cookie: options.cookieHeader } : {}),
+          ...(options.referer ? { referer: options.referer } : {}),
+          "user-agent": "Mozilla/5.0",
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const rawJson = (await response.json().catch(() => null)) as
+        | { code?: unknown; data?: unknown }
+        | null;
+
+      if (typeof rawJson?.data === "string" && rawJson.data.length > 0) {
+        return rawJson.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn("[CrawlerService] failed to resolve share url", {
+        url,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private parseJsonRecord(value: string | null): UnknownRecord | null {

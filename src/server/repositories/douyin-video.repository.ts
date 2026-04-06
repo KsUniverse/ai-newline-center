@@ -52,6 +52,7 @@ class DouyinVideoRepository {
       videoId: string;
       accountId: string;
       title: string;
+      shareUrl?: string | null;
       coverUrl: string | null;
       coverSourceUrl?: string | null;
       coverStoragePath?: string | null;
@@ -77,6 +78,7 @@ class DouyinVideoRepository {
       create: data,
       update: {
         title: data.title,
+        shareUrl: data.shareUrl,
         coverUrl: data.coverUrl,
         coverSourceUrl: data.coverSourceUrl,
         coverStoragePath: data.coverStoragePath,
@@ -103,6 +105,7 @@ class DouyinVideoRepository {
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      shareUrl?: string | null;
       collectCount?: number;
       admireCount?: number;
       recommendCount?: number;

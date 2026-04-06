@@ -3,24 +3,36 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createWorkspaceMock,
+  fetchOneVideoMock,
+  findFirstActiveShareCookieMock,
   findByVideoIdAndUserIdMock,
   findByIdMock,
   findVideoByIdMock,
   queueTranscribeMock,
   resetTranscriptToDraftMock,
+  updateBenchmarkShareUrlMock,
   upsertAnnotationMock,
   upsertDraftMock,
   updateWorkspaceMock,
 } = vi.hoisted(() => ({
   createWorkspaceMock: vi.fn(),
+  fetchOneVideoMock: vi.fn(),
+  findFirstActiveShareCookieMock: vi.fn(),
   findByVideoIdAndUserIdMock: vi.fn(),
   findByIdMock: vi.fn(),
   findVideoByIdMock: vi.fn(),
   queueTranscribeMock: vi.fn(),
   resetTranscriptToDraftMock: vi.fn(),
+  updateBenchmarkShareUrlMock: vi.fn(),
   upsertAnnotationMock: vi.fn(),
   upsertDraftMock: vi.fn(),
   updateWorkspaceMock: vi.fn(),
+}));
+
+vi.mock("@/server/repositories/douyin-account.repository", () => ({
+  douyinAccountRepository: {
+    findFirstActiveShareCookie: findFirstActiveShareCookieMock,
+  },
 }));
 
 vi.mock("@/server/repositories/ai-workspace.repository", () => ({
@@ -38,6 +50,13 @@ vi.mock("@/server/repositories/ai-workspace.repository", () => ({
 vi.mock("@/server/repositories/benchmark-video.repository", () => ({
   benchmarkVideoRepository: {
     findByIdWithAccountOrganization: findVideoByIdMock,
+    updateShareUrl: updateBenchmarkShareUrlMock,
+  },
+}));
+
+vi.mock("@/server/services/crawler.service", () => ({
+  crawlerService: {
+    fetchOneVideo: fetchOneVideoMock,
   },
 }));
 
@@ -88,23 +107,36 @@ describe("aiWorkspaceService", () => {
 
   beforeEach(() => {
     createWorkspaceMock.mockReset();
+    fetchOneVideoMock.mockReset();
+    findFirstActiveShareCookieMock.mockReset();
     findByVideoIdAndUserIdMock.mockReset();
     findByIdMock.mockReset();
     findVideoByIdMock.mockReset();
     queueTranscribeMock.mockReset();
     resetTranscriptToDraftMock.mockReset();
+    updateBenchmarkShareUrlMock.mockReset();
     upsertAnnotationMock.mockReset();
     upsertDraftMock.mockReset();
     updateWorkspaceMock.mockReset();
+    findFirstActiveShareCookieMock.mockResolvedValue(null);
   });
 
   it("requires shareUrl before scheduling transcription", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
+      videoId: "video_1",
       title: "video",
       shareUrl: null,
       videoStoragePath: null,
       account: { organizationId: "org_1" },
+    });
+    fetchOneVideoMock.mockResolvedValue({
+      awemeId: "video_1",
+      shareUrl: null,
+      playCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      shareCount: 0,
     });
 
     const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
@@ -122,9 +154,55 @@ describe("aiWorkspaceService", () => {
     ).rejects.toMatchObject({ code: "AI_SHARE_URL_REQUIRED" });
   });
 
+  it("hydrates shareUrl from crawler detail before scheduling transcription", async () => {
+    findVideoByIdMock.mockResolvedValue({
+      id: "video_1",
+      videoId: "7624498926086786323",
+      title: "video",
+      shareUrl: null,
+      account: { organizationId: "org_1" },
+    });
+    fetchOneVideoMock.mockResolvedValue({
+      awemeId: "7624498926086786323",
+      shareUrl: "https://www.iesdouyin.com/share/video/7624498926086786323/?foo=bar",
+      playCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      shareCount: 0,
+    });
+    findByVideoIdAndUserIdMock.mockResolvedValue(null);
+    createWorkspaceMock.mockResolvedValue({
+      id: "workspace_1",
+      videoId: "video_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      status: "IDLE",
+    });
+    findByIdMock
+      .mockResolvedValueOnce(createWorkspaceDetail({ status: "IDLE", transcript: null }))
+      .mockResolvedValueOnce(createWorkspaceDetail({ status: "TRANSCRIBING" }));
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+    await aiWorkspaceService.startTranscription(
+      {
+        id: "user_1",
+        account: "employee",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+      "video_1",
+    );
+
+    expect(updateBenchmarkShareUrlMock).toHaveBeenCalledWith(
+      "video_1",
+      "https://www.iesdouyin.com/share/video/7624498926086786323/?foo=bar",
+    );
+  });
+
   it("queues transcription for the workspace using the shareUrl", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
+      videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
       videoStoragePath: "/storage/video.mp4",
@@ -172,9 +250,10 @@ describe("aiWorkspaceService", () => {
     );
   });
 
-  it("rejects retranscription until the current transcript is unlocked", async () => {
+  it("resets current transcript data before re-transcribing in non-rewrite stages", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
+      videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
       account: { organizationId: "org_1" },
@@ -184,9 +263,79 @@ describe("aiWorkspaceService", () => {
       videoId: "video_1",
       userId: "user_1",
       organizationId: "org_1",
-      status: "TRANSCRIPT_CONFIRMED",
+      status: "DECOMPOSED",
     });
-    findByIdMock.mockResolvedValue(createWorkspaceDetail());
+    findByIdMock
+      .mockResolvedValueOnce(
+        createWorkspaceDetail({
+          status: "DECOMPOSED",
+          annotations: [
+            {
+              id: "annotation_1",
+              segmentId: null,
+              startOffset: 0,
+              endOffset: 4,
+              quotedText: "当前稿",
+              function: null,
+              argumentRole: null,
+              technique: null,
+              purpose: null,
+              effectiveness: null,
+              note: null,
+              createdAt: new Date("2026-04-06T00:00:00.000Z"),
+              updatedAt: new Date("2026-04-06T00:00:00.000Z"),
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(createWorkspaceDetail({ status: "TRANSCRIBING", annotations: [] }));
+    resetTranscriptToDraftMock.mockResolvedValue(undefined);
+    updateWorkspaceMock.mockResolvedValue({ id: "workspace_1", status: "TRANSCRIBING" });
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await aiWorkspaceService.startTranscription(
+      {
+        id: "user_1",
+        account: "employee",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+      "video_1",
+    );
+
+    expect(resetTranscriptToDraftMock).toHaveBeenCalledWith("workspace_1", "org_1", {
+      lastEditedAt: expect.any(Date),
+    });
+    expect(queueTranscribeMock).toHaveBeenCalled();
+  });
+
+  it("blocks retranscription after entering rewrite stage", async () => {
+    findVideoByIdMock.mockResolvedValue({
+      id: "video_1",
+      videoId: "video_1",
+      title: "video",
+      shareUrl: "https://www.douyin.com/video/abc",
+      account: { organizationId: "org_1" },
+    });
+    findByVideoIdAndUserIdMock.mockResolvedValue({
+      id: "workspace_1",
+      videoId: "video_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      status: "REWRITING",
+    });
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        status: "REWRITING",
+        enteredRewriteAt: new Date("2026-04-06T00:00:00.000Z"),
+        rewriteDraft: {
+          currentDraft: "draft",
+          sourceTranscriptText: "当前稿",
+          sourceDecompositionSnapshot: [],
+        },
+      }),
+    );
 
     const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
 
@@ -200,14 +349,13 @@ describe("aiWorkspaceService", () => {
         },
         "video_1",
       ),
-    ).rejects.toMatchObject({ code: "TRANSCRIPT_UNLOCK_REQUIRED" });
-
-    expect(queueTranscribeMock).not.toHaveBeenCalled();
+    ).rejects.toMatchObject({ code: "REWRITE_STAGE_LOCKED" });
   });
 
   it("rolls workspace status back when queue scheduling fails", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
+      videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
       account: { organizationId: "org_1" },

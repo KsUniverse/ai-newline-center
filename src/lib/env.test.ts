@@ -161,4 +161,22 @@ describe("parseEnv", () => {
     expect(result.ARK_DECOMPOSE_MODEL).toBe("ark/decompose");
     expect(result.ARK_REWRITE_MODEL).toBe("ark/rewrite");
   });
+
+  it("accepts dedicated transcription runtime configuration", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+      TRANSCRIBE_BASE_URL: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      TRANSCRIBE_API_KEY: "transcribe_test_key",
+      TRANSCRIBE_MODEL_NAME: "doubao-seed-2-0-lite-260215",
+    });
+
+    expect(result.TRANSCRIBE_BASE_URL).toBe("https://ark.cn-beijing.volces.com/api/v3/chat/completions");
+    expect(result.TRANSCRIBE_API_KEY).toBe("transcribe_test_key");
+    expect(result.TRANSCRIBE_MODEL_NAME).toBe("doubao-seed-2-0-lite-260215");
+  });
 });

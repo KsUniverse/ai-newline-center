@@ -12,6 +12,8 @@
 ### 1. AI 配置上线
 
 - 新增系统设置中的 AI 配置页，支持为 `TRANSCRIBE / DECOMPOSE / REWRITE` 三个步骤绑定默认实现。
+- AI Gateway 改为“模型配置池 + 三个固定步骤绑定”模式，转录、拆解、仿写可以分别绑定不同实现。
+- 转录默认实现切到独立的 `volcengine-transcribe`，拆解与仿写默认分别绑定 `ark-decompose`、`ark-rewrite`。
 - AI 配置页面加入页面级 `SUPER_ADMIN` 权限保护。
 - 不可用实现改为前端禁选，并展示缺失环境变量提示。
 - 加载远端配置失败时不再回退到本地 mock 配置，改为明确错误态与重试入口。
@@ -21,16 +23,20 @@
 - benchmark 视频点击后直接进入统一 AI 工作台，不再使用旧详情弹框附带的转录面板。
 - 工作台结构收口为 `AiWorkspaceShell + controller + pane/canvas/panel/stage`。
 - 交互口径统一为单一“转录主文档 + 批注拆解层”，不再做 AI 稿 / 人工稿双视图。
-- 转录区支持编辑、锁定、解锁、批注联动与仿写态切换。
+- 转录区支持编辑、锁定、解锁、批注联动与仿写阶段切换。
 - 发起 AI 转录后，前端会自动轮询工作台状态并在完成后回填正文。
+- 工作台阶段统一为 `转录 / 拆解 / 仿写`，进入仿写后不可回退。
+- 在 `转录 / 拆解` 阶段重新发起 AI 转录时，前端会先做 destructive confirm，服务端会清空当前员工工作台的转录、分段、拆解与仿写依赖。
 
 ### 3. 后端主链路收口
 
 - AI 工作台按 `(videoId, userId)` 唯一建模，并补齐服务端 `organizationId + userId` 双重访问约束。
 - 转录任务正式收口到 `shareUrl -> AiWorkspaceTranscript` 单轨链路。
+- `shareUrl` 同步链路补齐到 benchmark / douyin 视频表，并优先写入爬虫响应中的 `share_info.share_link_desc`。
+- benchmark 视频历史缺链时，发起转录前会按需补拉分享链接并立即回写数据库。
 - 删除旧 `/api/transcriptions` route、service、repository、SSE 与相关前端遗留组件。
 - 解锁编辑改为原子清空 segments / annotations / rewriteDraft。
-- 重新转录、继续编辑、进入仿写等流程增加服务端状态机约束，避免绕过 unlock。
+- 重新转录、继续编辑、进入仿写等流程增加服务端状态机约束，避免绕过 unlock；进入仿写后禁止回退与重转录。
 
 ### 4. 视觉与页面结构统一
 
@@ -42,7 +48,7 @@
 
 - `pnpm lint` 通过
 - `pnpm type-check` 通过
-- 核心 AI route/service 测试 21 项通过
+- 核心 AI route/service 测试 27 项通过
 
 ## 已知残余风险
 

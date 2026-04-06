@@ -17,7 +17,7 @@
 | 修改模型 | `BenchmarkVideo`、`DouyinVideo`、`Transcription` |
 | 新增 API | `/api/system-settings/ai`、`/api/ai-workspaces*` |
 | 复用能力 | 现有转录队列、SSE、benchmark video 数据链路、共享 Slide/Sheet/Dialog 原语 |
-| 关键目标 | 转录真实可用；拆解结构化落库；仿写进入统一工作台主战场 |
+| 关键目标 | 转录真实可用；拆解结构化落库；仿写进入统一工作台主战场；shareUrl 可同步入库并按需补拉 |
 
 ---
 
@@ -27,12 +27,13 @@
 
 | 维度 | 已确认结论 | 设计落点 |
 |------|------------|----------|
-| AI 配置 | 系统级默认绑定仍保留 | 继续使用 `AiStepBinding` |
+| AI 配置 | 系统级默认绑定仍保留，采用模型池 + 三步固定绑定 | 继续使用 `AiStepBinding` + 实现注册表 |
 | 工作台模式 | 点击视频后直接进入统一 AI 工作台 | 替换旧 benchmark 详情弹框入口 |
 | 前端视觉语言 | 保留项目现有品牌化工作台视觉语言，只提升动效连续性与工作台切换质感 | 继续复用 `ui/*`、`shared/*`、token、Slide/Sheet 原语，不另起一套 Apple 风格皮肤 |
-| 转录输入 | 固定 Prompt + `shareUrl` | 复用异步转录队列，但 UI 与数据模型转向工作台 |
+| 转录输入 | 固定 Prompt + `shareUrl` | 复用异步转录队列，但支持缺链时按需补拉并回写视频表 |
 | 转录确认 | 拆解前必须确认转录稿 | `AiWorkspaceTranscript.isConfirmed` |
 | 解锁编辑 | 解锁编辑会提示并清空已有拆解/仿写 | 服务端提供原子操作端点 |
+| 重转录 | `转录 / 拆解` 阶段允许重转录，`仿写` 阶段禁止回退 | 服务端统一 reset transcript/decomposition/rewrite 依赖 |
 | 拆解粒度 | 任意文本范围 | `startOffset/endOffset + tags + 结构化字段` |
 | 数据归属 | 转录/拆解/仿写按员工归属 | `AiWorkspace(videoId, userId)` 唯一 |
 | 仿写 | 是统一工作台中的独立主工作区 | 仿写草稿单独存储；本版不强制 AI 自动生成 |
@@ -45,10 +46,10 @@
 
 | 现有实现 | 复用方式 | 本版调整 |
 |---------|---------|----------|
-| `ai-gateway.service.ts` | 继续作为实现注册表入口 | 从文件转录改为步骤路由 + 文本生成 |
+| `ai-gateway.service.ts` | 继续作为实现注册表入口 | 改为模型池 + 步骤路由；转录走独立 REST chat，拆解/仿写走 Ark SDK |
 | BullMQ + SSE | 继续承接异步转录 | 转录状态映射到工作台 |
 | benchmark video 列表与详情数据 | 继续作为工作台入口数据 | 改成点击即进 AI 工作台 |
-| `shareUrl` 链路 | 继续沿用本版已确认设计 | 同步写入视频表 |
+| `shareUrl` 链路 | 沿用分享链接主链路，但纠偏历史缺链问题 | 同步写入视频表，并在转录前按需补拉回写 |
 
 ### 必须纠偏的旧实现假设
 
@@ -64,6 +65,10 @@
 ### 1. 系统级 AI 配置
 
 保留 `AiStepBinding`，用于系统级步骤绑定：
+
+- `AiStepBinding` 只保存步骤 -> 默认实现的绑定关系。
+- 具体实现由 `ai-gateway.service.ts` 中的模型池注册表提供，包含 `key / provider / supportedSteps / requiredEnvKeys / requestMode`。
+- 当前默认实现建议值：`volcengine-transcribe`、`ark-decompose`、`ark-rewrite`。
 
 ```prisma
 enum AiStep {
@@ -221,7 +226,12 @@ model AiRewriteDraft {
 
 ### 7. 视频表补充字段
 
-继续保留 `BenchmarkVideo.shareUrl` 与 `DouyinVideo.shareUrl`，作为转录主链路前提。
+继续保留 `BenchmarkVideo.shareUrl` 与 `DouyinVideo.shareUrl`。
+
+补充约束：
+
+- 同步链路优先把爬虫响应中的 `share_info.share_link_desc` 写入 `shareUrl`。
+- 若 benchmark 视频历史数据缺少 `shareUrl`，AI 工作台在发起转录前会调用爬虫详情接口尝试补拉并立即回写数据库。
 
 ---
 
@@ -233,7 +243,7 @@ model AiRewriteDraft {
 点击 AI 转录
   -> 查找/创建 AiWorkspace(videoId, userId)
   -> 读取 TRANSCRIBE 步骤绑定
-  -> 校验 shareUrl
+  -> 校验 shareUrl；缺失时按 `video.videoId` 补拉并回写
   -> 创建异步转录任务
   -> AI 返回转录正文
   -> 初始化 AiWorkspaceTranscript
@@ -254,9 +264,10 @@ model AiRewriteDraft {
 服务端单个事务执行：
 
 1. `isConfirmed = false`
-2. 删除当前 `AiDecompositionAnnotation`
-3. 清空 `AiRewriteDraft`
-4. `workspace.status = TRANSCRIPT_DRAFT`
+2. 删除当前 `AiTranscriptSegment`
+3. 删除当前 `AiDecompositionAnnotation`
+4. 清空 `AiRewriteDraft`
+5. `workspace.status = TRANSCRIPT_DRAFT`
 
 说明：
 
@@ -271,7 +282,18 @@ model AiRewriteDraft {
   -> workspace.status 进入 DECOMPOSING / DECOMPOSED
 ```
 
-### 4. 仿写工作流
+### 4. 重转录工作流
+
+```text
+在转录/拆解阶段点击 AI 转录
+  -> 校验当前不在 REWRITING
+  -> resetTranscriptToDraft(workspace)
+  -> 删除 segments / annotations / rewriteDraft
+  -> 重置 transcript.confirmed 状态
+  -> 重新入队转录
+```
+
+### 5. 仿写工作流
 
 ```text
 点击进入仿写
@@ -280,6 +302,11 @@ model AiRewriteDraft {
   -> 右侧仿写栏编辑
   -> PATCH 保存草稿
 ```
+
+补充约束：
+
+- 一旦进入仿写阶段，不允许再回到转录或拆解阶段。
+- 一旦进入仿写阶段，不允许再次触发 AI 转录。
 
 本版不强制 AI 自动生成仿写，但数据模型与 API 预留生成入口。
 
@@ -303,9 +330,12 @@ interface AiWorkspaceDTO {
   id: string;
   videoId: string;
   userId: string;
+  organizationId: string;
   status: string;
   enteredRewriteAt: string | null;
-  videoSummary: {
+  createdAt: string;
+  updatedAt: string;
+  video: {
     id: string;
     title: string;
     coverUrl: string | null;
@@ -321,6 +351,7 @@ interface AiWorkspaceDTO {
     currentText: string | null;
     isConfirmed: boolean;
     confirmedAt: string | null;
+    lastEditedAt: string | null;
     aiProviderKey: string | null;
     aiModel: string | null;
   } | null;
@@ -328,6 +359,8 @@ interface AiWorkspaceDTO {
   annotations: AiDecompositionAnnotationDTO[];
   rewriteDraft: {
     currentDraft: string | null;
+    sourceTranscriptText: string | null;
+    sourceDecompositionSnapshot: unknown;
   } | null;
 }
 ```
@@ -421,16 +454,16 @@ interface AiWorkspaceDTO {
 ### 业务说明
 
 统一 AI 工作台的真实业务目标，不是“把视频详情弹框换个皮肤”，而是把
-`看素材 -> 整理原文 -> 拆解学习 -> 进入仿写` 收敛成一条连续工作流。
+`看素材 -> 转录整理 -> 拆解学习 -> 进入仿写` 收敛成一条连续工作流。
 
 从业务视角，这个工作台解决的是 4 件事：
 
-1. 员工点击一条视频后，不再先看详情说明，而是直接进入分析现场。
+1. 员工点击一条视频后，不再先看详情说明，而是直接进入转录/拆解现场。
 2. 转录主文档是学习中轴，拆解是挂在主文档上的解释层。
-3. 仿写是分析之后进入的第二阶段，不再反向干扰默认分析态。
+3. 仿写是拆解之后进入的第三阶段，不再反向干扰默认转录/拆解阶段。
 4. 同一条视频上的工作成果归属于员工自己，而不是组织共享结果。
 
-因此，前端的默认主目标必须是“分析优先”，不是“创作优先”。
+因此，前端的默认主目标必须是“先转录、再拆解、最后仿写”，不是“创作优先”。
 
 ### 前端视觉约束
 
@@ -454,11 +487,31 @@ interface AiWorkspaceDTO {
 
 ### 前端状态机
 
-前端工作台不再允许接口返回值直接改写 UI 模式，而是通过单一状态机驱动：
+前端工作台不再允许接口返回值直接改写 UI 模式，而是通过“阶段状态 + 聚焦状态”两层状态机驱动。
+
+#### 阶段状态
+
+```text
+transcribe
+  -> 默认进入
+  -> 支持 AI 转录、编辑、锁定
+
+decompose
+  -> 确认转录稿后进入
+  -> 支持结构化拆解
+  -> 仍允许再次发起 AI 转录，但会清空当前工作台已有正文与拆解
+
+rewrite
+  -> 点击进入仿写后进入
+  -> 不允许回退到 transcribe / decompose
+  -> 不允许再次发起 AI 转录
+```
+
+#### 聚焦状态
 
 ```text
 browsing
-  -> 默认分析态
+  -> 默认浏览态
   -> 正文显示已有拆解区域
   -> 右侧显示拆解明细列表
 
@@ -471,8 +524,8 @@ focused
   -> 正文只高亮这一条拆解对应范围
 
 rewriting
-  -> 用户点击右上角进入仿写态
-  -> 工作台从分析布局切到创作布局
+  -> 用户点击右上角进入仿写阶段
+  -> 工作台从转录/拆解布局切到仿写布局
 ```
 
 交互规则：
@@ -480,16 +533,21 @@ rewriting
 - 只有左侧手动划词能进入 `selecting`
 - 只有点击右侧拆解明细能进入 `focused`
 - 再点同一条拆解，返回 `browsing`
-- 只有右上角主按钮能进入 `rewriting`
+- 只有右上角主按钮能进入 `rewrite`
 - 清除选区后，从 `selecting` 回到 `browsing`
 
-### 初始态
+补充说明：
+
+- `browsing / selecting / focused` 是拆解区内部的聚焦状态，不代表工作台大阶段。
+- 工作台大阶段由 `transcribe / decompose / rewrite` 驱动，并由后端状态和 `enteredRewriteAt` 共同推导。
+
+### 转录/拆解阶段
 
 - 第一栏：视频详情
 - 第二栏：转录主文档
 - 第三栏：拆解栏
 
-### 仿写态
+### 仿写阶段
 
 - 第一栏：拆解
 - 第二栏：转录（顶部有小封面缩略卡）
@@ -533,7 +591,7 @@ AiWorkspaceShell
 - `useAiWorkspaceController` 负责请求、状态机、数据同步、解锁与草稿保存
 - `AiWorkspaceTranscriptCanvas` 只负责正文、划词、锚点高亮
 - `AiWorkspaceDecompositionPanel` 只负责“输入态 / 明细态”
-- `AiWorkspaceRewriteStage` 只在仿写阶段挂载，避免拖慢默认分析态
+- `AiWorkspaceRewriteStage` 只在仿写阶段挂载，避免拖慢默认转录/拆解阶段
 
 ### 当前启动链路
 
@@ -556,7 +614,7 @@ BenchmarkVideoGridCard
 
 1. 锁定/编辑切换时，不允许整块工作台无关重渲染。
 2. 正文高亮计算必须收口到纯函数，不能散在多个组件 render 中。
-3. 仿写区必须按需挂载，不得默认参与分析态细粒度更新。
+3. 仿写区必须按需挂载，不得默认参与转录/拆解阶段的细粒度更新。
 4. 接口返回只更新数据，不直接覆盖前端状态机。
 
 ---

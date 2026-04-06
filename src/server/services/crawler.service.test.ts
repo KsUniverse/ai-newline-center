@@ -298,6 +298,63 @@ describe("crawlerService", () => {
     });
   });
 
+  it("resolves share_info.share_url and replaces the %s placeholder for video list items", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          code: 200,
+          data: {
+            aweme_list: [
+              {
+                aweme_id: "video_share_1",
+                desc: "分享视频",
+                share_info: {
+                  share_url:
+                    "https://crawler.example.com/share?aweme_id=video_share_1",
+                  share_link_desc:
+                    "9.74 k@p.Dh sRK:/ 11/07 长阴杀跌加速赶底，恐慌中静待“黄金坑” %s 复制此链接，打开Dou音搜索，直接观看视频！",
+                },
+                statistics: {
+                  play_count: 100,
+                  digg_count: 10,
+                  comment_count: 1,
+                  share_count: 2,
+                },
+              },
+            ],
+            has_more: 0,
+            max_cursor: 0,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          code: 0,
+          message: "success",
+          now: 1775490631,
+          data: "https://v.douyin.com/rgyF09XQn84/",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchVideoList("sec_123", 0, 1);
+
+    expect(result.videos[0]?.shareUrl).toBe(
+      "9.74 k@p.Dh sRK:/ 11/07 长阴杀跌加速赶底，恐慌中静待“黄金坑” https://v.douyin.com/rgyF09XQn84/ 复制此链接，打开Dou音搜索，直接观看视频！",
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://www.douyin.com/aweme/v1/web/web_shorten/?target=https%3A%2F%2Fcrawler.example.com%2Fshare%3Faweme_id%3Dvideo_share_1",
+      expect.objectContaining({
+        method: "GET",
+      }),
+    );
+  });
+
   it("maps collection videos into structured items", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -421,6 +478,57 @@ describe("crawlerService", () => {
 
     expect(result).toEqual({
       awemeId: "video_1",
+      playCount: 200,
+      likeCount: 20,
+      commentCount: 3,
+      shareCount: 4,
+    });
+  });
+
+  it("resolves share_info.share_url and replaces the %s placeholder for single video detail", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          code: 200,
+          data: {
+            aweme_detail: {
+              aweme_id: "video_1",
+              share_info: {
+                share_url:
+                  "https://crawler.example.com/share?aweme_id=video_1",
+                share_link_desc:
+                  "3.84 T@l.PK Okc:/ 02/24 连续反弹后要补缺，接下来谁是香饽饽？ %s 复制此链接，打开Dou音搜索，直接观看视频！",
+              },
+              statistics: {
+                play_count: 200,
+                digg_count: 20,
+                comment_count: 3,
+                share_count: 4,
+              },
+            },
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          code: 0,
+          message: "success",
+          now: 1775490631,
+          data: "https://v.douyin.com/rgyF09XQn84/",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchOneVideo("video_1");
+
+    expect(result).toEqual({
+      awemeId: "video_1",
+      shareUrl:
+        "3.84 T@l.PK Okc:/ 02/24 连续反弹后要补缺，接下来谁是香饽饽？ https://v.douyin.com/rgyF09XQn84/ 复制此链接，打开Dou音搜索，直接观看视频！",
       playCount: 200,
       likeCount: 20,
       commentCount: 3,

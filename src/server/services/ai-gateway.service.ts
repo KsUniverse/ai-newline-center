@@ -1,5 +1,5 @@
-import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { generateText } from "ai";
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
@@ -16,85 +16,172 @@ type ImplementationAvailability = {
   missingEnvKeys: string[];
 };
 
+type EnvValueResolver = () => string | undefined;
+
+type RestChatImplementation = {
+  requestMode: "rest-chat";
+  baseUrl: EnvValueResolver;
+  apiKey: EnvValueResolver;
+  modelId: EnvValueResolver;
+  requiredEnvKeys: string[];
+};
+
+type OpenAiSdkImplementation = {
+  requestMode: "openai-sdk";
+  baseUrl: EnvValueResolver;
+  apiKey: EnvValueResolver;
+  modelId: EnvValueResolver;
+  requiredEnvKeys: string[];
+};
+
+type RegisteredImplementationConfig = RestChatImplementation | OpenAiSdkImplementation;
+
 type RegisteredImplementation = {
   key: string;
   name: string;
+  provider: string;
   supportedSteps: AiStep[];
-  getModelConfig(step: AiStep): AiModelConfig;
+  getModelConfig(step: AiStep): AiModelConfig & RegisteredImplementationConfig;
   getAvailability(): ImplementationAvailability;
 };
 
-const arkImplementation: RegisteredImplementation = {
-  key: "ark-default",
-  name: "Ark Default",
-  supportedSteps: ["TRANSCRIBE", "DECOMPOSE", "REWRITE"],
-  getModelConfig(step) {
-    switch (step) {
-      case "TRANSCRIBE":
-        return {
-          modelId: env.ARK_TRANSCRIBE_MODEL,
-          requiredEnvKeys: ["ARK_API_KEY", "ARK_BASE_URL", "ARK_TRANSCRIBE_MODEL"],
-        };
-      case "DECOMPOSE":
-        return {
-          modelId: env.ARK_DECOMPOSE_MODEL,
-          requiredEnvKeys: ["ARK_API_KEY", "ARK_BASE_URL", "ARK_DECOMPOSE_MODEL"],
-        };
-      case "REWRITE":
-      default:
-        return {
-          modelId: env.ARK_REWRITE_MODEL,
-          requiredEnvKeys: ["ARK_API_KEY", "ARK_BASE_URL", "ARK_REWRITE_MODEL"],
-        };
-    }
-  },
-  getAvailability() {
-    const requiredEnvKeys = new Set<string>();
-    for (const step of this.supportedSteps) {
-      for (const key of this.getModelConfig(step).requiredEnvKeys) {
-        requiredEnvKeys.add(key);
-      }
-    }
+function resolveEnvValue(key: string): string | undefined {
+  switch (key) {
+    case "TRANSCRIBE_BASE_URL":
+      return env.TRANSCRIBE_BASE_URL;
+    case "TRANSCRIBE_API_KEY":
+      return env.TRANSCRIBE_API_KEY;
+    case "TRANSCRIBE_MODEL_NAME":
+      return env.TRANSCRIBE_MODEL_NAME;
+    case "ARK_API_KEY":
+      return env.ARK_API_KEY;
+    case "ARK_BASE_URL":
+      return env.ARK_BASE_URL;
+    case "ARK_TRANSCRIBE_MODEL":
+      return env.ARK_TRANSCRIBE_MODEL;
+    case "ARK_DECOMPOSE_MODEL":
+      return env.ARK_DECOMPOSE_MODEL;
+    case "ARK_REWRITE_MODEL":
+      return env.ARK_REWRITE_MODEL;
+    default:
+      return undefined;
+  }
+}
 
-    const missingEnvKeys = Array.from(requiredEnvKeys).filter((key) => {
-      switch (key) {
-        case "ARK_API_KEY":
-          return !env.ARK_API_KEY;
-        case "ARK_BASE_URL":
-          return !env.ARK_BASE_URL;
-        case "ARK_TRANSCRIBE_MODEL":
-          return !env.ARK_TRANSCRIBE_MODEL;
-        case "ARK_DECOMPOSE_MODEL":
-          return !env.ARK_DECOMPOSE_MODEL;
-        case "ARK_REWRITE_MODEL":
-          return !env.ARK_REWRITE_MODEL;
-        default:
-          return true;
-      }
-    });
+function createSingleStepImplementation(config: {
+  key: string;
+  name: string;
+  provider: string;
+  step: AiStep;
+  requestMode: RegisteredImplementationConfig["requestMode"];
+  baseUrlEnvKey: string;
+  apiKeyEnvKey: string;
+  modelEnvKey: string;
+}): RegisteredImplementation {
+  return {
+    key: config.key,
+    name: config.name,
+    provider: config.provider,
+    supportedSteps: [config.step],
+    getModelConfig() {
+      return {
+        requestMode: config.requestMode,
+        baseUrl: () => resolveEnvValue(config.baseUrlEnvKey),
+        apiKey: () => resolveEnvValue(config.apiKeyEnvKey),
+        modelId: resolveEnvValue(config.modelEnvKey),
+        requiredEnvKeys: [config.apiKeyEnvKey, config.baseUrlEnvKey, config.modelEnvKey],
+      } as AiModelConfig & RegisteredImplementationConfig;
+    },
+    getAvailability() {
+      const requiredEnvKeys = [config.apiKeyEnvKey, config.baseUrlEnvKey, config.modelEnvKey];
+      const missingEnvKeys = requiredEnvKeys.filter((key) => !resolveEnvValue(key));
 
-    return {
-      available: missingEnvKeys.length === 0,
-      missingEnvKeys,
-    };
-  },
-};
+      return {
+        available: missingEnvKeys.length === 0,
+        missingEnvKeys,
+      };
+    },
+  };
+}
+
+const volcengineTranscribeImplementation = createSingleStepImplementation({
+  key: "volcengine-transcribe",
+  name: "火山引擎转录",
+  provider: "Volcengine Ark",
+  step: "TRANSCRIBE",
+  requestMode: "rest-chat",
+  baseUrlEnvKey: "TRANSCRIBE_BASE_URL",
+  apiKeyEnvKey: "TRANSCRIBE_API_KEY",
+  modelEnvKey: "TRANSCRIBE_MODEL_NAME",
+});
+
+const arkTranscribeImplementation = createSingleStepImplementation({
+  key: "ark-transcribe",
+  name: "Ark 转录",
+  provider: "Ark",
+  step: "TRANSCRIBE",
+  requestMode: "openai-sdk",
+  baseUrlEnvKey: "ARK_BASE_URL",
+  apiKeyEnvKey: "ARK_API_KEY",
+  modelEnvKey: "ARK_TRANSCRIBE_MODEL",
+});
+
+const arkDecomposeImplementation = createSingleStepImplementation({
+  key: "ark-decompose",
+  name: "Ark 拆解",
+  provider: "Ark",
+  step: "DECOMPOSE",
+  requestMode: "openai-sdk",
+  baseUrlEnvKey: "ARK_BASE_URL",
+  apiKeyEnvKey: "ARK_API_KEY",
+  modelEnvKey: "ARK_DECOMPOSE_MODEL",
+});
+
+const arkRewriteImplementation = createSingleStepImplementation({
+  key: "ark-rewrite",
+  name: "Ark 仿写",
+  provider: "Ark",
+  step: "REWRITE",
+  requestMode: "openai-sdk",
+  baseUrlEnvKey: "ARK_BASE_URL",
+  apiKeyEnvKey: "ARK_API_KEY",
+  modelEnvKey: "ARK_REWRITE_MODEL",
+});
 
 const registry: Record<string, RegisteredImplementation> = {
-  [arkImplementation.key]: arkImplementation,
+  [volcengineTranscribeImplementation.key]: volcengineTranscribeImplementation,
+  [arkTranscribeImplementation.key]: arkTranscribeImplementation,
+  [arkDecomposeImplementation.key]: arkDecomposeImplementation,
+  [arkRewriteImplementation.key]: arkRewriteImplementation,
 };
+
+function buildRestChatPayload(modelId: string, prompt: string) {
+  return {
+    model: modelId,
+    messages: [{ role: "user", content: prompt }],
+    thinking: {
+      type: "disabled",
+    },
+  };
+}
 
 class AiGatewayService {
   listImplementations(): AiImplementationDTO[] {
     return Object.values(registry).map((implementation) => {
       const availability = implementation.getAvailability();
+      const primaryStep = implementation.supportedSteps[0];
+      if (!primaryStep) {
+        throw new AppError("AI_IMPLEMENTATION_INVALID", "AI 实现未声明可用步骤", 500);
+      }
 
       return {
         key: implementation.key,
         name: implementation.name,
+        provider: implementation.provider,
         supportedSteps: implementation.supportedSteps,
         available: availability.available,
         missingEnvKeys: availability.missingEnvKeys,
+        requiredEnvKeys: implementation.getModelConfig(primaryStep).requiredEnvKeys,
       };
     });
   }
@@ -131,20 +218,57 @@ class AiGatewayService {
       throw new AppError("AI_MODEL_NOT_CONFIGURED", "AI 模型未配置", 409);
     }
 
-    const modelClient = createOpenAI({
-      apiKey: env.ARK_API_KEY,
-      baseURL: env.ARK_BASE_URL,
-    });
+    const baseUrl = modelConfig.baseUrl();
+    const apiKey = modelConfig.apiKey();
+    if (!baseUrl || !apiKey) {
+      throw new AppError("AI_IMPLEMENTATION_UNAVAILABLE", "AI 实现当前不可用", 409);
+    }
 
-    const result = await generateText({
-      model: modelClient(modelConfig.modelId),
-      prompt,
-    });
+    let text: string;
+
+    if (modelConfig.requestMode === "rest-chat") {
+      const response = await fetch(baseUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(buildRestChatPayload(modelConfig.modelId, prompt)),
+      });
+
+      if (!response.ok) {
+        throw new AppError("AI_REQUEST_FAILED", `AI 请求失败: ${response.status}`, 502);
+      }
+
+      const payload = (await response.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: string;
+          };
+        }>;
+      };
+      text = payload.choices?.[0]?.message?.content?.trim() ?? "";
+    } else {
+      const modelClient = createOpenAI({
+        apiKey,
+        baseURL: baseUrl,
+      });
+
+      const result = await generateText({
+        model: modelClient(modelConfig.modelId),
+        prompt,
+      });
+      text = result.text;
+    }
+
+    if (!text) {
+      throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+    }
 
     return {
       implementationKey: implementation.key,
       modelId: modelConfig.modelId,
-      text: result.text,
+      text,
     };
   }
 }

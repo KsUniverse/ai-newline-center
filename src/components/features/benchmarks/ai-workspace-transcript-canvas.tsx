@@ -107,7 +107,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
             </h3>
           </div>
           <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm">
-            {stage === "rewrite" ? "仿写参考" : locked ? "分析中轴" : "编辑中"}
+            {stage === "rewrite" ? "仿写参考" : stage === "decompose" ? "拆解中轴" : "转录编辑"}
           </Badge>
         </div>
 
@@ -119,7 +119,11 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
       <div className="relative flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/80 px-3.5 py-3 text-xs text-muted-foreground/75 shadow-sm">
           <p className="min-w-0 truncate leading-5">
-            {locked ? "直接划词进入拆解输入，点击右侧明细聚焦对应原文。" : "先修正文案，再锁定进入分析。"}
+            {stage === "rewrite"
+              ? "已进入仿写阶段，当前正文只作为锁定参考，不再允许重回转录和拆解。"
+              : locked
+                ? "直接划词进入拆解输入，点击右侧明细聚焦对应原文。"
+                : "先修正文案，再锁定进入拆解阶段。"}
           </p>
           <button
             type="button"
@@ -210,7 +214,13 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
             {transcribing ? "转录生成中…" : "AI 转录"}
           </Button>
           <span className="text-xs text-muted-foreground/70">
-            {locked ? `${annotations.length} 条拆解锚点` : "锁定后才进入拆解分析"}
+            {stage === "rewrite"
+              ? "仿写阶段已锁定，不再允许重新转录"
+              : stage === "decompose"
+                ? "重新转录会清空当前转录与拆解"
+                : locked
+                  ? `${annotations.length} 条拆解锚点`
+                  : "转录完成后可锁定进入拆解阶段"}
           </span>
         </div>
       </div>

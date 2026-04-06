@@ -183,7 +183,7 @@ export function AiWorkspaceShell({
   const [transitionPhase, setTransitionPhase] = useState<TransitionPhase>(
     originRect ? "opening-card" : "idle",
   );
-  const [visualStage, setVisualStage] = useState<AiWorkspaceStage>("analysis");
+  const [visualStage, setVisualStage] = useState<AiWorkspaceStage>("transcribe");
   const [ghostRect, setGhostRect] = useState<AiWorkspaceTransitionOrigin | null>(null);
   const [ghostVisible, setGhostVisible] = useState(false);
   const [ghostFading, setGhostFading] = useState(false);
@@ -267,7 +267,7 @@ export function AiWorkspaceShell({
       return;
     }
 
-    setVisualStage("analysis");
+    setVisualStage("transcribe");
     setTransitionPhase("opening-card");
     setGhostVisible(true);
     setGhostFading(false);
@@ -318,7 +318,7 @@ export function AiWorkspaceShell({
 
     clearTransitionTimers();
 
-    setVisualStage("analysis");
+    setVisualStage("transcribe");
     setTransitionPhase("closing-third");
     setGhostVisible(false);
     setGhostFading(false);
@@ -403,14 +403,14 @@ export function AiWorkspaceShell({
                   {video.title}
                 </h2>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground/80">
-                  分析优先工作台。先看懂原文和拆解，再决定是否进入仿写阶段。
+                  三段式 AI 工作台。先完成转录，再进入拆解，最后进入不可回退的仿写阶段。
                 </p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
-                    {visualStage === "rewrite" ? "仿写阶段" : "分析阶段"}
+                    {visualStage === "rewrite" ? "仿写阶段" : visualStage === "decompose" ? "拆解阶段" : "转录阶段"}
                   </Badge>
                   <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
-                    {controller.locked ? "主文档已锁定" : "主文档可编辑"}
+                    {visualStage === "rewrite" ? "仿写已锁定" : controller.locked ? "主文档已锁定" : "主文档可编辑"}
                   </Badge>
                   <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
                     {controller.annotations.length} 条拆解锚点
@@ -419,16 +419,18 @@ export function AiWorkspaceShell({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-md px-3 text-sm"
-                  disabled={!controller.transcriptText.trim()}
-                  onClick={controller.handleToggleRewriteStage}
-                >
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                  {visualStage === "rewrite" ? "返回分析态" : "进入仿写态"}
-                </Button>
+                {visualStage !== "rewrite" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-md px-3 text-sm"
+                    disabled={!controller.transcriptText.trim()}
+                    onClick={controller.handleEnterRewriteStage}
+                  >
+                    <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    进入仿写态
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -567,19 +569,25 @@ export function AiWorkspaceShell({
 
       <AlertDialog
         open={controller.unlockDialogOpen}
-        onOpenChange={controller.setUnlockDialogOpen}
+        onOpenChange={controller.handleUnlockDialogOpenChange}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>解锁编辑会清空已有拆解和仿写草稿</AlertDialogTitle>
+            <AlertDialogTitle>
+              {controller.destructiveAction === "retranscribe"
+                ? "重新 AI 转录会清空当前转录和拆解"
+                : "解锁编辑会清空已有拆解和仿写草稿"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              继续后，当前转录内容会恢复可编辑状态，所有拆解结果和仿写内容都会被清空，避免旧结构继续引用错误文本。
+              {controller.destructiveAction === "retranscribe"
+                ? "继续后，当前员工工作台里的转录正文、分段和拆解结果都会被清空，并重新发起 AI 转录。"
+                : "继续后，当前转录内容会恢复可编辑状态，所有拆解结果和仿写内容都会被清空，避免旧结构继续引用错误文本。"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={controller.handleUnlockTranscript}>
-              继续解锁
+            <AlertDialogAction onClick={controller.handleConfirmDestructiveAction}>
+              {controller.destructiveAction === "retranscribe" ? "继续转录" : "继续解锁"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

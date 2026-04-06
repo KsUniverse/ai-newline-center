@@ -13,7 +13,8 @@ import {
   type SelectedTextRange,
 } from "./ai-workspace-view-model";
 
-export type AiWorkspaceStage = "analysis" | "rewrite";
+export type AiWorkspaceStage = "transcribe" | "decompose" | "rewrite";
+type DestructiveAction = "unlock" | "retranscribe";
 export type AiWorkspaceFocusState = "browsing" | "selecting" | "focused";
 
 interface UseAiWorkspaceControllerOptions {
@@ -64,9 +65,43 @@ function isWorkspaceMissing(error: unknown): boolean {
   return error instanceof ApiError && error.code === "NOT_FOUND";
 }
 
+function resolveWorkspaceStage(workspace: AiWorkspaceDTO | null): AiWorkspaceStage {
+  if (!workspace) {
+    return "transcribe";
+  }
+
+  if (workspace.status === "REWRITING" || workspace.enteredRewriteAt || workspace.rewriteDraft) {
+    return "rewrite";
+  }
+
+  if (
+    workspace.status === "TRANSCRIPT_CONFIRMED" ||
+    workspace.status === "DECOMPOSED" ||
+    workspace.transcript?.isConfirmed ||
+    workspace.annotations.length > 0
+  ) {
+    return "decompose";
+  }
+
+  return "transcribe";
+}
+
+function hasWorkspaceDocument(
+  workspace: AiWorkspaceDTO | null,
+  transcriptText: string,
+): boolean {
+  return Boolean(
+    transcriptText.trim() ||
+      workspace?.segments.length ||
+      workspace?.annotations.length ||
+      workspace?.transcript?.originalText?.trim() ||
+      workspace?.transcript?.currentText?.trim(),
+  );
+}
+
 export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOptions) {
   const [workspace, setWorkspace] = useState<AiWorkspaceDTO | null>(null);
-  const [stage, setStage] = useState<AiWorkspaceStage>("analysis");
+  const [stage, setStage] = useState<AiWorkspaceStage>("transcribe");
   const [transcriptText, setTranscriptText] = useState("");
   const [manualSelection, setManualSelection] = useState<SelectedTextRange | null>(null);
   const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
@@ -74,6 +109,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [draftDirty, setDraftDirty] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
+  const [destructiveAction, setDestructiveAction] = useState<DestructiveAction>("unlock");
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,7 +120,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const resetToInitialWorkspace = useCallback(() => {
     startTransition(() => {
       setWorkspace(null);
-      setStage("analysis");
+      setStage("transcribe");
       setTranscriptText("");
       setManualSelection(null);
       setActiveAnnotationId(null);
@@ -99,7 +135,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   );
   const confirmed = workspace?.transcript?.isConfirmed ?? false;
   const locked = confirmed || annotations.length > 0;
-  const canGenerate = Boolean(video?.shareUrl);
+  const canGenerate = stage !== "rewrite";
   const focusState: AiWorkspaceFocusState = manualSelection
     ? "selecting"
     : activeAnnotationId
@@ -143,7 +179,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       if (options?.nextStage) {
         setStage(options.nextStage);
       } else if (!options?.preserveStage) {
-        setStage("analysis");
+        setStage(resolveWorkspaceStage(next));
       }
     });
   }, []);
@@ -161,7 +197,10 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       try {
         const next = await apiClient.get<AiWorkspaceDTO>(`/ai-workspaces?videoId=${currentVideo.id}`);
         if (!cancelled) {
-          applyWorkspace(next, currentVideo, { nextStage: "analysis", nextActiveAnnotationId: null });
+          applyWorkspace(next, currentVideo, {
+            nextStage: resolveWorkspaceStage(next),
+            nextActiveAnnotationId: null,
+          });
         }
       } catch (error) {
         if (cancelled) {
@@ -175,7 +214,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
             });
             if (!cancelled) {
               applyWorkspace(ensured, currentVideo, {
-                nextStage: "analysis",
+                nextStage: resolveWorkspaceStage(ensured),
                 nextActiveAnnotationId: null,
               });
             }
@@ -315,13 +354,8 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     };
   }, [activeAnnotationId, applyWorkspace, draft, draftDirty, manualSelection, stage, video, workspace?.id]);
 
-  const handleGenerateTranscript = useCallback(function handleGenerateTranscript() {
+  const requestTranscription = useCallback(function requestTranscription() {
     if (!video) {
-      return;
-    }
-
-    if (locked) {
-      setUnlockDialogOpen(true);
       return;
     }
 
@@ -330,14 +364,39 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       .post<AiWorkspaceDTO>("/ai-workspaces/transcribe", {
         videoId: video.id,
       })
-      .then((next) => applyWorkspace(next, video, { preserveStage: true }))
+      .then((next) =>
+        applyWorkspace(next, video, {
+          nextStage: "transcribe",
+          nextSelection: null,
+          nextActiveAnnotationId: null,
+        }),
+      )
       .catch((error) => {
         toast.error(error instanceof ApiError ? error.message : "发起转录失败");
       })
       .finally(() => {
         setLoadingWorkspace(false);
       });
-  }, [video, applyWorkspace, locked]);
+  }, [applyWorkspace, video]);
+
+  const handleGenerateTranscript = useCallback(function handleGenerateTranscript() {
+    if (!video) {
+      return;
+    }
+
+    if (stage === "rewrite") {
+      toast.error("已进入仿写阶段，不能回到转录和拆解状态");
+      return;
+    }
+
+    if (hasWorkspaceDocument(workspace, transcriptText)) {
+      setDestructiveAction("retranscribe");
+      setUnlockDialogOpen(true);
+      return;
+    }
+
+    requestTranscription();
+  }, [requestTranscription, stage, transcriptText, video, workspace]);
 
   const confirmTranscript = useCallback(async function confirmTranscript(): Promise<AiWorkspaceDTO | null> {
     if (!workspace?.id || !video) {
@@ -354,7 +413,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       {},
     );
     applyWorkspace(confirmedWorkspace, video, {
-      preserveStage: true,
+      nextStage: "decompose",
       nextActiveAnnotationId: null,
       nextSelection: null,
     });
@@ -364,6 +423,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
 
   const handleToggleLock = useCallback(function handleToggleLock() {
     if (locked) {
+      setDestructiveAction("unlock");
       setUnlockDialogOpen(true);
       return;
     }
@@ -378,8 +438,22 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     });
   }, [confirmTranscript, locked, transcriptText]);
 
-  const handleUnlockTranscript = useCallback(function handleUnlockTranscript() {
+  const handleUnlockDialogOpenChange = useCallback(function handleUnlockDialogOpenChange(open: boolean) {
+    setUnlockDialogOpen(open);
+    if (!open) {
+      setDestructiveAction("unlock");
+    }
+  }, []);
+
+  const handleConfirmDestructiveAction = useCallback(function handleConfirmDestructiveAction() {
     setUnlockDialogOpen(false);
+
+    if (destructiveAction === "retranscribe") {
+      setDestructiveAction("unlock");
+      requestTranscription();
+      return;
+    }
+
     if (!workspace?.id || !video) {
       return;
     }
@@ -388,7 +462,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       .post<AiWorkspaceDTO>(`/ai-workspaces/${workspace.id}/transcript/unlock`, {})
       .then((next) =>
         applyWorkspace(next, video, {
-          nextStage: "analysis",
+          nextStage: "transcribe",
           nextSelection: null,
           nextActiveAnnotationId: null,
         }),
@@ -396,7 +470,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       .catch((error) => {
         toast.error(error instanceof ApiError ? error.message : "解锁编辑失败");
       });
-  }, [applyWorkspace, video, workspace?.id]);
+  }, [applyWorkspace, destructiveAction, requestTranscription, video, workspace?.id]);
 
   const handleSelectRange = useCallback(function handleSelectRange(range: SelectedTextRange) {
     setManualSelection(range);
@@ -441,9 +515,8 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       });
   }, [applyWorkspace, manualSelection, video, workspace?.id]);
 
-  const handleToggleRewriteStage = useCallback(function handleToggleRewriteStage() {
+  const handleEnterRewriteStage = useCallback(function handleEnterRewriteStage() {
     if (stage === "rewrite") {
-      setStage("analysis");
       return;
     }
 
@@ -505,20 +578,21 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     locked,
     previewOpen,
     unlockDialogOpen,
+    destructiveAction,
     selectedRange: manualSelection,
     activeAnnotationId,
     savingDraft,
     setPreviewOpen,
-    setUnlockDialogOpen,
+    handleUnlockDialogOpenChange,
     setTranscriptText,
     setDraft: handleDraftChange,
     handleGenerateTranscript,
     handleToggleLock,
-    handleUnlockTranscript,
+    handleConfirmDestructiveAction,
     handleSelectRange,
     handleClearSelection,
     handleToggleAnnotationFocus,
     handleCreateAnnotation,
-    handleToggleRewriteStage,
+    handleEnterRewriteStage,
   };
 }

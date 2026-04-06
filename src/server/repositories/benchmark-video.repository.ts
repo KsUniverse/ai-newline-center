@@ -32,6 +32,7 @@ class BenchmarkVideoRepository {
       accountId: string;
       organizationId: string;
       title: string;
+      shareUrl?: string | null;
       coverUrl: string | null;
       coverSourceUrl?: string | null;
       coverStoragePath?: string | null;
@@ -60,6 +61,7 @@ class BenchmarkVideoRepository {
       create: data,
       update: {
         title: data.title,
+        shareUrl: data.shareUrl,
         coverUrl: data.coverUrl,
         coverSourceUrl: data.coverSourceUrl,
         coverStoragePath: data.coverStoragePath,
@@ -87,6 +89,7 @@ class BenchmarkVideoRepository {
       likeCount: number;
       commentCount: number;
       shareCount: number;
+      shareUrl?: string | null;
       collectCount?: number;
       admireCount?: number;
       recommendCount?: number;
@@ -101,6 +104,21 @@ class BenchmarkVideoRepository {
         },
       },
       data: stats,
+    });
+  }
+
+  async updateShareUrl(
+    id: string,
+    shareUrl: string,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkVideo> {
+    return db.benchmarkVideo.update({
+      where: {
+        id,
+      },
+      data: {
+        shareUrl,
+      },
     });
   }
 
