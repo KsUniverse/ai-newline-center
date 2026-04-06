@@ -7,6 +7,7 @@ import {
   createPubSubRedisClient,
   TRANSCRIPTION_CHANNEL_PREFIX,
 } from "@/lib/redis";
+import { aiWorkspaceRepository } from "@/server/repositories/ai-workspace.repository";
 import { transcriptionRepository } from "@/server/repositories/transcription.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 
@@ -46,30 +47,49 @@ export function startTranscriptionWorker(): void {
   const worker = new Worker<TranscriptionJobData>(
     TRANSCRIPTION_QUEUE_NAME,
     async (job) => {
-      const { transcriptionId, shareUrl, videoStoragePath, aiProviderKey } = job.data;
+      const {
+        transcriptionId,
+        shareUrl,
+        videoStoragePath,
+        aiProviderKey,
+        workspaceId,
+        organizationId,
+      } = job.data;
 
-      await transcriptionRepository.updateStatus(transcriptionId, {
-        status: "PROCESSING",
-        errorMessage: null,
-      });
-      await publisher.publish(
-        `${TRANSCRIPTION_CHANNEL_PREFIX}${transcriptionId}`,
-        JSON.stringify({
-          event: "status",
-          data: { transcriptionId, status: "PROCESSING" },
-        }),
-      );
+      if (!workspaceId) {
+        await transcriptionRepository.updateStatus(transcriptionId, {
+          status: "PROCESSING",
+          errorMessage: null,
+        });
+        await publisher.publish(
+          `${TRANSCRIPTION_CHANNEL_PREFIX}${transcriptionId}`,
+          JSON.stringify({
+            event: "status",
+            data: { transcriptionId, status: "PROCESSING" },
+          }),
+        );
+      }
 
       const promptSource = shareUrl ?? videoStoragePath;
       if (!promptSource) {
         throw new Error("Transcription job is missing shareUrl");
       }
 
-      const { text: originalText } = await aiGateway.generateText(
+      const { implementationKey, modelId, text: originalText } = await aiGateway.generateText(
         "TRANSCRIBE",
         buildShareUrlPrompt(promptSource),
         aiProviderKey ?? undefined,
       );
+
+      if (workspaceId) {
+        await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
+          originalText,
+          currentText: originalText,
+          aiProviderKey: implementationKey,
+          aiModel: modelId,
+        });
+        return;
+      }
 
       await transcriptionRepository.updateStatus(transcriptionId, {
         status: "COMPLETED",
@@ -97,6 +117,12 @@ export function startTranscriptionWorker(): void {
 
     try {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
+
+      if (job.data.workspaceId) {
+        await aiWorkspaceRepository.markQueuedTranscriptionFailed(job.data.workspaceId);
+        return;
+      }
+
       await transcriptionRepository.updateStatus(job.data.transcriptionId, {
         status: "FAILED",
         errorMessage,

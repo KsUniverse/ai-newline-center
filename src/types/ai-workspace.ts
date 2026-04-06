@@ -1,6 +1,4 @@
-﻿import type { AiStep } from "@/types/ai-config";
-
-export type AiWorkspaceStatus =
+﻿export type AiWorkspaceStatus =
   | "IDLE"
   | "TRANSCRIBING"
   | "TRANSCRIPT_DRAFT"
@@ -106,10 +104,5 @@ export interface SaveAnnotationInput {
 
 export interface SaveRewriteDraftInput {
   currentDraft: string;
-}
-
-export interface AiWorkspaceEntryContext {
-  videoId: string;
-  step: AiStep;
 }
 

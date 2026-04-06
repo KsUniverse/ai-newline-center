@@ -12,7 +12,6 @@ export { BenchmarkVideoList } from "./benchmark-video-list";
 export { BenchmarksPageView } from "./benchmarks-page";
 export { BenchmarksArchivedPageView } from "./benchmarks-archived-page";
 export { BenchmarkDetailPageView } from "./benchmark-detail-page";
-export { AiWorkspacePanel } from "./ai-workspace-panel";
-export { BenchmarkVideoDetailPanel } from "./benchmark-ai-workspace-panel";
+export { AiWorkspaceShell } from "./ai-workspace-shell";
 export { VideoTranscriptionPanel } from "./video-transcription-panel";
 export { VideoTranscriptionEditor } from "./video-transcription-editor";

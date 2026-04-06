@@ -8,6 +8,10 @@ import type { DouyinVideoDTO } from "@/types/douyin-account";
 import { getBenchmarkVideoEmptyDescription } from "./benchmark-copy";
 import { BenchmarkPagination } from "./benchmark-pagination";
 import { BenchmarkVideoGridCard } from "./benchmark-video-grid-card";
+import {
+  buildAiWorkspaceTransitionOrigin,
+  type AiWorkspaceTransitionOrigin,
+} from "./ai-workspace-transition";
 
 const LIMIT = 20;
 
@@ -17,7 +21,8 @@ interface BenchmarkVideoListProps {
   page: number;
   onPageChange: (page: number) => void;
   loading?: boolean;
-  onVideoClick?: (video: DouyinVideoDTO) => void;
+  activeVideoId?: string | null;
+  onVideoClick?: (video: DouyinVideoDTO, originRect: AiWorkspaceTransitionOrigin) => void;
 }
 
 export function BenchmarkVideoList({
@@ -26,6 +31,7 @@ export function BenchmarkVideoList({
   page,
   onPageChange,
   loading = false,
+  activeVideoId = null,
   onVideoClick,
 }: BenchmarkVideoListProps) {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
@@ -66,9 +72,10 @@ export function BenchmarkVideoList({
             key={video.id}
             video={video}
             isPlaying={playingVideoId === video.id}
+            hidden={activeVideoId === video.id}
             onHoverStart={() => setPlayingVideoId(video.id)}
             onHoverEnd={() => setPlayingVideoId(null)}
-            onClick={() => onVideoClick?.(video)}
+            onClick={(rect) => onVideoClick?.(video, buildAiWorkspaceTransitionOrigin(rect))}
           />
         ))}
       </div>

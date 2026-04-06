@@ -1,6 +1,10 @@
 ﻿import { BenchmarkVideo, UserRole } from "@prisma/client";
 
-import { getTranscriptionQueue, TRANSCRIPTION_QUEUE_NAME } from "@/lib/bullmq";
+import {
+  getTranscriptionQueue,
+  TRANSCRIPTION_QUEUE_NAME,
+  type TranscriptionJobData,
+} from "@/lib/bullmq";
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
 import {
@@ -14,15 +18,6 @@ import type {
   SaveRewriteDraftInput,
   SaveTranscriptInput,
 } from "@/types/ai-workspace";
-
-interface TranscriptionQueuePayload {
-  workspaceId: string;
-  videoId: string;
-  shareUrl: string;
-  videoStoragePath: string | null;
-  organizationId: string;
-  userId: string;
-}
 
 class AiWorkspaceService {
   private async getAccessibleBenchmarkVideo(videoId: string, caller: SessionUser) {
@@ -59,25 +54,62 @@ class AiWorkspaceService {
     return video.shareUrl;
   }
 
-  async getWorkspace(videoId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
-    const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
-    let workspace = await aiWorkspaceRepository.findByVideoIdAndUserId(videoId, caller.id);
-
-    if (!workspace) {
-      workspace = await aiWorkspaceRepository.create({
-        videoId,
-        userId: caller.id,
-        organizationId: video.account.organizationId,
-      });
+  private async ensureWorkspaceForVideo(
+    video: Awaited<ReturnType<typeof benchmarkVideoRepository.findByIdWithAccountOrganization>>,
+    caller: SessionUser,
+  ) {
+    if (!video) {
+      throw new AppError("VIDEO_NOT_FOUND", "视频不存在", 404);
     }
 
-    const latest = await aiWorkspaceRepository.findById(workspace.id);
+    const existing = await aiWorkspaceRepository.findByVideoIdAndUserId(video.id, caller.id);
+    if (existing) {
+      return existing;
+    }
+
+    return aiWorkspaceRepository.create({
+      videoId: video.id,
+      userId: caller.id,
+      organizationId: video.account.organizationId,
+    });
+  }
+
+  private async getWorkspaceRecordOrThrow(
+    workspaceId: string,
+    caller: SessionUser,
+  ): Promise<AiWorkspaceWithDetails> {
+    const workspace = await aiWorkspaceRepository.findById(workspaceId);
+    if (!workspace) {
+      throw new AppError("NOT_FOUND", "工作台不存在", 404);
+    }
+
+    this.assertWorkspaceAccess(workspace, caller);
+    return workspace;
+  }
+
+  private async getWorkspaceDtoOrThrow(workspaceId: string): Promise<AiWorkspaceDTO> {
+    const latest = await aiWorkspaceRepository.findById(workspaceId);
     if (!latest) {
       throw new AppError("NOT_FOUND", "工作台不存在", 404);
     }
 
-    this.assertWorkspaceAccess(latest, caller);
     return this.toDto(latest);
+  }
+
+  async getWorkspace(videoId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
+    await this.getAccessibleBenchmarkVideo(videoId, caller);
+    const workspace = await aiWorkspaceRepository.findByVideoIdAndUserId(videoId, caller.id);
+    if (!workspace) {
+      throw new AppError("NOT_FOUND", "工作台不存在", 404);
+    }
+
+    return this.getWorkspaceDtoOrThrow(workspace.id);
+  }
+
+  async ensureWorkspace(videoId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
+    const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
+    const workspace = await this.ensureWorkspaceForVideo(video, caller);
+    return this.getWorkspaceDtoOrThrow(workspace.id);
   }
 
   async startTranscription(
@@ -86,21 +118,14 @@ class AiWorkspaceService {
   ): Promise<AiWorkspaceDTO> {
     const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
     const shareUrl = this.requireTranscriptShareUrl(video);
-
-    let workspace = await aiWorkspaceRepository.findByVideoIdAndUserId(videoId, caller.id);
-    if (!workspace) {
-      workspace = await aiWorkspaceRepository.create({
-        videoId,
-        userId: caller.id,
-        organizationId: video.account.organizationId,
-      });
-    }
+    const workspace = await this.ensureWorkspaceForVideo(video, caller);
 
     await aiWorkspaceRepository.update(workspace.id, {
       status: "TRANSCRIBING",
     });
 
-    const payload: TranscriptionQueuePayload = {
+    const payload: TranscriptionJobData = {
+      transcriptionId: workspace.id,
       workspaceId: workspace.id,
       videoId,
       shareUrl,
@@ -111,15 +136,10 @@ class AiWorkspaceService {
 
     await getTranscriptionQueue().add(
       TRANSCRIPTION_QUEUE_NAME,
-      payload as unknown as never,
+      payload,
     );
 
-    const latest = await aiWorkspaceRepository.findById(workspace.id);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspace.id);
   }
 
   async saveTranscript(
@@ -127,12 +147,7 @@ class AiWorkspaceService {
     caller: SessionUser,
     input: SaveTranscriptInput,
   ): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    this.assertWorkspaceAccess(workspace, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
     await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
       currentText: input.currentText,
@@ -153,21 +168,11 @@ class AiWorkspaceService {
       })),
     );
 
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async confirmTranscript(workspaceId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    this.assertWorkspaceAccess(workspace, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
     await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
       isConfirmed: true,
@@ -179,21 +184,11 @@ class AiWorkspaceService {
       status: "TRANSCRIPT_CONFIRMED",
     });
 
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async unlockTranscript(workspaceId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    this.assertWorkspaceAccess(workspace, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
     await aiWorkspaceRepository.clearDependencies(workspaceId);
     await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
@@ -205,12 +200,7 @@ class AiWorkspaceService {
       status: "TRANSCRIPT_DRAFT",
     });
 
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async saveAnnotation(
@@ -218,12 +208,7 @@ class AiWorkspaceService {
     caller: SessionUser,
     input: SaveAnnotationInput,
   ): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    this.assertWorkspaceAccess(workspace, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
     await aiWorkspaceRepository.upsertAnnotation(
       workspaceId,
@@ -238,12 +223,7 @@ class AiWorkspaceService {
       status: "DECOMPOSING",
     });
 
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async updateAnnotation(
@@ -252,21 +232,18 @@ class AiWorkspaceService {
     caller: SessionUser,
     input: SaveAnnotationInput,
   ): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
+    await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+
+    const updated = await aiWorkspaceRepository.updateAnnotationInWorkspace(
+      workspaceId,
+      annotationId,
+      input,
+    );
+    if (!updated) {
+      throw new AppError("NOT_FOUND", "拆解不存在", 404);
     }
 
-    this.assertWorkspaceAccess(workspace, caller);
-
-    await aiWorkspaceRepository.updateAnnotation(annotationId, input);
-
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async deleteAnnotation(
@@ -274,21 +251,17 @@ class AiWorkspaceService {
     annotationId: string,
     caller: SessionUser,
   ): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
+    await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+
+    const deleted = await aiWorkspaceRepository.deleteAnnotationInWorkspace(
+      workspaceId,
+      annotationId,
+    );
+    if (!deleted) {
+      throw new AppError("NOT_FOUND", "拆解不存在", 404);
     }
 
-    this.assertWorkspaceAccess(workspace, caller);
-
-    await aiWorkspaceRepository.deleteAnnotation(annotationId);
-
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   async saveRewriteDraft(
@@ -296,12 +269,7 @@ class AiWorkspaceService {
     caller: SessionUser,
     input: SaveRewriteDraftInput,
   ): Promise<AiWorkspaceDTO> {
-    const workspace = await aiWorkspaceRepository.findById(workspaceId);
-    if (!workspace) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    this.assertWorkspaceAccess(workspace, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
     await aiWorkspaceRepository.upsertRewriteDraft(workspaceId, workspace.organizationId, {
       currentDraft: input.currentDraft,
@@ -327,12 +295,7 @@ class AiWorkspaceService {
       enteredRewriteAt: workspace.enteredRewriteAt ?? new Date(),
     });
 
-    const latest = await aiWorkspaceRepository.findById(workspaceId);
-    if (!latest) {
-      throw new AppError("NOT_FOUND", "工作台不存在", 404);
-    }
-
-    return this.toDto(latest);
+    return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
   private toDto(workspace: NonNullable<AiWorkspaceWithDetails>) {

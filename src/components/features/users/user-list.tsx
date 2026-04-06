@@ -1,10 +1,9 @@
 "use client";
 
-import { Ban, Building2, MoreHorizontal, Pencil, RotateCcw, ShieldCheck, Users } from "lucide-react";
+import { Ban, MoreHorizontal, Pencil, RotateCcw, Sparkles, Users } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
-import { MetaPillList } from "@/components/shared/common/meta-pill-list";
 import { TaskEmptyState } from "@/components/shared/common/task-empty-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -90,7 +89,7 @@ export function UserList({
 
   if (loading) {
     return (
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+      <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
@@ -106,34 +105,38 @@ export function UserList({
   }
 
   return (
-    <div className="space-y-5 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-primary">
-            <Users className="h-4 w-4" />
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">User Queue</p>
+    <div className="space-y-5">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">账号规模</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{users.length}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">当前筛选范围下可见的用户账号</p>
           </div>
-          <MetaPillList
-            items={[
-              { label: `共 ${users.length} 个账号`, icon: Users, tone: "primary" },
-              { label: `${activeCount} 个正常`, icon: ShieldCheck, tone: "success" },
-              { label: `${disabledCount} 个已禁用`, icon: Ban },
-            ]}
-          />
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">正常状态</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{activeCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">仍可登录并继续使用的账号数量</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">禁用状态</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{disabledCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">需要人工恢复后才可继续登录的账号</p>
+          </div>
         </div>
 
         {showOrgFilter && organizations ? (
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm lg:min-w-[18rem]">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
             <div className="flex items-center gap-2 text-primary">
-              <Building2 className="h-4 w-4" />
+              <Sparkles className="h-4 w-4" />
               <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Organization Filter</p>
             </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground/80">切换范围后，列表立即聚焦到对应分公司的用户队列。</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground/80">切换范围后，列表会立即聚焦到对应分公司的用户队列与启停状态。</p>
             <Select
               value={selectedOrgId ?? "all"}
               onValueChange={(value) => onOrgFilterChange?.(value === "all" ? "" : value)}
             >
-              <SelectTrigger className="mt-4 h-9 w-full border-border/60 bg-card text-sm shadow-sm">
+              <SelectTrigger className="mt-4 h-10 w-full rounded-2xl border-border/60 bg-card/90 text-sm shadow-sm">
                 <SelectValue placeholder="全部分公司" />
               </SelectTrigger>
               <SelectContent>
@@ -159,12 +162,12 @@ export function UserList({
         />
       ) : (
         <>
-          <div className="md:hidden space-y-3">
+          <div className="space-y-3 md:hidden">
             {users.map((user) => {
               const status = getStatusMeta(user.status);
 
               return (
-                <div key={user.id} className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+                <div key={user.id} className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -213,11 +216,11 @@ export function UserList({
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">所属分公司</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{user.organization.name}</p>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">状态</p>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
@@ -232,9 +235,9 @@ export function UserList({
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-2xl border border-border/60 md:block">
+          <div className="hidden overflow-hidden rounded-3xl border border-border/60 bg-background/80 md:block">
             <Table className="border-b-0 text-sm">
-              <TableHeader className={cn("bg-muted/20")}>
+              <TableHeader className={cn("bg-background/85 backdrop-blur-sm")}>
                 <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
                   <TableHead className="pl-5 font-semibold text-foreground/70">姓名</TableHead>
                   <TableHead className="font-semibold text-foreground/70">账号</TableHead>
@@ -250,8 +253,18 @@ export function UserList({
                   const status = getStatusMeta(user.status);
 
                   return (
-                    <TableRow key={user.id} className="group border-border/60 transition-colors hover:bg-muted/20">
-                      <TableCell className="pl-5 font-medium">{user.name}</TableCell>
+                    <TableRow key={user.id} className="group border-border/60 transition-colors hover:bg-primary/5">
+                      <TableCell className="pl-5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                            <Users className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground/95">{user.name}</p>
+                            <p className="text-xs text-muted-foreground/70">账户档案已纳入统一身份与权限管理</p>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground/80">{user.account}</TableCell>
                       <TableCell>
                         <div className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-2xs font-medium", ROLE_STYLES[user.role])}>
@@ -260,7 +273,7 @@ export function UserList({
                       </TableCell>
                       <TableCell className="text-muted-foreground">{user.organization.name}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-2.5 py-1 text-xs shadow-sm">
                           <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
                           <span className="text-muted-foreground">{status.label}</span>
                         </div>

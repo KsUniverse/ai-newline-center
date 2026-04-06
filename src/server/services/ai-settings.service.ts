@@ -20,7 +20,7 @@ class AiSettingsService {
 
     const [bindings, implementations] = await Promise.all([
       aiStepBindingRepository.findAll(),
-      Promise.resolve(aiGateway.listImplementations()),
+      aiGateway.listImplementations(),
     ]);
 
     return {

@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Cpu, HardDriveDownload, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { toast } from "sonner";
 
@@ -97,6 +100,7 @@ export function AiConfigPageView() {
     () => new Map(IMPLEMENTATIONS.map((implementation) => [implementation.key, implementation] as const)),
     [],
   );
+  const availableCount = IMPLEMENTATIONS.filter((implementation) => implementation.available).length;
 
   useEffect(() => {
     let cancelled = false;
@@ -161,90 +165,103 @@ export function AiConfigPageView() {
       }
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-        <section className="space-y-4 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">Step Binding</p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground/95">步骤绑定</h2>
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              {localDraft ? "前端草稿" : "远端同步"}
-            </Badge>
-          </div>
+        <div className="animate-in-up-d1 min-w-0">
+          <SurfaceSection
+            eyebrow="Step Binding"
+            title="步骤绑定"
+            description="分别为转录、拆解、仿写三个步骤选择当前默认实现，保持系统行为可解释、可替换。"
+            actions={
+              <MetaPillList
+                items={[
+                  { label: localDraft ? "前端草稿" : "远端同步", icon: localDraft ? Sparkles : CheckCircle2, tone: localDraft ? "default" : "success" },
+                  { label: `${availableCount} 个实现可用`, icon: Cpu, tone: "primary" },
+                ]}
+              />
+            }
+            bodyClassName="space-y-5"
+          >
+            <div className="grid gap-4">
+              {STEPS.map((step) => {
+                const selectedKey = bindings[step.step];
+                const selectedImplementation = selectedKey ? implementationMap.get(selectedKey) : null;
 
-          <div className="grid gap-4">
-            {STEPS.map((step) => {
-              const selectedKey = bindings[step.step];
-              const selectedImplementation = selectedKey ? implementationMap.get(selectedKey) : null;
-
-              return (
-                <div key={step.step} className="rounded-3xl border border-border/60 bg-background/75 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">{step.label}</p>
-                      <p className="text-sm leading-6 text-muted-foreground/80">{step.description}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {selectedImplementation?.name ?? "未选择"}
-                    </Badge>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                    <div className="space-y-1.5">
-                      <label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">绑定实现</label>
-                      <Select
-                        value={selectedKey ?? ""}
-                        onValueChange={(value) => {
-                          setBindings((current) => ({
-                            ...current,
-                            [step.step]: value || null,
-                          }));
-                          setLocalDraft(true);
-                        }}
-                      >
-                        <SelectTrigger className="h-9 rounded-md">
-                          <SelectValue placeholder="选择实现" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {IMPLEMENTATIONS.filter((implementation) => implementation.steps.includes(step.step)).map((implementation) => (
-                            <SelectItem key={implementation.key} value={implementation.key}>
-                              {implementation.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                return (
+                  <div key={step.step} className="rounded-3xl border border-border/60 bg-background/75 p-4 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">{step.label}</p>
+                        <p className="text-sm leading-6 text-muted-foreground/80">{step.description}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {selectedImplementation?.name ?? "未选择"}
+                      </Badge>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">当前状态</p>
-                      <div className="rounded-2xl border border-border/60 bg-card/90 p-3 text-sm leading-6 text-foreground/90">
-                        <p>{selectedImplementation?.provider ?? "未知厂商"}</p>
-                        <p className="mt-1 text-muted-foreground/75">
-                          {selectedImplementation?.available ? "可用" : "缺少环境变量，暂不可用"}
-                        </p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                      <div className="space-y-1.5">
+                        <label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">绑定实现</label>
+                        <Select
+                          value={selectedKey ?? ""}
+                          onValueChange={(value) => {
+                            setBindings((current) => ({
+                              ...current,
+                              [step.step]: value || null,
+                            }));
+                            setLocalDraft(true);
+                          }}
+                        >
+                          <SelectTrigger className="h-9 rounded-md">
+                            <SelectValue placeholder="选择实现" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {IMPLEMENTATIONS.filter((implementation) => implementation.steps.includes(step.step)).map((implementation) => (
+                              <SelectItem key={implementation.key} value={implementation.key}>
+                                {implementation.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">当前状态</p>
+                        <div className="rounded-2xl border border-border/60 bg-card/90 p-3 text-sm leading-6 text-foreground/90">
+                          <p>{selectedImplementation?.provider ?? "未知厂商"}</p>
+                          <p className="mt-1 text-muted-foreground/75">
+                            {selectedImplementation?.available ? "可用" : "缺少环境变量，暂不可用"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/60 bg-background/75 px-4 py-3 text-sm text-muted-foreground/80">
-            <span>页面只展示 env key 名称，不展示密钥本身。</span>
-            <span>{lastSavedAt ? `最近保存：${new Date(lastSavedAt).toLocaleString()}` : "尚未保存"}</span>
-          </div>
-        </section>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/60 bg-background/75 px-4 py-3 text-sm text-muted-foreground/80">
+              <span>页面只展示 env key 名称，不展示密钥本身。</span>
+              <span>{lastSavedAt ? `最近保存：${new Date(lastSavedAt).toLocaleString()}` : "尚未保存"}</span>
+            </div>
+          </SurfaceSection>
+        </div>
 
-        <aside className="space-y-4 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm">
-          <div>
-            <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">Implementation Catalog</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight text-foreground/95">实现目录</h2>
-          </div>
-
-          <div className="space-y-3">
+        <div className="animate-in-up-d2 min-w-0">
+          <SurfaceSection
+            eyebrow="Implementation Catalog"
+            title="实现目录"
+            description="查看当前可选实现、适用步骤和环境依赖，作为步骤绑定前的快速参考。"
+            actions={
+              <MetaPillList
+                items={[
+                  { label: `${IMPLEMENTATIONS.length} 个实现`, icon: Wand2, tone: "primary" },
+                  { label: `${STEPS.length} 个步骤`, icon: HardDriveDownload },
+                ]}
+              />
+            }
+            bodyClassName="space-y-3"
+          >
             {IMPLEMENTATIONS.map((implementation) => (
-              <article key={implementation.key} className="rounded-3xl border border-border/60 bg-background/75 p-4">
+              <article key={implementation.key} className="rounded-3xl border border-border/60 bg-background/75 p-4 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold tracking-tight text-foreground/95">{implementation.name}</h3>
@@ -268,8 +285,8 @@ export function AiConfigPageView() {
                 </p>
               </article>
             ))}
-          </div>
-        </aside>
+          </SurfaceSection>
+        </div>
       </div>
     </DashboardPageShell>
   );

@@ -11,14 +11,16 @@ import { getBenchmarkVideoStatusLabel } from "./benchmark-copy";
 interface BenchmarkVideoGridCardProps {
   video: DouyinVideoDTO;
   isPlaying: boolean;
+  hidden?: boolean;
   onHoverStart: () => void;
   onHoverEnd: () => void;
-  onClick: () => void;
+  onClick: (rect: DOMRect) => void;
 }
 
 export function BenchmarkVideoGridCard({
   video,
   isPlaying,
+  hidden = false,
   onHoverStart,
   onHoverEnd,
   onClick,
@@ -43,10 +45,13 @@ export function BenchmarkVideoGridCard({
   return (
     <button
       type="button"
-      className="group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
+      className={cn(
+        "group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        hidden && "opacity-0 pointer-events-none",
+      )}
       onMouseEnter={onHoverStart}
       onMouseLeave={onHoverEnd}
-      onClick={onClick}
+      onClick={(event) => onClick(event.currentTarget.getBoundingClientRect())}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.16),transparent_34%)]" />
 

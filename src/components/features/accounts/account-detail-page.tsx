@@ -182,7 +182,6 @@ export function AccountDetailPageView() {
       backHref="/accounts"
       backLabel={ACCOUNTS_BACK_LABEL}
       maxWidth="wide"
-      surfaceHeader
     >
       <div className="animate-in-up-d1">
         {loading || !account ? (

@@ -158,7 +158,6 @@ bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60
   backHref="/accounts"
   backLabel="返回账号列表"
   actions={...}
-  surfaceHeader
 >
   {children}
 </DashboardPageShell>
@@ -168,7 +167,8 @@ bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60
 
 - 容器限宽统一由组件负责，页面不要手写另一套顶层 `max-w-*` 容器
 - 有父级列表页的详情页优先使用返回 chip，而不是裸文字链接
-- 标题区允许 `surfaceHeader`，用于详情页和强调型头部
+- 页面标题区统一保持轻页头，不再为二级页面追加独立的重页头卡片
+- 标题区主操作按钮优先直接挂在 `DashboardPageShell.actions`，保持标题、动作和返回入口属于同一层级
 
 ### Dashboard 首页
 
@@ -209,6 +209,7 @@ Dashboard 首页默认采用**快捷入口模式**：
 | `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-3xl`、`bg-card/95`、关闭按钮使用小型图标壳 |
 | `AlertDialog` | 删除、确认、危险动作 | Header/Footer 分区明确，按钮规格统一 `h-8 rounded-md px-3` |
 | `Sheet` | 长表单、复杂流程、移动端导航 | 半透明浮层表面、右侧/左侧滑出、统一关闭按钮 |
+| `Fullscreen Workspace Overlay` | 沉浸式三栏工作流、共享元素展开 | 全屏卡片化壳、来源卡片共享展开、关闭时反向回收 |
 
 ### 交互选择顺序
 
@@ -216,6 +217,18 @@ Dashboard 首页默认采用**快捷入口模式**：
 2. 短表单或短内容：`Dialog`
 3. 长表单、分步流程、移动导航：`Sheet`
 4. 轻量上下文动作：`DropdownMenu`
+
+### Fullscreen Workspace Overlay
+
+这是当前新增的稳定模式，用于 AI 工作台这类“分析优先、创作后置”的连续任务流。
+
+视觉与交互约束：
+
+- 来源通常是一张列表卡片，打开时应保持“卡片被放大并进入工作台”的连续感。
+- 工作台本体继续使用项目现有 `rounded-[28px] border border-border/60 bg-card/95 shadow-2xl` 表面体系，不另起一套皮肤。
+- 背景遮罩、壳层 chrome、正文区和侧栏区允许分阶段淡入，但动效必须服从内容，不可喧宾夺主。
+- 关闭时优先反向回收至来源卡片；若无来源锚点，才退化为普通淡出关闭。
+- 同一模式下必须支持 `Escape`、点击 backdrop 关闭、body scroll lock，以及来源卡片在工作台打开期间隐藏、关闭时再显现。
 
 ## 内容模式
 
@@ -235,6 +248,8 @@ Dashboard 首页默认采用**快捷入口模式**：
 - 列表首页默认使用**任务优先的轻页头**，只保留标题、简短描述和主操作
 - 不要在首屏插入大段“原理说明型” hero / overview 区块占据主要空间
 - 说明类信息优先下沉到 helper text、空状态、抽屉说明和详情页，而不是首页首屏
+- 摘要卡片允许搭配一张右侧或下方的 contextual sidecar 卡片，用于放筛选说明、启停提示或管理注意事项，但文案必须保持简短，不能膨胀成第二个 hero
+- 列表容器允许叠加轻量品牌气氛层（渐变 + dot-grid），但表格和卡片的可读性必须始终优先于装饰
 
 ### 表格模式
 
@@ -285,7 +300,7 @@ Dashboard 首页默认采用**快捷入口模式**：
 - 返回 chip
 - 眉标 + 标题 + 描述
 - 动作区与内容区解耦
-- 内容主体使用 `maxWidth="wide"` 或 `surfaceHeader`
+- 内容主体使用 `maxWidth="wide"`
 - 详情页顶部状态条与二级区块摘要统一使用 compact chips，不再额外造一套 span 标签样式
 
 ### 加载、空态与反馈

@@ -18,7 +18,6 @@ interface DashboardPageShellProps {
   backHref?: string;
   backLabel?: string;
   maxWidth?: keyof typeof maxWidthClassName;
-  surfaceHeader?: boolean;
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
@@ -32,7 +31,6 @@ export function DashboardPageShell({
   backHref,
   backLabel,
   maxWidth = "default",
-  surfaceHeader = false,
   className,
   bodyClassName,
   children,
@@ -48,7 +46,6 @@ export function DashboardPageShell({
       <div
         className={cn(
           "animate-in-up flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between",
-          surfaceHeader && "rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm supports-backdrop-filter:bg-card/70",
         )}
       >
         <div className="space-y-1.5">

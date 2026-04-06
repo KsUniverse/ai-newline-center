@@ -335,58 +335,110 @@ class UserRepository {
 
 ## AI Gateway
 
-统一的 AI 调用网关，基于 Vercel AI SDK 封装，从数据库读取模型配置。
+统一的 AI 调用网关，基于 Vercel AI SDK 封装。**实现方式清单由服务端代码注册，敏感配置来自 `env`，数据库只持久化系统级步骤绑定**。
 
 ```typescript
 // src/server/services/ai-gateway.service.ts
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText, streamText } from "ai";
-import { aiProviderRepository } from "@/server/repositories/ai-provider.repository";
-import { promptTemplateRepository } from "@/server/repositories/prompt-template.repository";
+import { generateText } from "ai";
+
+import { env } from "@/lib/env";
+import { AppError } from "@/lib/errors";
+import { aiStepBindingRepository } from "@/server/repositories/ai-step-binding.repository";
 
 type AiStep = "TRANSCRIBE" | "ANALYZE" | "REWRITE";
 
+interface AiImplementationDefinition {
+  key: string;
+  name: string;
+  supportedSteps: AiStep[];
+  getAvailability(): { available: boolean; missingEnvKeys: string[] };
+  execute(prompt: string): Promise<{ modelId: string; text: string }>;
+}
+
+const registry: Record<string, AiImplementationDefinition> = {
+  "ark-chat-default": {
+    key: "ark-chat-default",
+    name: "Volcengine Ark Chat",
+    supportedSteps: ["TRANSCRIBE", "ANALYZE", "REWRITE"],
+    getAvailability() {
+      const missingEnvKeys = [
+        !env.ARK_API_KEY ? "ARK_API_KEY" : null,
+        !env.ARK_CHAT_MODEL_ID ? "ARK_CHAT_MODEL_ID" : null,
+      ].filter(Boolean) as string[];
+
+      return {
+        available: missingEnvKeys.length === 0,
+        missingEnvKeys,
+      };
+    },
+    async execute(prompt) {
+      const client = createOpenAI({
+        apiKey: env.ARK_API_KEY,
+        baseURL: env.ARK_BASE_URL,
+      });
+
+      const { text } = await generateText({
+        model: client(env.ARK_CHAT_MODEL_ID),
+        prompt,
+      });
+
+      return {
+        modelId: env.ARK_CHAT_MODEL_ID,
+        text,
+      };
+    },
+  },
+};
+
 class AiGatewayService {
-  /** 获取指定步骤的 Provider 实例 */
-  private async getProvider(step: AiStep) {
-    const config = await aiProviderRepository.findActiveByStep(step);
-    if (!config) throw new AppError("AI_NOT_CONFIGURED", `${step} 步骤未配置 AI 模型`);
-    return createOpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-    });
-  }
+  async generate(step: AiStep, prompt: string): Promise<{ implementationKey: string; modelId: string; text: string }> {
+    const binding = await aiStepBindingRepository.findByStep(step);
+    if (!binding?.implementationKey) {
+      throw new AppError("AI_STEP_NOT_CONFIGURED", `${step} 步骤未配置可执行实现`, 409);
+    }
 
-  /** 同步生成 (适合转录等短任务) */
-  async generate(step: AiStep, variables: Record<string, string>): Promise<string> {
-    const provider = await this.getProvider(step);
-    const template = await promptTemplateRepository.findByStep(step);
-    const prompt = this.interpolate(template.content, variables);
-    const { text } = await generateText({
-      model: provider(template.modelId),
-      prompt,
-    });
-    return text;
-  }
+    const implementation = registry[binding.implementationKey];
+    if (!implementation) {
+      throw new AppError("AI_IMPLEMENTATION_NOT_FOUND", "AI 实现不存在", 409);
+    }
 
-  /** 流式生成 (适合拆解/仿写等长任务) */
-  async stream(step: AiStep, variables: Record<string, string>) {
-    const provider = await this.getProvider(step);
-    const template = await promptTemplateRepository.findByStep(step);
-    const prompt = this.interpolate(template.content, variables);
-    return streamText({
-      model: provider(template.modelId),
-      prompt,
-    });
-  }
+    const availability = implementation.getAvailability();
+    if (!availability.available) {
+      throw new AppError("AI_IMPLEMENTATION_UNAVAILABLE", "AI 实现当前不可用", 409);
+    }
 
-  private interpolate(template: string, vars: Record<string, string>): string {
-    return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
+    const result = await implementation.execute(prompt);
+
+    return {
+      implementationKey: implementation.key,
+      modelId: result.modelId,
+      text: result.text,
+    };
   }
 }
 
 export const aiGateway = new AiGatewayService();
 ```
+
+补充说明：
+
+- v0.3.1 的 Prompt 先走代码内固定常量，不要求数据库中的 `PromptTemplate`
+- 后续若引入 Prompt 模板管理，可在 `buildPrompt(step, input)` 层追加模板读取，而不破坏步骤绑定结构
+
+### AI Workspace 转录队列
+
+AI Workspace 与旧 `Transcription` 领域当前共用 `transcription` BullMQ 队列，但**写回目标不同**：
+
+- 传统转录任务：写回 `Transcription`
+- AI Workspace 转录任务：写回 `AiWorkspaceTranscript` + `AiWorkspace.status`
+
+约束：
+
+- 队列 payload 必须显式满足 `TranscriptionJobData`，禁止通过双重类型断言把不完整 payload 强塞进队列。
+- 当 payload 含 `workspaceId` 时，worker 必须把结果写回 AI workspace 聚合，而不是旧 `Transcription` 表。
+- `GET /api/ai-workspaces` 保持只读；首次创建 workspace 通过显式 ensure/create 动作完成，不把创建副作用藏在 GET 里。
+- 同一类共享队列如果后续继续承载多个领域，必须始终由 payload 上的显式字段决定写回目标，不能依赖隐式猜测。
 
 ---
 

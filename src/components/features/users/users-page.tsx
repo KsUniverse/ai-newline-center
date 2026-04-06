@@ -10,6 +10,8 @@ import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
 import { managementClient } from "@/lib/management-client";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { Button } from "@/components/ui/button";
 
@@ -34,6 +36,13 @@ export function UsersPageView() {
 
   const callerRole = currentUser?.role ?? "EMPLOYEE";
   const isSuperAdmin = callerRole === "SUPER_ADMIN";
+  const activeCount = users.filter((user) => user.status === "ACTIVE").length;
+  const disabledCount = users.length - activeCount;
+  const selectedOrganizationName = selectedOrgId
+    ? organizations.find((organization) => organization.id === selectedOrgId)?.name ?? "已筛选分公司"
+    : isSuperAdmin
+      ? "全部分公司"
+      : organizations[0]?.name ?? "当前分公司";
 
   const redirected = useRef(false);
   useEffect(() => {
@@ -188,27 +197,43 @@ export function UsersPageView() {
           ? "统一维护全平台用户账号、组织归属和启停状态。"
           : "维护本公司用户账号、角色和启停状态。"
       }
-      surfaceHeader
       maxWidth="wide"
       actions={
-        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
+        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建用户
         </Button>
       }
     >
       <div className="animate-in-up-d1 w-full">
-        <UserList
-          users={users}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
-          organizations={isSuperAdmin ? organizations : undefined}
-          showOrgFilter={isSuperAdmin}
-          selectedOrgId={selectedOrgId}
-          onOrgFilterChange={setSelectedOrgId}
-          loading={loading}
-          currentUserId={currentUser?.id}
-        />
+        <SurfaceSection
+          eyebrow="User Queue"
+          title="账号、角色与组织归属"
+          description="在当前列表直接完成用户档案维护、角色分配和启停动作，桌面表格与移动卡片共用一套状态语言。"
+          actions={
+            <MetaPillList
+              items={[
+                { label: `共 ${users.length} 个账号`, tone: "primary" },
+                { label: `${activeCount} 个正常`, tone: "success" },
+                { label: `${disabledCount} 个已禁用` },
+                { label: selectedOrganizationName },
+              ]}
+            />
+          }
+          bodyClassName="space-y-5"
+        >
+          <UserList
+            users={users}
+            onEdit={handleEdit}
+            onToggleStatus={handleToggleStatus}
+            organizations={isSuperAdmin ? organizations : undefined}
+            showOrgFilter={isSuperAdmin}
+            selectedOrgId={selectedOrgId}
+            onOrgFilterChange={setSelectedOrgId}
+            loading={loading}
+            currentUserId={currentUser?.id}
+          />
+        </SurfaceSection>
       </div>
 
       <UserDialog

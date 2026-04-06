@@ -1,9 +1,8 @@
 "use client";
 
-import { Ban, Building2, MoreHorizontal, Pencil, RotateCcw, ShieldCheck, Users } from "lucide-react";
+import { Ban, Building2, MoreHorizontal, Pencil, RotateCcw, Sparkles } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
-import { MetaPillList } from "@/components/shared/common/meta-pill-list";
 import { TaskEmptyState } from "@/components/shared/common/task-empty-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,12 +55,11 @@ export function OrganizationList({
   loading,
 }: OrganizationListProps) {
   const activeCount = organizations.filter((org) => org.status === "ACTIVE").length;
-  const disabledCount = organizations.length - activeCount;
   const totalUsers = organizations.reduce((count, org) => count + (org._count?.users ?? 0), 0);
 
   if (loading) {
     return (
-      <div className="space-y-4 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+      <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
@@ -77,19 +75,35 @@ export function OrganizationList({
   }
 
   return (
-    <div className="space-y-5 rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-primary">
-          <Building2 className="h-4 w-4" />
-          <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Organization Queue</p>
+    <div className="space-y-5">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">分公司规模</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{organizations.length}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">当前纳入统一管理的组织数量</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">账号承载</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{totalUsers}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">分布在各分公司的累计用户账号</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">可用状态</p>
+            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{activeCount}</p>
+            <p className="mt-1 text-sm text-muted-foreground/80">仍处于正常运行状态的分公司</p>
+          </div>
         </div>
-        <MetaPillList
-          items={[
-            { label: `共 ${organizations.length} 个分公司`, icon: Building2, tone: "primary" },
-            { label: `累计 ${totalUsers} 个账号`, icon: Users },
-            { label: `${activeCount} 正常 / ${disabledCount} 禁用`, icon: ShieldCheck, tone: activeCount > 0 ? "success" : "default" },
-          ]}
-        />
+
+        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-2 text-primary">
+            <Sparkles className="h-4 w-4" />
+            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Admin Hint</p>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
+            禁用分公司会联动其下用户状态，启用分公司后仍需按需恢复具体账号。
+          </p>
+        </div>
       </div>
 
       {organizations.length === 0 ? (
@@ -108,10 +122,15 @@ export function OrganizationList({
               const status = getStatusMeta(org.status);
 
               return (
-                <div key={org.id} className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+                <div key={org.id} className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
-                      <p className="text-base font-semibold tracking-tight text-foreground/95">{org.name}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                          <Building2 className="h-4 w-4" />
+                        </div>
+                        <p className="text-base font-semibold tracking-tight text-foreground/95">{org.name}</p>
+                      </div>
                       <div className="flex items-center gap-1.5 text-sm">
                         <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
                         <span className="text-muted-foreground">{status.label}</span>
@@ -151,11 +170,11 @@ export function OrganizationList({
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">用户数</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{org._count?.users ?? 0} 个</p>
                     </div>
-                    <div className="rounded-xl border border-border/60 bg-card/70 p-3">
+                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">创建时间</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{formatDate(org.createdAt)}</p>
                     </div>
@@ -165,9 +184,9 @@ export function OrganizationList({
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-2xl border border-border/60 md:block">
+          <div className="hidden overflow-hidden rounded-3xl border border-border/60 bg-background/80 md:block">
             <Table className="border-b-0 text-sm">
-              <TableHeader className="bg-muted/20">
+              <TableHeader className="bg-background/85 backdrop-blur-sm">
                 <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
                   <TableHead className="pl-5 font-semibold text-foreground/70">公司名称</TableHead>
                   <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
@@ -181,11 +200,21 @@ export function OrganizationList({
                   const status = getStatusMeta(org.status);
 
                   return (
-                    <TableRow key={org.id} className="group border-border/60 transition-colors hover:bg-muted/20">
-                      <TableCell className="pl-5 font-medium">{org.name}</TableCell>
+                    <TableRow key={org.id} className="group border-border/60 transition-colors hover:bg-primary/5">
+                      <TableCell className="pl-5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                            <Building2 className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground/95">{org.name}</p>
+                            <p className="text-xs text-muted-foreground/70">组织档案已纳入统一权限与账号管理</p>
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right font-mono text-muted-foreground/80">{org._count?.users ?? 0}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-2.5 py-1 text-xs shadow-sm">
                           <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
                           <span className="text-muted-foreground">{status.label}</span>
                         </div>

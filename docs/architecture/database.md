@@ -175,36 +175,31 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 5. 表名 `@@map()` 使用 snake_case 复数
 6. 禁止手动修改已提交的迁移文件
 7. 枚举值使用 UPPER_SNAKE_CASE
-8. 系统配置表 (AiProvider, PromptTemplate) 不需要 organizationId（全局共享）
+8. 系统级 AI 配置模型（如 `AiStepBinding`，以及后续可能引入的 `PromptTemplate`）不需要 organizationId（全局共享）
 9. 仅因 `status/archive` 区分的近似视图，优先单模型承载；若权限与下游链路已分叉，则及时拆为独立模型
 
 ## 系统模型 (AI/任务)
 
 ```prisma
-// AI 模型配置（管理员管理）
-model AiProvider {
-  id        String       @id @default(cuid())
-  name      String       // 显示名称 (如 "GPT-4o", "Claude 3.5")
-  provider  String       // 厂商标识 (如 "openai", "anthropic")
-  modelId   String       // 模型ID (如 "gpt-4o", "claude-3-5-sonnet")
-  apiKey    String       // 加密存储
-  baseUrl   String       // API 地址
-  step      AiStep       // 适用步骤
-  isDefault Boolean      @default(false)
-  isActive  Boolean      @default(true)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-
-  @@map("ai_providers")
-}
-
 enum AiStep {
   TRANSCRIBE
   ANALYZE
   REWRITE
 }
 
-// Prompt 模板
+// AI 步骤绑定（管理员管理）
+// 注意：实现方式清单与密钥不落 DB，运行时从代码注册表 + env 计算可用性。
+model AiStepBinding {
+  id                String   @id @default(cuid())
+  step              AiStep   @unique
+  implementationKey String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("ai_step_bindings")
+}
+
+// Prompt 模板（未来版本可选系统模型）
 model PromptTemplate {
   id        String   @id @default(cuid())
   name      String

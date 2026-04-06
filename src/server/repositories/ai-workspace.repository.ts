@@ -75,6 +75,13 @@ export interface UpsertRewriteDraftData {
   sourceDecompositionSnapshot?: Prisma.InputJsonValue;
 }
 
+export interface CompleteWorkspaceTranscriptionData {
+  originalText: string;
+  currentText: string;
+  aiProviderKey?: string | null;
+  aiModel?: string | null;
+}
+
 class AiWorkspaceRepository {
   private async runTransaction<T>(
     db: DatabaseClient,
@@ -225,13 +232,17 @@ class AiWorkspaceRepository {
     return annotation;
   }
 
-  async updateAnnotation(
+  async updateAnnotationInWorkspace(
+    workspaceId: string,
     annotationId: string,
     data: Omit<UpsertAnnotationData, "createdByUserId">,
     db: DatabaseClient = prisma,
-  ): Promise<AiDecompositionAnnotation> {
-    const annotation = await db.aiDecompositionAnnotation.update({
-      where: { id: annotationId },
+  ): Promise<boolean> {
+    const result = await db.aiDecompositionAnnotation.updateMany({
+      where: {
+        id: annotationId,
+        workspaceId,
+      },
       data: {
         segmentId: data.segmentId ?? null,
         startOffset: data.startOffset,
@@ -246,13 +257,22 @@ class AiWorkspaceRepository {
       },
     });
 
-    return annotation;
+    return result.count > 0;
   }
 
-  async deleteAnnotation(annotationId: string, db: DatabaseClient = prisma): Promise<void> {
-    await db.aiDecompositionAnnotation.delete({
-      where: { id: annotationId },
+  async deleteAnnotationInWorkspace(
+    workspaceId: string,
+    annotationId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<boolean> {
+    const result = await db.aiDecompositionAnnotation.deleteMany({
+      where: {
+        id: annotationId,
+        workspaceId,
+      },
     });
+
+    return result.count > 0;
   }
 
   async clearDependencies(workspaceId: string, db: DatabaseClient = prisma): Promise<void> {
@@ -307,10 +327,56 @@ class AiWorkspaceRepository {
     });
   }
 
-  async deleteRewriteDraft(workspaceId: string, db: DatabaseClient = prisma): Promise<void> {
-    await db.aiRewriteDraft.deleteMany({
-      where: {
-        workspaceId,
+  async completeQueuedTranscription(
+    workspaceId: string,
+    organizationId: string,
+    data: CompleteWorkspaceTranscriptionData,
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await this.runTransaction(db, async (tx: Prisma.TransactionClient) => {
+      await tx.aiWorkspaceTranscript.upsert({
+        where: {
+          workspaceId,
+        },
+        create: {
+          workspaceId,
+          organizationId,
+          originalText: data.originalText,
+          currentText: data.currentText,
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: new Date(),
+          aiProviderKey: data.aiProviderKey ?? null,
+          aiModel: data.aiModel ?? null,
+        },
+        update: {
+          originalText: data.originalText,
+          currentText: data.currentText,
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: new Date(),
+          aiProviderKey: data.aiProviderKey ?? null,
+          aiModel: data.aiModel ?? null,
+        },
+      });
+
+      await tx.aiWorkspace.update({
+        where: { id: workspaceId },
+        data: {
+          status: "TRANSCRIPT_DRAFT",
+        },
+      });
+    });
+  }
+
+  async markQueuedTranscriptionFailed(
+    workspaceId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await db.aiWorkspace.update({
+      where: { id: workspaceId },
+      data: {
+        status: "IDLE",
       },
     });
   }

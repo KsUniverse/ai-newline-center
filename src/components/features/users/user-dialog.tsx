@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AtSign, KeyRound, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
@@ -115,36 +116,54 @@ export function UserDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg border-border/60 bg-card/95 p-0 shadow-2xl shadow-black/15">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_34%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.06),transparent_28%)]" />
         <DialogHeader className="border-b border-border/60 px-6 py-6 text-left">
-          <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
-            Administration
-          </p>
-          <DialogTitle className="text-lg font-semibold tracking-tight text-foreground/95">
-            {mode === "create" ? "新建用户" : "编辑用户"}
-          </DialogTitle>
-          <DialogDescription className="text-sm leading-6 text-muted-foreground/80">
-            {mode === "create"
-              ? "创建后即可分配角色与组织归属，并进入统一的用户管理列表。"
-              : "只允许编辑用户名称与角色；账号与组织归属保持只读。"}
-          </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+              <UserRound className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
+                Administration
+              </p>
+              <DialogTitle className="text-lg font-semibold tracking-tight text-foreground/95">
+                {mode === "create" ? "新建用户" : "编辑用户"}
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-6 text-muted-foreground/80">
+                {mode === "create"
+                  ? "创建后即可分配角色与组织归属，并进入统一的用户管理列表。"
+                  : "只允许编辑用户名称与角色；账号与组织归属保持只读。"}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-6 py-6">
+        <form onSubmit={handleSubmit} className="relative flex flex-col gap-5 px-6 py-6">
           <div className="grid gap-4 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm sm:p-5">
+            <div className="flex items-center gap-2 text-primary">
+              <UserRound className="h-4 w-4" />
+              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Identity</p>
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="user-name" className="text-sm font-medium">
                 姓名 <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="user-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="请输入姓名"
-                maxLength={50}
-                disabled={loading}
-                autoFocus
-                className="border-border/60 bg-card"
-              />
+              <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/90 px-3 py-2.5 shadow-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
+                  <UserRound className="h-4 w-4" />
+                </span>
+                <Input
+                  id="user-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="请输入姓名"
+                  maxLength={50}
+                  disabled={loading}
+                  autoFocus
+                  className="h-auto border-0 bg-transparent px-0 py-0 shadow-none"
+                />
+              </div>
               {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
 
@@ -153,15 +172,20 @@ export function UserDialog({
                 <Label htmlFor="user-account" className="text-sm font-medium">
                   账号 {mode === "create" && <span className="text-destructive">*</span>}
                 </Label>
-                <Input
-                  id="user-account"
-                  value={mode === "create" ? account : (defaultValues?.account ?? "")}
-                  onChange={(e) => mode === "create" && setAccount(e.target.value)}
-                  placeholder={mode === "create" ? "字母/数字/下划线" : undefined}
-                  readOnly={mode === "edit"}
-                  disabled={loading}
-                  className={mode === "edit" ? "cursor-not-allowed border-border/60 bg-muted text-muted-foreground" : "border-border/60 bg-card"}
-                />
+                <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/90 px-3 py-2.5 shadow-sm">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-primary">
+                    <AtSign className="h-4 w-4" />
+                  </span>
+                  <Input
+                    id="user-account"
+                    value={mode === "create" ? account : (defaultValues?.account ?? "")}
+                    onChange={(e) => mode === "create" && setAccount(e.target.value)}
+                    placeholder={mode === "create" ? "字母/数字/下划线" : undefined}
+                    readOnly={mode === "edit"}
+                    disabled={loading}
+                    className={mode === "edit" ? "h-auto cursor-not-allowed border-0 bg-transparent px-0 py-0 text-muted-foreground shadow-none" : "h-auto border-0 bg-transparent px-0 py-0 shadow-none"}
+                  />
+                </div>
                 {errors.account && <p className="text-xs text-destructive">{errors.account}</p>}
                 {mode === "edit" ? <p className="text-xs text-muted-foreground">账号创建后不可修改</p> : null}
               </div>
@@ -171,15 +195,20 @@ export function UserDialog({
                   <Label htmlFor="user-password" className="text-sm font-medium">
                     密码 <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="user-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="至少 6 位"
-                    disabled={loading}
-                    className="border-border/60 bg-card"
-                  />
+                  <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/90 px-3 py-2.5 shadow-sm">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-primary">
+                      <KeyRound className="h-4 w-4" />
+                    </span>
+                    <Input
+                      id="user-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="至少 6 位"
+                      disabled={loading}
+                      className="h-auto border-0 bg-transparent px-0 py-0 shadow-none"
+                    />
+                  </div>
                   {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                 </div>
               ) : null}
@@ -187,6 +216,10 @@ export function UserDialog({
           </div>
 
           <div className="grid gap-4 rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm sm:grid-cols-2 sm:p-5">
+            <div className="sm:col-span-2 flex items-center gap-2 text-primary">
+              <ShieldCheck className="h-4 w-4" />
+              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Authorization</p>
+            </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-medium">
                 角色 <span className="text-destructive">*</span>
@@ -196,7 +229,7 @@ export function UserDialog({
                 onValueChange={(value) => setRole(value as UserDTO["role"])}
                 disabled={loading}
               >
-                <SelectTrigger className="border-border/60 bg-card">
+                <SelectTrigger className="rounded-2xl border-border/60 bg-card shadow-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -215,7 +248,7 @@ export function UserDialog({
               </Label>
               {mode === "create" ? (
                 <Select value={organizationId} onValueChange={setOrganizationId} disabled={loading}>
-                  <SelectTrigger className="border-border/60 bg-card">
+                  <SelectTrigger className="rounded-2xl border-border/60 bg-card shadow-sm">
                     <SelectValue placeholder="请选择分公司" />
                   </SelectTrigger>
                   <SelectContent>
@@ -234,12 +267,22 @@ export function UserDialog({
                   }
                   readOnly
                   disabled={loading}
-                  className="cursor-not-allowed border-border/60 bg-muted text-muted-foreground"
+                  className="cursor-not-allowed rounded-2xl border-border/60 bg-muted text-muted-foreground"
                 />
               )}
               {errors.organizationId ? <p className="text-xs text-destructive">{errors.organizationId}</p> : null}
               {mode === "edit" ? <p className="text-xs text-muted-foreground">用户归属组织创建后不可修改</p> : null}
             </div>
+          </div>
+
+          <div className="rounded-3xl border border-border/60 bg-background/80 px-4 py-4 shadow-sm">
+            <div className="flex items-center gap-2 text-primary">
+              <Sparkles className="h-4 w-4" />
+              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Management Note</p>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
+              角色决定该账号可见的管理范围；组织归属决定它会进入哪一条数据隔离链路。
+            </p>
           </div>
 
           <DialogFooter className="gap-2 border-t border-border/60 pt-5">

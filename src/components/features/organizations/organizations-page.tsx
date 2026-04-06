@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import type { OrganizationDTO } from "@/types/organization";
 import { managementClient } from "@/lib/management-client";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { Button } from "@/components/ui/button";
 
@@ -135,6 +137,9 @@ export function OrganizationsPageView() {
   }
 
   const userCount = pendingStatusOrg?._count?.users ?? 0;
+  const activeCount = organizations.filter((organization) => organization.status === "ACTIVE").length;
+  const disabledCount = organizations.length - activeCount;
+  const totalUsers = organizations.reduce((count, organization) => count + (organization._count?.users ?? 0), 0);
   const confirmDescription =
     pendingStatusOrg?.status === "ACTIVE"
       ? `该分公司下 ${userCount} 个用户账号将同时被禁用，是否继续？`
@@ -145,22 +150,37 @@ export function OrganizationsPageView() {
       eyebrow="Administration"
       title="组织管理"
       description="维护集团旗下分公司、组织状态与启停策略。"
-      surfaceHeader
       maxWidth="wide"
       actions={
-        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md text-sm px-3 shadow-sm">
+        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建分公司
         </Button>
       }
     >
       <div className="animate-in-up-d1 w-full">
-        <OrganizationList
-          organizations={organizations}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
-          loading={loading}
-        />
+        <SurfaceSection
+          eyebrow="Organization Queue"
+          title="分公司档案与启停策略"
+          description="统一查看集团下各分公司的状态、账号规模和创建节奏，所有启停动作都在当前列表完成。"
+          actions={
+            <MetaPillList
+              items={[
+                { label: `共 ${organizations.length} 个分公司`, tone: "primary" },
+                { label: `累计 ${totalUsers} 个账号` },
+                { label: `${activeCount} 正常 / ${disabledCount} 禁用`, tone: activeCount > 0 ? "success" : "default" },
+              ]}
+            />
+          }
+          bodyClassName="space-y-5"
+        >
+          <OrganizationList
+            organizations={organizations}
+            onEdit={handleEdit}
+            onToggleStatus={handleToggleStatus}
+            loading={loading}
+          />
+        </SurfaceSection>
       </div>
 
       <OrganizationDialog

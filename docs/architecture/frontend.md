@@ -92,7 +92,6 @@ interface DashboardPageShellProps {
   backHref?: string;
   backLabel?: string;
   maxWidth?: "default" | "wide" | "full";
-  surfaceHeader?: boolean;
   children: React.ReactNode;
 }
 ```
@@ -103,7 +102,6 @@ interface DashboardPageShellProps {
 - 页面标题区
 - 返回 chip
 - 头部动作区
-- 强调型表面头部 `surfaceHeader`
 
 ### 导航壳
 
@@ -133,6 +131,7 @@ interface DashboardPageShellProps {
 - 列表首页优先使用轻页头，不额外叠加大面积解释型 overview hero
 - 若需要教学或背景说明，应下沉到空状态、字段说明、抽屉或详情页
 - 顶部数量 / 状态 / 筛选摘要统一使用 compact chips，而不是每页自写 span pill
+- 摘要卡片区允许并列一个 contextual sidecar / filter card，承载筛选说明、管理提醒或作用范围提示
 - 空态优先复用统一的任务型空状态组件
 
 ### Dashboard 首页
@@ -171,6 +170,7 @@ Dashboard 首页作为任务分发入口，而不是说明页：
 | 长表单 / 多步骤流程 | 侧边抽屉 | `Sheet` |
 | 危险确认 | 确认框 | `AlertDialog` |
 | 上下文动作 | 下拉菜单 | `DropdownMenu` |
+| 沉浸式多栏工作流 | 全屏工作台壳 | 自定义 Overlay Shell |
 | 轻量提示 | Tooltip / helper text | `Tooltip` / 文案 |
 
 规则：
@@ -178,6 +178,21 @@ Dashboard 首页作为任务分发入口，而不是说明页：
 - 不允许在功能组件内直接复制原语结构做另一套样式
 - 危险操作统一通过 `ConfirmDialog` 或 `AlertDialog`
 - 移动导航统一通过 `Sheet`
+
+### 全屏工作台壳
+
+当业务目标不是“补一个表单”或“查看一段详情”，而是在当前上下文中连续完成
+`选素材 -> 整理主文档 -> 拆解 -> 进入创作` 这类沉浸式工作流时，允许使用自定义全屏工作台壳。
+
+当前基线场景：`AiWorkspaceShell`
+
+规则：
+
+- 只有在 `Dialog` / `Sheet` 无法稳定承载共享元素转场和三栏连续工作流时，才允许使用自定义 portal overlay。
+- 启动链路必须显式维护来源卡片矩形（origin rect），并支持打开时展开、关闭时反向回收。
+- 必须保留 backdrop click、`Escape` 关闭、body scroll lock 和 source reveal 等基础交互约束。
+- 页面层只维护单一 launcher state，不把 `selectedVideo`、`hiddenVideoId`、`originRect` 分散到多个无关组件中。
+- 壳层负责转场与列布局，业务请求和状态机必须下沉到 controller / view-model，不回到单体弹框模式。
 
 ## 组件目录约定
 

@@ -18,7 +18,8 @@ import { BenchmarkArchiveDialog } from "./benchmark-archive-dialog";
 import { BenchmarkDetailHeader } from "./benchmark-detail-header";
 import { BenchmarkSurfaceSection } from "./benchmark-surface-section";
 import { BenchmarkVideoList } from "./benchmark-video-list";
-import { BenchmarkVideoDetailPanel } from "./benchmark-ai-workspace-panel";
+import { AiWorkspaceShell } from "./ai-workspace-shell";
+import type { AiWorkspaceTransitionOrigin } from "./ai-workspace-transition";
 import {
   BENCHMARK_BACK_TO_LIBRARY_LABEL,
   BENCHMARK_DETAIL_DESCRIPTION,
@@ -36,6 +37,18 @@ import {
 
 const VIDEOS_PER_PAGE = 20;
 
+interface WorkspaceLauncherState {
+  video: DouyinVideoDTO | null;
+  originRect: AiWorkspaceTransitionOrigin | null;
+  hiddenVideoId: string | null;
+}
+
+const INITIAL_WORKSPACE_LAUNCHER_STATE: WorkspaceLauncherState = {
+  video: null,
+  originRect: null,
+  hiddenVideoId: null,
+};
+
 export function BenchmarkDetailPageView() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -49,7 +62,9 @@ export function BenchmarkDetailPageView() {
   const [videosLoading, setVideosLoading] = useState(true);
   const [error, setError] = useState("");
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState<DouyinVideoDTO | null>(null);
+  const [workspaceLauncher, setWorkspaceLauncher] = useState<WorkspaceLauncherState>(
+    INITIAL_WORKSPACE_LAUNCHER_STATE,
+  );
   const [refreshKey, setRefreshKey] = useState(0);
   const hasLoadedAccountRef = useRef(false);
   const hasLoadedVideosRef = useRef(false);
@@ -146,6 +161,25 @@ export function BenchmarkDetailPageView() {
       });
   }
 
+  function handleOpenWorkspace(video: DouyinVideoDTO, originRect: AiWorkspaceTransitionOrigin) {
+    setWorkspaceLauncher({
+      video,
+      originRect,
+      hiddenVideoId: video.id,
+    });
+  }
+
+  function handleRevealWorkspaceSource() {
+    setWorkspaceLauncher((current) => ({
+      ...current,
+      hiddenVideoId: null,
+    }));
+  }
+
+  function handleCloseWorkspace() {
+    setWorkspaceLauncher(INITIAL_WORKSPACE_LAUNCHER_STATE);
+  }
+
   if (status === "loading") return null;
 
   if (error && !account) {
@@ -179,7 +213,6 @@ export function BenchmarkDetailPageView() {
       backHref="/benchmarks"
       backLabel={BENCHMARK_BACK_TO_LIBRARY_LABEL}
       maxWidth="wide"
-      surfaceHeader
     >
       <div className="animate-in-up-d1">
         {loading || !account ? (
@@ -212,7 +245,8 @@ export function BenchmarkDetailPageView() {
             page={videoPage}
             onPageChange={setVideoPage}
             loading={videosLoading}
-            onVideoClick={(video) => setSelectedVideo(video)}
+            activeVideoId={workspaceLauncher.hiddenVideoId}
+            onVideoClick={handleOpenWorkspace}
           />
         </BenchmarkSurfaceSection>
       </div>
@@ -223,9 +257,11 @@ export function BenchmarkDetailPageView() {
         onConfirm={handleConfirmArchive}
         nickname={account?.nickname}
       />
-      <BenchmarkVideoDetailPanel
-        video={selectedVideo}
-        onClose={() => setSelectedVideo(null)}
+      <AiWorkspaceShell
+        video={workspaceLauncher.video}
+        originRect={workspaceLauncher.originRect}
+        onSourceReveal={handleRevealWorkspaceSource}
+        onClose={handleCloseWorkspace}
       />
     </DashboardPageShell>
   );

@@ -1,8 +1,10 @@
-﻿import type { DouyinVideoDTO } from "@/types/douyin-account";
+"use client";
 
-export interface TranscriptSegment {
+import type { AiWorkspaceDTO } from "@/types/ai-workspace";
+import type { DouyinVideoDTO } from "@/types/douyin-account";
+
+export interface TranscriptSegmentDraft {
   id: string;
-  label: string;
   text: string;
   startOffset: number;
   endOffset: number;
@@ -31,6 +33,23 @@ export interface DecompositionAnnotation {
   note: string;
 }
 
+export interface HighlightChunk {
+  key: string;
+  text: string;
+  annotationIds: string[];
+  overlapCount: number;
+  showOverlapBadge: boolean;
+  hasAnnotation: boolean;
+  selected: boolean;
+}
+
+export interface CollapsedQuoteParts {
+  head: string;
+  tail: string;
+  omittedCount: number;
+  collapsed: boolean;
+}
+
 export function buildInitialTranscript(video: DouyinVideoDTO): string {
   const sourceLink = video.shareUrl ?? video.videoSourceUrl ?? video.videoUrl ?? "未同步分享链接";
   const tagLine = video.tags.length > 0 ? video.tags.join(" / ") : "暂无标签";
@@ -46,7 +65,7 @@ export function buildInitialTranscript(video: DouyinVideoDTO): string {
   ].join("\n");
 }
 
-export function splitTranscriptIntoSegments(text: string): TranscriptSegment[] {
+export function splitTranscriptIntoSegments(text: string): TranscriptSegmentDraft[] {
   const chunks = text
     .split(/\n\s*\n/g)
     .map((chunk) => chunk.trim())
@@ -56,7 +75,6 @@ export function splitTranscriptIntoSegments(text: string): TranscriptSegment[] {
     return [
       {
         id: "segment-empty",
-        label: "语义段 1",
         text: "当前视频还没有可编辑的转录稿。",
         startOffset: 0,
         endOffset: 14,
@@ -75,7 +93,6 @@ export function splitTranscriptIntoSegments(text: string): TranscriptSegment[] {
 
     return {
       id: `segment-${index + 1}`,
-      label: `语义段 ${index + 1}`,
       text: chunk,
       startOffset,
       endOffset,
@@ -85,75 +102,44 @@ export function splitTranscriptIntoSegments(text: string): TranscriptSegment[] {
   });
 }
 
-export function createSeedAnnotations(segments: TranscriptSegment[]): DecompositionAnnotation[] {
-  const first = segments[0];
-
-  if (!first) {
-    return [];
-  }
-
-  return [
-    {
-      id: "annotation-1",
-      segmentId: first.id,
-      startOffset: first.startOffset,
-      endOffset: first.endOffset,
-      quotedText: first.text,
-      function: "先把读者带入当前语境，再抬高理解成本。",
-      argumentRole: "用于建立开场判断。",
-      technique: "短句推进",
-      purpose: "让仿写时先锁定节奏，再复制句法。",
-      effectiveness: "语气更稳，后续内容更容易承接。",
-      note: "可在仿写区优先保留起笔位置。",
-    },
-  ];
-}
-
 export function buildSourceLabel(video: DouyinVideoDTO): string {
   return video.shareUrl ?? video.videoSourceUrl ?? video.videoUrl ?? "分享链接未同步";
 }
 
-export function buildSegmentRange(segment: TranscriptSegment | undefined): SelectedTextRange | null {
-  if (!segment) {
-    return null;
+export function mapWorkspaceAnnotations(
+  workspace: AiWorkspaceDTO | null,
+): DecompositionAnnotation[] {
+  if (!workspace || workspace.annotations.length === 0) {
+    return [];
   }
 
-  return {
-    segmentId: segment.id,
-    startOffset: segment.startOffset,
-    endOffset: segment.endOffset,
-    quotedText: segment.text,
-  };
-}
-
-export function formatCollapsedQuote(
-  text: string,
-  headLength: number = 24,
-  tailLength: number = 20,
-): string {
-  const normalized = text.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= headLength + tailLength + 8) {
-    return normalized;
-  }
-
-  const head = normalized.slice(0, headLength);
-  const tail = normalized.slice(-tailLength);
-
-  return `${head} …… ${tail}`;
+  return workspace.annotations.map((annotation) => ({
+    id: annotation.id,
+    segmentId: annotation.segmentId ?? "",
+    startOffset: annotation.startOffset,
+    endOffset: annotation.endOffset,
+    quotedText: annotation.quotedText,
+    function: annotation.function ?? "",
+    argumentRole: annotation.argumentRole ?? "",
+    technique: annotation.technique ?? "",
+    purpose: annotation.purpose ?? "",
+    effectiveness: annotation.effectiveness ?? "",
+    note: annotation.note ?? "",
+  }));
 }
 
 export function splitCollapsedQuote(
   text: string,
-  headLength: number = 26,
-  tailLength: number = 24,
-): { head: string; tail: string; collapsed: boolean } {
+  headLength: number = 38,
+  tailLength: number = 32,
+): CollapsedQuoteParts {
   const normalized = text.replace(/\s+/g, " ").trim();
 
-  if (normalized.length <= headLength + tailLength + 8) {
+  if (normalized.length <= headLength + tailLength + 16) {
     return {
       head: normalized,
       tail: "",
+      omittedCount: 0,
       collapsed: false,
     };
   }
@@ -161,24 +147,16 @@ export function splitCollapsedQuote(
   return {
     head: normalized.slice(0, headLength),
     tail: normalized.slice(-tailLength),
+    omittedCount: Math.max(0, normalized.length - headLength - tailLength),
     collapsed: true,
   };
-}
-
-export interface HighlightChunk {
-  key: string;
-  text: string;
-  annotationIds: string[];
-  overlapCount: number;
-  showOverlapBadge: boolean;
-  hasAnnotation: boolean;
-  selected: boolean;
 }
 
 export function buildTranscriptHighlightChunks(
   text: string,
   annotations: DecompositionAnnotation[],
   selectedRange: SelectedTextRange | null,
+  activeAnnotationId: string | null,
 ): HighlightChunk[] {
   const boundaries = new Set<number>([0, text.length]);
 
@@ -192,19 +170,19 @@ export function buildTranscriptHighlightChunks(
     }
   }
 
-  const sorted = Array.from(boundaries).sort((a, b) => a - b);
+  const sorted = Array.from(boundaries).sort((left, right) => left - right);
   const chunks: HighlightChunk[] = [];
-
-  let previousAnnotationKey = "";
+  let previousBadgeKey = "";
 
   for (let index = 0; index < sorted.length - 1; index += 1) {
     const start = sorted[index];
     const end = sorted[index + 1];
-    if (start === undefined || end === undefined) {
+
+    if (start === undefined || end === undefined || start === end) {
       continue;
     }
-    const chunkText = text.slice(start, end);
 
+    const chunkText = text.slice(start, end);
     if (!chunkText) {
       continue;
     }
@@ -214,22 +192,29 @@ export function buildTranscriptHighlightChunks(
       : annotations.filter(
           (annotation) => start >= annotation.startOffset && end <= annotation.endOffset,
         );
-    const isSelected = selectedRange
-      ? start >= selectedRange.startOffset && end <= selectedRange.endOffset
-      : false;
-    const annotationKey = coveringAnnotations.map((annotation) => annotation.id).join(",");
-    const showOverlapBadge = coveringAnnotations.length > 1 && annotationKey !== previousAnnotationKey;
-    previousAnnotationKey = annotationKey;
+    const visibleAnnotations = activeAnnotationId
+      ? coveringAnnotations.filter((annotation) => annotation.id === activeAnnotationId)
+      : coveringAnnotations;
+    const badgeKey = coveringAnnotations.map((annotation) => annotation.id).join(",");
 
     chunks.push({
       key: `${start}-${end}`,
       text: chunkText,
-      annotationIds: coveringAnnotations.map((annotation) => annotation.id),
+      annotationIds: visibleAnnotations.map((annotation) => annotation.id),
       overlapCount: coveringAnnotations.length,
-      showOverlapBadge,
-      hasAnnotation: coveringAnnotations.length > 0,
-      selected: isSelected,
+      showOverlapBadge:
+        !selectedRange &&
+        !activeAnnotationId &&
+        coveringAnnotations.length > 1 &&
+        badgeKey !== previousBadgeKey,
+      hasAnnotation: visibleAnnotations.length > 0,
+      selected:
+        selectedRange !== null &&
+        start >= selectedRange.startOffset &&
+        end <= selectedRange.endOffset,
     });
+
+    previousBadgeKey = badgeKey;
   }
 
   return chunks;
