@@ -36,12 +36,15 @@ class AiWorkspaceService {
     return video;
   }
 
-  private assertWorkspaceAccess(workspace: { organizationId: string }, caller: SessionUser): void {
+  private assertWorkspaceAccess(
+    workspace: { organizationId: string; userId: string },
+    caller: SessionUser,
+  ): void {
     if (caller.role === UserRole.SUPER_ADMIN) {
       return;
     }
 
-    if (workspace.organizationId !== caller.organizationId) {
+    if (workspace.organizationId !== caller.organizationId || workspace.userId !== caller.id) {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
   }
@@ -96,6 +99,43 @@ class AiWorkspaceService {
     return this.toDto(latest);
   }
 
+  private assertTranscriptConfirmed(workspace: AiWorkspaceWithDetails): void {
+    if (!workspace.transcript?.isConfirmed) {
+      throw new AppError("TRANSCRIPT_CONFIRM_REQUIRED", "请先确认转录稿，再进行拆解", 409);
+    }
+  }
+
+  private assertTranscriptExists(workspace: AiWorkspaceWithDetails): void {
+    const transcriptText =
+      workspace.transcript?.currentText?.trim() ??
+      workspace.transcript?.originalText?.trim() ??
+      "";
+
+    if (!transcriptText) {
+      throw new AppError("TRANSCRIPT_REQUIRED", "请先生成或录入转录稿", 409);
+    }
+  }
+
+  private assertRetranscriptionAllowed(workspace: AiWorkspaceWithDetails): void {
+    if (workspace.status === "TRANSCRIBING") {
+      throw new AppError("TRANSCRIPTION_IN_PROGRESS", "转录任务正在处理中", 409);
+    }
+
+    if (workspace.transcript?.isConfirmed || workspace.annotations.length > 0 || workspace.rewriteDraft) {
+      throw new AppError("TRANSCRIPT_UNLOCK_REQUIRED", "请先解锁当前转录稿，再重新转录", 409);
+    }
+  }
+
+  private assertTranscriptEditable(workspace: AiWorkspaceWithDetails): void {
+    if (workspace.status === "TRANSCRIBING") {
+      throw new AppError("TRANSCRIPTION_IN_PROGRESS", "转录任务正在处理中", 409);
+    }
+
+    if (workspace.transcript?.isConfirmed || workspace.annotations.length > 0 || workspace.rewriteDraft) {
+      throw new AppError("TRANSCRIPT_UNLOCK_REQUIRED", "请先解锁当前转录稿，再继续编辑", 409);
+    }
+  }
+
   async getWorkspace(videoId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
     await this.getAccessibleBenchmarkVideo(videoId, caller);
     const workspace = await aiWorkspaceRepository.findByVideoIdAndUserId(videoId, caller.id);
@@ -119,25 +159,34 @@ class AiWorkspaceService {
     const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
     const shareUrl = this.requireTranscriptShareUrl(video);
     const workspace = await this.ensureWorkspaceForVideo(video, caller);
-
-    await aiWorkspaceRepository.update(workspace.id, {
-      status: "TRANSCRIBING",
-    });
+    const workspaceDetails = await this.getWorkspaceRecordOrThrow(workspace.id, caller);
+    this.assertRetranscriptionAllowed(workspaceDetails);
+    const previousStatus = workspaceDetails.status;
 
     const payload: TranscriptionJobData = {
       transcriptionId: workspace.id,
       workspaceId: workspace.id,
       videoId,
       shareUrl,
-      videoStoragePath: video.videoStoragePath,
       organizationId: video.account.organizationId,
       userId: caller.id,
     };
 
-    await getTranscriptionQueue().add(
-      TRANSCRIPTION_QUEUE_NAME,
-      payload,
-    );
+    await aiWorkspaceRepository.update(workspace.id, {
+      status: "TRANSCRIBING",
+    });
+
+    try {
+      await getTranscriptionQueue().add(
+        TRANSCRIPTION_QUEUE_NAME,
+        payload,
+      );
+    } catch (error) {
+      await aiWorkspaceRepository.update(workspace.id, {
+        status: previousStatus,
+      });
+      throw error;
+    }
 
     return this.getWorkspaceDtoOrThrow(workspace.id);
   }
@@ -148,6 +197,7 @@ class AiWorkspaceService {
     input: SaveTranscriptInput,
   ): Promise<AiWorkspaceDTO> {
     const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptEditable(workspace);
 
     await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
       currentText: input.currentText,
@@ -173,6 +223,7 @@ class AiWorkspaceService {
 
   async confirmTranscript(workspaceId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
     const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptExists(workspace);
 
     await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
       isConfirmed: true,
@@ -190,14 +241,8 @@ class AiWorkspaceService {
   async unlockTranscript(workspaceId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
     const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
 
-    await aiWorkspaceRepository.clearDependencies(workspaceId);
-    await aiWorkspaceRepository.upsertTranscript(workspaceId, workspace.organizationId, {
-      isConfirmed: false,
-      confirmedAt: null,
+    await aiWorkspaceRepository.resetTranscriptToDraft(workspaceId, workspace.organizationId, {
       lastEditedAt: new Date(),
-    });
-    await aiWorkspaceRepository.update(workspaceId, {
-      status: "TRANSCRIPT_DRAFT",
     });
 
     return this.getWorkspaceDtoOrThrow(workspaceId);
@@ -209,6 +254,7 @@ class AiWorkspaceService {
     input: SaveAnnotationInput,
   ): Promise<AiWorkspaceDTO> {
     const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
 
     await aiWorkspaceRepository.upsertAnnotation(
       workspaceId,
@@ -220,7 +266,7 @@ class AiWorkspaceService {
     );
 
     await aiWorkspaceRepository.update(workspaceId, {
-      status: "DECOMPOSING",
+      status: "DECOMPOSED",
     });
 
     return this.getWorkspaceDtoOrThrow(workspaceId);
@@ -232,7 +278,8 @@ class AiWorkspaceService {
     caller: SessionUser,
     input: SaveAnnotationInput,
   ): Promise<AiWorkspaceDTO> {
-    await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
 
     const updated = await aiWorkspaceRepository.updateAnnotationInWorkspace(
       workspaceId,
@@ -243,6 +290,10 @@ class AiWorkspaceService {
       throw new AppError("NOT_FOUND", "拆解不存在", 404);
     }
 
+    await aiWorkspaceRepository.update(workspaceId, {
+      status: "DECOMPOSED",
+    });
+
     return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
@@ -251,7 +302,8 @@ class AiWorkspaceService {
     annotationId: string,
     caller: SessionUser,
   ): Promise<AiWorkspaceDTO> {
-    await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
 
     const deleted = await aiWorkspaceRepository.deleteAnnotationInWorkspace(
       workspaceId,
@@ -260,6 +312,15 @@ class AiWorkspaceService {
     if (!deleted) {
       throw new AppError("NOT_FOUND", "拆解不存在", 404);
     }
+
+    const latest = await aiWorkspaceRepository.findById(workspaceId);
+    if (!latest) {
+      throw new AppError("NOT_FOUND", "工作台不存在", 404);
+    }
+
+    await aiWorkspaceRepository.update(workspaceId, {
+      status: latest.annotations.length > 0 ? "DECOMPOSED" : "TRANSCRIPT_CONFIRMED",
+    });
 
     return this.getWorkspaceDtoOrThrow(workspaceId);
   }
@@ -270,6 +331,8 @@ class AiWorkspaceService {
     input: SaveRewriteDraftInput,
   ): Promise<AiWorkspaceDTO> {
     const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
+    this.assertTranscriptExists(workspace);
 
     await aiWorkspaceRepository.upsertRewriteDraft(workspaceId, workspace.organizationId, {
       currentDraft: input.currentDraft,

@@ -4,11 +4,8 @@ import { TRANSCRIPTION_QUEUE_NAME, type TranscriptionJobData } from "@/lib/bullm
 import { env } from "@/lib/env";
 import {
   createBullMQRedisConnection,
-  createPubSubRedisClient,
-  TRANSCRIPTION_CHANNEL_PREFIX,
 } from "@/lib/redis";
 import { aiWorkspaceRepository } from "@/server/repositories/ai-workspace.repository";
-import { transcriptionRepository } from "@/server/repositories/transcription.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 
 function buildShareUrlPrompt(shareUrl: string): string {
@@ -42,67 +39,37 @@ export function startTranscriptionWorker(): void {
   }
 
   globalThis.__transcriptionWorkerInitialized = true;
-  const publisher = createPubSubRedisClient();
 
   const worker = new Worker<TranscriptionJobData>(
     TRANSCRIPTION_QUEUE_NAME,
     async (job) => {
       const {
-        transcriptionId,
         shareUrl,
-        videoStoragePath,
         aiProviderKey,
         workspaceId,
         organizationId,
       } = job.data;
 
       if (!workspaceId) {
-        await transcriptionRepository.updateStatus(transcriptionId, {
-          status: "PROCESSING",
-          errorMessage: null,
-        });
-        await publisher.publish(
-          `${TRANSCRIPTION_CHANNEL_PREFIX}${transcriptionId}`,
-          JSON.stringify({
-            event: "status",
-            data: { transcriptionId, status: "PROCESSING" },
-          }),
-        );
+        throw new Error("Workspace transcription job is missing workspaceId");
       }
 
-      const promptSource = shareUrl ?? videoStoragePath;
-      if (!promptSource) {
-        throw new Error("Transcription job is missing shareUrl");
+      if (!shareUrl) {
+        throw new Error("Workspace transcription job is missing shareUrl");
       }
 
       const { implementationKey, modelId, text: originalText } = await aiGateway.generateText(
         "TRANSCRIBE",
-        buildShareUrlPrompt(promptSource),
+        buildShareUrlPrompt(shareUrl),
         aiProviderKey ?? undefined,
       );
 
-      if (workspaceId) {
-        await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
-          originalText,
-          currentText: originalText,
-          aiProviderKey: implementationKey,
-          aiModel: modelId,
-        });
-        return;
-      }
-
-      await transcriptionRepository.updateStatus(transcriptionId, {
-        status: "COMPLETED",
+      await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
         originalText,
-        errorMessage: null,
+        currentText: originalText,
+        aiProviderKey: implementationKey,
+        aiModel: modelId,
       });
-      await publisher.publish(
-        `${TRANSCRIPTION_CHANNEL_PREFIX}${transcriptionId}`,
-        JSON.stringify({
-          event: "done",
-          data: { transcriptionId, status: "COMPLETED", originalText },
-        }),
-      );
     },
     {
       connection: createBullMQRedisConnection(),
@@ -118,26 +85,11 @@ export function startTranscriptionWorker(): void {
     try {
       const errorMessage = error instanceof Error ? error.message : "未知错误";
 
-      if (job.data.workspaceId) {
-        await aiWorkspaceRepository.markQueuedTranscriptionFailed(job.data.workspaceId);
-        return;
+      if (!job.data.workspaceId) {
+        throw new Error(errorMessage);
       }
 
-      await transcriptionRepository.updateStatus(job.data.transcriptionId, {
-        status: "FAILED",
-        errorMessage,
-      });
-      await publisher.publish(
-        `${TRANSCRIPTION_CHANNEL_PREFIX}${job.data.transcriptionId}`,
-        JSON.stringify({
-          event: "error",
-          data: {
-            transcriptionId: job.data.transcriptionId,
-            status: "FAILED",
-            errorMessage,
-          },
-        }),
-      );
+      await aiWorkspaceRepository.markQueuedTranscriptionFailed(job.data.workspaceId);
     } catch (handlerError) {
       console.error("[TranscriptionWorker] Failed to persist FAILED state:", handlerError);
     }

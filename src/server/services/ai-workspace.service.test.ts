@@ -4,31 +4,34 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createWorkspaceMock,
   findByVideoIdAndUserIdMock,
+  findByIdMock,
   findVideoByIdMock,
-  replaceTranscriptMock,
   queueTranscribeMock,
-  clearWorkspaceDependenciesMock,
-  updateWorkspaceMock,
+  resetTranscriptToDraftMock,
+  upsertAnnotationMock,
   upsertDraftMock,
+  updateWorkspaceMock,
 } = vi.hoisted(() => ({
   createWorkspaceMock: vi.fn(),
   findByVideoIdAndUserIdMock: vi.fn(),
+  findByIdMock: vi.fn(),
   findVideoByIdMock: vi.fn(),
-  replaceTranscriptMock: vi.fn(),
   queueTranscribeMock: vi.fn(),
-  clearWorkspaceDependenciesMock: vi.fn(),
-  updateWorkspaceMock: vi.fn(),
+  resetTranscriptToDraftMock: vi.fn(),
+  upsertAnnotationMock: vi.fn(),
   upsertDraftMock: vi.fn(),
+  updateWorkspaceMock: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/ai-workspace.repository", () => ({
   aiWorkspaceRepository: {
     create: createWorkspaceMock,
     findByVideoIdAndUserId: findByVideoIdAndUserIdMock,
-    update: updateWorkspaceMock,
-    replaceTranscript: replaceTranscriptMock,
-    clearDependencies: clearWorkspaceDependenciesMock,
+    findById: findByIdMock,
+    resetTranscriptToDraft: resetTranscriptToDraftMock,
+    upsertAnnotation: upsertAnnotationMock,
     upsertRewriteDraft: upsertDraftMock,
+    update: updateWorkspaceMock,
   },
 }));
 
@@ -46,15 +49,53 @@ vi.mock("@/lib/bullmq", () => ({
 }));
 
 describe("aiWorkspaceService", () => {
+  function createWorkspaceDetail(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "workspace_1",
+      videoId: "video_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      status: "TRANSCRIPT_CONFIRMED",
+      enteredRewriteAt: null,
+      createdAt: new Date("2026-04-06T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-06T00:00:00.000Z"),
+      video: {
+        id: "video_1",
+        title: "video",
+        coverUrl: null,
+        shareUrl: "https://www.douyin.com/video/abc",
+        publishedAt: null,
+        playCount: 0,
+        likeCount: 0,
+        commentCount: 0,
+        shareCount: 0,
+      },
+      transcript: {
+        originalText: "原稿",
+        currentText: "当前稿",
+        isConfirmed: true,
+        confirmedAt: new Date("2026-04-06T00:00:00.000Z"),
+        lastEditedAt: new Date("2026-04-06T00:00:00.000Z"),
+        aiProviderKey: "ark-default",
+        aiModel: "ark/transcribe",
+      },
+      segments: [],
+      annotations: [],
+      rewriteDraft: null,
+      ...overrides,
+    };
+  }
+
   beforeEach(() => {
     createWorkspaceMock.mockReset();
     findByVideoIdAndUserIdMock.mockReset();
+    findByIdMock.mockReset();
     findVideoByIdMock.mockReset();
-    replaceTranscriptMock.mockReset();
     queueTranscribeMock.mockReset();
-    clearWorkspaceDependenciesMock.mockReset();
-    updateWorkspaceMock.mockReset();
+    resetTranscriptToDraftMock.mockReset();
+    upsertAnnotationMock.mockReset();
     upsertDraftMock.mockReset();
+    updateWorkspaceMock.mockReset();
   });
 
   it("requires shareUrl before scheduling transcription", async () => {
@@ -97,6 +138,18 @@ describe("aiWorkspaceService", () => {
       organizationId: "org_1",
       status: "IDLE",
     });
+    updateWorkspaceMock.mockResolvedValue({
+      id: "workspace_1",
+      status: "TRANSCRIBING",
+    });
+    findByIdMock
+      .mockResolvedValueOnce(
+        createWorkspaceDetail({
+          status: "IDLE",
+          transcript: null,
+        }),
+      )
+      .mockResolvedValueOnce(createWorkspaceDetail({ status: "TRANSCRIBING" }));
 
     const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
     await aiWorkspaceService.startTranscription(
@@ -119,13 +172,334 @@ describe("aiWorkspaceService", () => {
     );
   });
 
-  it("clears dependent decomposition and rewrite data when unlocking transcript", async () => {
-    clearWorkspaceDependenciesMock.mockResolvedValue(undefined);
-    replaceTranscriptMock.mockResolvedValue(undefined);
-    updateWorkspaceMock.mockResolvedValue({
-      id: "workspace_1",
-      status: "TRANSCRIPT_DRAFT",
+  it("rejects retranscription until the current transcript is unlocked", async () => {
+    findVideoByIdMock.mockResolvedValue({
+      id: "video_1",
+      title: "video",
+      shareUrl: "https://www.douyin.com/video/abc",
+      account: { organizationId: "org_1" },
     });
+    findByVideoIdAndUserIdMock.mockResolvedValue({
+      id: "workspace_1",
+      videoId: "video_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      status: "TRANSCRIPT_CONFIRMED",
+    });
+    findByIdMock.mockResolvedValue(createWorkspaceDetail());
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.startTranscription(
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        "video_1",
+      ),
+    ).rejects.toMatchObject({ code: "TRANSCRIPT_UNLOCK_REQUIRED" });
+
+    expect(queueTranscribeMock).not.toHaveBeenCalled();
+  });
+
+  it("rolls workspace status back when queue scheduling fails", async () => {
+    findVideoByIdMock.mockResolvedValue({
+      id: "video_1",
+      title: "video",
+      shareUrl: "https://www.douyin.com/video/abc",
+      account: { organizationId: "org_1" },
+    });
+    findByVideoIdAndUserIdMock.mockResolvedValue({
+      id: "workspace_1",
+      videoId: "video_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      status: "IDLE",
+    });
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        status: "IDLE",
+        transcript: null,
+      }),
+    );
+    queueTranscribeMock.mockRejectedValue(new Error("redis unavailable"));
+    updateWorkspaceMock.mockResolvedValue({ id: "workspace_1" });
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.startTranscription(
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        "video_1",
+      ),
+    ).rejects.toThrow("redis unavailable");
+
+    expect(updateWorkspaceMock).toHaveBeenNthCalledWith(1, "workspace_1", {
+      status: "TRANSCRIBING",
+    });
+    expect(updateWorkspaceMock).toHaveBeenNthCalledWith(2, "workspace_1", {
+      status: "IDLE",
+    });
+  });
+
+  it("rejects saving annotations until the transcript is confirmed", async () => {
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        transcript: {
+          originalText: "原稿",
+          currentText: "当前稿",
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: new Date("2026-04-06T00:00:00.000Z"),
+          aiProviderKey: "ark-default",
+          aiModel: "ark/transcribe",
+        },
+      }),
+    );
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.saveAnnotation(
+        "workspace_1",
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        {
+          startOffset: 0,
+          endOffset: 4,
+          quotedText: "当前稿",
+        },
+      ),
+    ).rejects.toMatchObject({ code: "TRANSCRIPT_CONFIRM_REQUIRED" });
+  });
+
+  it("forbids accessing another employee's workspace in the same organization", async () => {
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        userId: "user_2",
+      }),
+    );
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.saveAnnotation(
+        "workspace_1",
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        {
+          startOffset: 0,
+          endOffset: 4,
+          quotedText: "当前稿",
+        },
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("marks workspace decomposed after saving an annotation on a confirmed transcript", async () => {
+    findByIdMock
+      .mockResolvedValueOnce(createWorkspaceDetail())
+      .mockResolvedValueOnce(
+        createWorkspaceDetail({
+          status: "DECOMPOSED",
+          annotations: [
+            {
+              id: "annotation_1",
+              segmentId: null,
+              startOffset: 0,
+              endOffset: 4,
+              quotedText: "当前稿",
+              function: null,
+              argumentRole: null,
+              technique: null,
+              purpose: null,
+              effectiveness: null,
+              note: null,
+              createdAt: new Date("2026-04-06T00:00:00.000Z"),
+              updatedAt: new Date("2026-04-06T00:00:00.000Z"),
+            },
+          ],
+        }),
+      );
+    upsertAnnotationMock.mockResolvedValue({ id: "annotation_1" });
+    updateWorkspaceMock.mockResolvedValue({ id: "workspace_1", status: "DECOMPOSED" });
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+    const result = await aiWorkspaceService.saveAnnotation("workspace_1", {
+      id: "user_1",
+      account: "employee",
+      role: UserRole.EMPLOYEE,
+      organizationId: "org_1",
+    }, {
+      startOffset: 0,
+      endOffset: 4,
+      quotedText: "当前稿",
+    });
+
+    expect(upsertAnnotationMock).toHaveBeenCalledWith(
+      "workspace_1",
+      "org_1",
+      expect.objectContaining({
+        startOffset: 0,
+        endOffset: 4,
+        quotedText: "当前稿",
+        createdByUserId: "user_1",
+      }),
+    );
+    expect(updateWorkspaceMock).toHaveBeenCalledWith("workspace_1", {
+      status: "DECOMPOSED",
+    });
+    expect(result.status).toBe("DECOMPOSED");
+  });
+
+  it("rejects confirming an empty transcript", async () => {
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        transcript: {
+          originalText: "",
+          currentText: "",
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: new Date("2026-04-06T00:00:00.000Z"),
+          aiProviderKey: null,
+          aiModel: null,
+        },
+      }),
+    );
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.confirmTranscript("workspace_1", {
+        id: "user_1",
+        account: "employee",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      }),
+    ).rejects.toMatchObject({ code: "TRANSCRIPT_REQUIRED" });
+  });
+
+  it("requires unlock before editing a confirmed transcript with analysis data", async () => {
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        annotations: [
+          {
+            id: "annotation_1",
+            segmentId: null,
+            startOffset: 0,
+            endOffset: 4,
+            quotedText: "当前稿",
+            function: null,
+            argumentRole: null,
+            technique: null,
+            purpose: null,
+            effectiveness: null,
+            note: null,
+            createdAt: new Date("2026-04-06T00:00:00.000Z"),
+            updatedAt: new Date("2026-04-06T00:00:00.000Z"),
+          },
+        ],
+      }),
+    );
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.saveTranscript(
+        "workspace_1",
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        {
+          currentText: "新的正文",
+          segments: [],
+        },
+      ),
+    ).rejects.toMatchObject({ code: "TRANSCRIPT_UNLOCK_REQUIRED" });
+  });
+
+  it("rejects entering rewrite before transcript confirmation", async () => {
+    findByIdMock.mockResolvedValue(
+      createWorkspaceDetail({
+        transcript: {
+          originalText: "原稿",
+          currentText: "当前稿",
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: new Date("2026-04-06T00:00:00.000Z"),
+          aiProviderKey: "ark-default",
+          aiModel: "ark/transcribe",
+        },
+      }),
+    );
+
+    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
+
+    await expect(
+      aiWorkspaceService.saveRewriteDraft(
+        "workspace_1",
+        {
+          id: "user_1",
+          account: "employee",
+          role: UserRole.EMPLOYEE,
+          organizationId: "org_1",
+        },
+        {
+          currentDraft: "draft",
+        },
+      ),
+    ).rejects.toMatchObject({ code: "TRANSCRIPT_CONFIRM_REQUIRED" });
+
+    expect(upsertDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("clears dependent decomposition and rewrite data atomically when unlocking transcript", async () => {
+    findByIdMock
+      .mockResolvedValueOnce(createWorkspaceDetail({
+        annotations: [
+          {
+            id: "annotation_1",
+            segmentId: null,
+            startOffset: 0,
+            endOffset: 4,
+            quotedText: "当前稿",
+            function: null,
+            argumentRole: null,
+            technique: null,
+            purpose: null,
+            effectiveness: null,
+            note: null,
+            createdAt: new Date("2026-04-06T00:00:00.000Z"),
+            updatedAt: new Date("2026-04-06T00:00:00.000Z"),
+          },
+        ],
+        rewriteDraft: {
+          currentDraft: "draft",
+          sourceTranscriptText: "当前稿",
+          sourceDecompositionSnapshot: [],
+        },
+      }))
+      .mockResolvedValueOnce(createWorkspaceDetail({ status: "TRANSCRIPT_DRAFT", annotations: [] }));
+    resetTranscriptToDraftMock.mockResolvedValue(undefined);
 
     const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
     await aiWorkspaceService.unlockTranscript("workspace_1", {
@@ -135,12 +509,8 @@ describe("aiWorkspaceService", () => {
       organizationId: "org_1",
     });
 
-    expect(clearWorkspaceDependenciesMock).toHaveBeenCalledWith("workspace_1");
-    expect(replaceTranscriptMock).toHaveBeenCalledWith("workspace_1", {
-      isConfirmed: false,
-    });
-    expect(updateWorkspaceMock).toHaveBeenCalledWith("workspace_1", {
-      status: "TRANSCRIPT_DRAFT",
+    expect(resetTranscriptToDraftMock).toHaveBeenCalledWith("workspace_1", "org_1", {
+      lastEditedAt: expect.any(Date),
     });
   });
 });

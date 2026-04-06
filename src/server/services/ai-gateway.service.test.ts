@@ -43,9 +43,7 @@ describe("aiGateway", () => {
     createOpenAIMock.mockReset();
     generateTextMock.mockReset();
 
-    createOpenAIMock.mockReturnValue({
-      model: vi.fn(),
-    });
+    createOpenAIMock.mockReturnValue(vi.fn().mockReturnValue("mock-model"));
     generateTextMock.mockResolvedValue({
       text: "generated text",
     });

@@ -143,8 +143,8 @@ model AiWorkspaceTranscript {
 
 说明：
 
-- `originalText` 保存 AI 首次生成原稿
-- `currentText` 保存当前主文档
+- 存储层允许保留 `originalText/currentText` 字段，便于后续内部演进
+- v0.3.1 前端交互只呈现并编辑一份“转录主文档”，不做 AI 稿 / 人工稿双视图
 - 不采用版本快照模型
 - 通过“解锁编辑”端点原子清空拆解与仿写草稿
 
@@ -235,7 +235,7 @@ model AiRewriteDraft {
   -> 读取 TRANSCRIBE 步骤绑定
   -> 校验 shareUrl
   -> 创建异步转录任务
-  -> AI 返回 originalText
+  -> AI 返回转录正文
   -> 初始化 AiWorkspaceTranscript
   -> 进入 TRANSCRIPT_DRAFT
 ```
@@ -361,6 +361,11 @@ interface AiWorkspaceDTO {
   }>;
 }
 ```
+
+补充说明：
+
+- 尽管 DTO 保留 `originalText/currentText` 字段，v0.3.1 页面只把 `currentText ?? originalText` 作为唯一转录稿呈现与编辑。
+- 拆解稿不是第二份正文，而是附着在该转录稿上的 `annotations` 批注层。
 
 ### 5. 确认转录稿
 

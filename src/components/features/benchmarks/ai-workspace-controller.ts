@@ -8,7 +8,6 @@ import type { AiWorkspaceDTO, SaveAnnotationInput, SaveTranscriptInput } from "@
 import { ApiError, apiClient } from "@/lib/api-client";
 
 import {
-  buildInitialTranscript,
   mapWorkspaceAnnotations,
   splitTranscriptIntoSegments,
   type SelectedTextRange,
@@ -78,13 +77,15 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const workspacePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
+  const transcriptionFailureToastShownRef = useRef(false);
 
-  const resetToInitialWorkspace = useCallback((sourceVideo: DouyinVideoDTO) => {
+  const resetToInitialWorkspace = useCallback(() => {
     startTransition(() => {
       setWorkspace(null);
       setStage("analysis");
-      setTranscriptText(buildInitialTranscript(sourceVideo));
+      setTranscriptText("");
       setManualSelection(null);
       setActiveAnnotationId(null);
       setDraft("");
@@ -109,15 +110,21 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     activeAnnotationIdRef.current = activeAnnotationId;
   }, [activeAnnotationId]);
 
+  useEffect(() => {
+    if (workspace?.status !== "TRANSCRIBING") {
+      transcriptionFailureToastShownRef.current = false;
+    }
+  }, [workspace?.status]);
+
   const applyWorkspace = useCallback(function applyWorkspace(
     next: AiWorkspaceDTO,
-    sourceVideo: DouyinVideoDTO,
+    _sourceVideo: DouyinVideoDTO,
     options?: ApplyWorkspaceOptions,
   ) {
     const nextTranscript =
       next.transcript?.currentText ??
       next.transcript?.originalText ??
-      buildInitialTranscript(sourceVideo);
+      "";
     const nextAnnotations = mapWorkspaceAnnotations(next);
     const resolvedActiveAnnotationId =
       options?.nextActiveAnnotationId === undefined
@@ -178,14 +185,14 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
               toast.error(
                 ensureError instanceof ApiError ? ensureError.message : "AI 工作台加载失败",
               );
-              resetToInitialWorkspace(currentVideo);
+              resetToInitialWorkspace();
             }
             return;
           }
         }
 
         toast.error(error instanceof ApiError ? error.message : "AI 工作台加载失败");
-        resetToInitialWorkspace(currentVideo);
+        resetToInitialWorkspace();
       } finally {
         if (!cancelled) {
           setLoadingWorkspace(false);
@@ -199,6 +206,74 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       cancelled = true;
     };
   }, [applyWorkspace, resetToInitialWorkspace, video]);
+
+  useEffect(() => {
+    if (!video || !workspace?.id || workspace.status !== "TRANSCRIBING") {
+      if (workspacePollTimerRef.current) {
+        clearTimeout(workspacePollTimerRef.current);
+        workspacePollTimerRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    const pollWorkspace = async () => {
+      try {
+        const next = await apiClient.get<AiWorkspaceDTO>(`/ai-workspaces?videoId=${video.id}`);
+        if (cancelled) {
+          return;
+        }
+
+        applyWorkspace(next, video, {
+          preserveStage: true,
+          nextSelection: manualSelection,
+          nextActiveAnnotationId: activeAnnotationIdRef.current,
+        });
+
+        if (next.status === "TRANSCRIBING") {
+          workspacePollTimerRef.current = setTimeout(() => {
+            void pollWorkspace();
+          }, 2000);
+          return;
+        }
+
+        if (
+          next.status === "IDLE" &&
+          !next.transcript &&
+          !transcriptionFailureToastShownRef.current
+        ) {
+          transcriptionFailureToastShownRef.current = true;
+          toast.error("AI 转录未成功生成正文，请重试");
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        workspacePollTimerRef.current = setTimeout(() => {
+          void pollWorkspace();
+        }, 3000);
+
+        if (!transcriptionFailureToastShownRef.current && error instanceof ApiError) {
+          transcriptionFailureToastShownRef.current = true;
+          toast.error(error.message);
+        }
+      }
+    };
+
+    workspacePollTimerRef.current = setTimeout(() => {
+      void pollWorkspace();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      if (workspacePollTimerRef.current) {
+        clearTimeout(workspacePollTimerRef.current);
+        workspacePollTimerRef.current = null;
+      }
+    };
+  }, [applyWorkspace, manualSelection, video, workspace?.id, workspace?.status]);
 
   useEffect(() => {
     if (!workspace?.id || stage !== "rewrite" || !draftDirty) {
@@ -245,6 +320,11 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       return;
     }
 
+    if (locked) {
+      setUnlockDialogOpen(true);
+      return;
+    }
+
     setLoadingWorkspace(true);
     void apiClient
       .post<AiWorkspaceDTO>("/ai-workspaces/transcribe", {
@@ -257,7 +337,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       .finally(() => {
         setLoadingWorkspace(false);
       });
-  }, [video, applyWorkspace]);
+  }, [video, applyWorkspace, locked]);
 
   const confirmTranscript = useCallback(async function confirmTranscript(): Promise<AiWorkspaceDTO | null> {
     if (!workspace?.id || !video) {
@@ -288,10 +368,15 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       return;
     }
 
+    if (!transcriptText.trim()) {
+      toast.error("请先生成或录入转录稿，再进入拆解分析");
+      return;
+    }
+
     void confirmTranscript().catch((error) => {
       toast.error(error instanceof ApiError ? error.message : "锁定转录稿失败");
     });
-  }, [confirmTranscript, locked]);
+  }, [confirmTranscript, locked, transcriptText]);
 
   const handleUnlockTranscript = useCallback(function handleUnlockTranscript() {
     setUnlockDialogOpen(false);
@@ -364,6 +449,11 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
 
     if (!workspace?.id) {
       toast.error("请先完成 AI 转录");
+      return;
+    }
+
+    if (!transcriptText.trim()) {
+      toast.error("请先生成或录入转录稿，再进入仿写态");
       return;
     }
 

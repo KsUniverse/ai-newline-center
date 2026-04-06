@@ -50,21 +50,6 @@ export interface CollapsedQuoteParts {
   collapsed: boolean;
 }
 
-export function buildInitialTranscript(video: DouyinVideoDTO): string {
-  const sourceLink = video.shareUrl ?? video.videoSourceUrl ?? video.videoUrl ?? "未同步分享链接";
-  const tagLine = video.tags.length > 0 ? video.tags.join(" / ") : "暂无标签";
-
-  return [
-    video.title,
-    `素材链接：${sourceLink}`,
-    `标签：${tagLine}`,
-    "",
-    "这一段先保留主张，再拆成可编辑的语义段。",
-    "这里补充一句转场，让后面的拆解区能继续承接论点。",
-    "最后一段收束到仿写的表达节奏，便于对照编辑。",
-  ].join("\n");
-}
-
 export function splitTranscriptIntoSegments(text: string): TranscriptSegmentDraft[] {
   const chunks = text
     .split(/\n\s*\n/g)
@@ -72,16 +57,7 @@ export function splitTranscriptIntoSegments(text: string): TranscriptSegmentDraf
     .filter(Boolean);
 
   if (chunks.length === 0) {
-    return [
-      {
-        id: "segment-empty",
-        text: "当前视频还没有可编辑的转录稿。",
-        startOffset: 0,
-        endOffset: 14,
-        summary: "待整理",
-        purpose: "待确认",
-      },
-    ];
+    return [];
   }
 
   let cursor = 0;

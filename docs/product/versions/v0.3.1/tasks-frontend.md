@@ -34,19 +34,19 @@
 
 ## 任务列表
 
-- [ ] **FE-001**: (P0) 新增 AI 配置导航与页面
+- [x] **FE-001**: (P0) 新增 AI 配置导航与页面
   - 文件: `src/components/shared/layout/*`, `src/app/(dashboard)/system-settings/ai/page.tsx`
   - 详情:
     1. `SUPER_ADMIN` 可见
     2. 页面用于步骤绑定
 
-- [ ] **FE-002**: (P0) 扩展 `managementClient` 和 AI 配置类型
+- [x] **FE-002**: (P0) 扩展 `managementClient` 和 AI 配置类型
   - 文件: `src/lib/management-client.ts`, `src/types/ai-config.ts`
   - 详情:
     1. 查询/保存 AI 配置
     2. 不新增平行 client
 
-- [ ] **FE-003**: (P0) 创建 AI 配置页
+- [x] **FE-003**: (P0) 创建 AI 配置页
   - 文件: `src/components/features/system-settings/*`
   - 详情:
     1. 实现方式列表
@@ -66,15 +66,18 @@
     2. 仿写态：拆解 / 转录 / 仿写
     3. 列切换由统一 shell 控制，不再由各列自己改模式
 
-- [x] **FE-006**: (P0) 实现转录主文档编辑区与正文画布
+- [~] **FE-006**: (P0) 实现转录主文档编辑区与正文画布
   - 文件: `src/components/features/benchmarks/ai-workspace-transcript-canvas.tsx`
   - 详情:
-    1. 展示 AI 原稿和当前稿
+    1. 只维护一份转录主文档，不做 AI 稿 / 人工稿双栏或双态展示
     2. 支持修词
     3. 手动分段仅服务阅读，不再作为拆解业务入口
     4. 支持锁定编辑 / 解锁编辑
     5. 解锁时通过确认框提示会丢失拆解/仿写
     6. 正文是最稳定视觉锚点，不因明细切换跳动
+  - 当前状态:
+    1. 单一转录稿编辑、锁定/解锁、解锁确认和正文锚点已完成
+    2. 已移除示例稿回填逻辑，空状态仅展示真实未转录状态
 
 - [x] **FE-007**: (P0) 实现拆解区
   - 文件: `src/components/features/benchmarks/ai-workspace-decomposition-panel.tsx`
@@ -110,7 +113,11 @@
     3. 缺少 `shareUrl` 时阻断转录
     4. 进入仿写后的缩略卡与三栏位置变化
     5. 当前已通过 `pnpm type-check` 和 `pnpm lint`
-    6. `vitest` 仍受当前 Windows 环境 `spawn EPERM` 影响，待环境恢复后补齐自动化测试
+    6. 路由 / service 测试已补齐核心 AI 主链路
+  - 当前状态:
+    1. 工作台转录主路径已补上自动轮询回流，前后端联调链路可闭环
+    2. `pnpm lint`、`pnpm type-check` 与核心 AI route/service 测试已通过
+    3. 组件级交互测试仍可继续加强
 
 ---
 

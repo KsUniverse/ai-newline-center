@@ -15,6 +15,16 @@ class AiSettingsService {
     }
   }
 
+  private normalizeBindings(input: UpdateAiSettingsInput): Array<{ step: AiStep; implementationKey: string | null }> {
+    const bindings = input.steps ?? input.bindings ?? [];
+    const bindingMap = new Map(bindings.map((binding) => [binding.step, binding.implementationKey ?? null] as const));
+
+    return aiSteps.map((step) => ({
+      step,
+      implementationKey: bindingMap.get(step) ?? null,
+    }));
+  }
+
   async getSettings(caller: SessionUser): Promise<AiSettingsDTO> {
     this.assertSuperAdmin(caller);
 
@@ -47,9 +57,13 @@ class AiSettingsService {
     this.assertSuperAdmin(caller);
 
     const implementations = aiGateway.listImplementations();
-    const bindings = input.steps ?? input.bindings ?? [];
+    const bindings = this.normalizeBindings(input);
 
     for (const binding of bindings) {
+      if (!binding.implementationKey) {
+        continue;
+      }
+
       const implementation = implementations.find((item) => item.key === binding.implementationKey);
       if (!implementation) {
         throw new AppError("AI_IMPLEMENTATION_NOT_FOUND", "AI 实现不存在", 409);

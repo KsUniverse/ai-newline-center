@@ -75,6 +75,10 @@ export interface UpsertRewriteDraftData {
   sourceDecompositionSnapshot?: Prisma.InputJsonValue;
 }
 
+export interface ResetTranscriptToDraftData {
+  lastEditedAt: Date;
+}
+
 export interface CompleteWorkspaceTranscriptionData {
   originalText: string;
   currentText: string;
@@ -302,6 +306,58 @@ class AiWorkspaceRepository {
     });
   }
 
+  async resetTranscriptToDraft(
+    workspaceId: string,
+    organizationId: string,
+    data: ResetTranscriptToDraftData,
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await this.runTransaction(db, async (tx: Prisma.TransactionClient) => {
+      await tx.aiTranscriptSegment.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.aiDecompositionAnnotation.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.aiRewriteDraft.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.aiWorkspaceTranscript.upsert({
+        where: {
+          workspaceId,
+        },
+        create: {
+          workspaceId,
+          organizationId,
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: data.lastEditedAt,
+        },
+        update: {
+          isConfirmed: false,
+          confirmedAt: null,
+          lastEditedAt: data.lastEditedAt,
+        },
+      });
+
+      await tx.aiWorkspace.update({
+        where: { id: workspaceId },
+        data: {
+          status: "TRANSCRIPT_DRAFT",
+        },
+      });
+    });
+  }
+
   async upsertRewriteDraft(
     workspaceId: string,
     organizationId: string,
@@ -334,6 +390,24 @@ class AiWorkspaceRepository {
     db: DatabaseClient = prisma,
   ): Promise<void> {
     await this.runTransaction(db, async (tx: Prisma.TransactionClient) => {
+      await tx.aiTranscriptSegment.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.aiDecompositionAnnotation.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
+      await tx.aiRewriteDraft.deleteMany({
+        where: {
+          workspaceId,
+        },
+      });
+
       await tx.aiWorkspaceTranscript.upsert({
         where: {
           workspaceId,
