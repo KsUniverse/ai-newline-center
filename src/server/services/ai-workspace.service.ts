@@ -1,4 +1,4 @@
-﻿import { BenchmarkVideo, UserRole } from "@prisma/client";
+﻿import { UserRole } from "@prisma/client";
 
 import {
   getTranscriptionQueue,
@@ -7,12 +7,10 @@ import {
 } from "@/lib/bullmq";
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
-import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import {
   aiWorkspaceRepository,
   type AiWorkspaceWithDetails,
 } from "@/server/repositories/ai-workspace.repository";
-import { crawlerService } from "@/server/services/crawler.service";
 import type { SessionUser } from "@/types/session";
 import type {
   AiWorkspaceDTO,
@@ -22,11 +20,6 @@ import type {
 } from "@/types/ai-workspace";
 
 class AiWorkspaceService {
-  private async getShareResolveCookieHeader(): Promise<string | null> {
-    const account = await douyinAccountRepository.findFirstActiveShareCookie();
-    return account?.favoriteCookieHeader ?? null;
-  }
-
   private async getAccessibleBenchmarkVideo(videoId: string, caller: SessionUser) {
     const video = await benchmarkVideoRepository.findByIdWithAccountOrganization(videoId);
     if (!video) {
@@ -54,25 +47,6 @@ class AiWorkspaceService {
     if (workspace.organizationId !== caller.organizationId || workspace.userId !== caller.id) {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
-  }
-
-  private async ensureTranscriptShareUrl(video: Pick<BenchmarkVideo, "id" | "videoId" | "shareUrl">): Promise<string> {
-    if (video.shareUrl) {
-      return video.shareUrl;
-    }
-
-    const shareCookieHeader = await this.getShareResolveCookieHeader();
-    const detail = await crawlerService.fetchOneVideo(
-      video.videoId,
-      shareCookieHeader ? { cookieHeader: shareCookieHeader } : undefined,
-    );
-    const shareUrl = detail.shareUrl?.trim();
-    if (!shareUrl) {
-      throw new AppError("AI_SHARE_URL_REQUIRED", "视频尚未补齐分享链接，无法发起转录", 400);
-    }
-
-    await benchmarkVideoRepository.updateShareUrl(video.id, shareUrl);
-    return shareUrl;
   }
 
   private async ensureWorkspaceForVideo(
@@ -175,7 +149,11 @@ class AiWorkspaceService {
     videoId: string,
   ): Promise<AiWorkspaceDTO> {
     const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
-    const shareUrl = await this.ensureTranscriptShareUrl(video);
+
+    if (!video.videoStoragePath) {
+      throw new AppError("VIDEO_FILE_REQUIRED", "视频文件尚未同步到本地，无法发起转录", 400);
+    }
+
     const workspace = await this.ensureWorkspaceForVideo(video, caller);
     const workspaceDetails = await this.getWorkspaceRecordOrThrow(workspace.id, caller);
     this.assertTranscriptionStartAllowed(workspaceDetails);
@@ -197,7 +175,7 @@ class AiWorkspaceService {
       transcriptionId: workspace.id,
       workspaceId: workspace.id,
       videoId,
-      shareUrl,
+      videoStoragePath: video.videoStoragePath,
       organizationId: video.account.organizationId,
       userId: caller.id,
     };
@@ -461,5 +439,3 @@ class AiWorkspaceService {
 }
 
 export const aiWorkspaceService = new AiWorkspaceService();
-
-

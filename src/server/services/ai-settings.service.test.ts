@@ -2,140 +2,122 @@ import { UserRole } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  findAllMock,
-  listImplementationsMock,
+  findAllBindingsMock,
+  findAllConfigsMock,
   replaceAllMock,
 } = vi.hoisted(() => ({
-  findAllMock: vi.fn(),
-  listImplementationsMock: vi.fn(),
+  findAllBindingsMock: vi.fn(),
+  findAllConfigsMock: vi.fn(),
   replaceAllMock: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/ai-step-binding.repository", () => ({
   aiStepBindingRepository: {
-    findAll: findAllMock,
+    findAll: findAllBindingsMock,
     replaceAll: replaceAllMock,
   },
 }));
 
-vi.mock("@/server/services/ai-gateway.service", () => ({
-  aiGateway: {
-    listImplementations: listImplementationsMock,
+vi.mock("@/server/repositories/ai-model-config.repository", () => ({
+  aiModelConfigRepository: {
+    findAll: findAllConfigsMock,
   },
 }));
 
+const adminUser = {
+  id: "user_1",
+  account: "admin",
+  role: UserRole.SUPER_ADMIN,
+  organizationId: "org_1",
+};
+
+const stubConfigs = [
+  {
+    id: "config_1",
+    name: "Google Gemini",
+    baseUrl: "https://generativelanguage.googleapis.com",
+    apiKeyMasked: "**test**",
+    modelName: "gemini-2.0-flash",
+    videoInputMode: "GOOGLE_FILE",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "config_2",
+    name: "Ark 文本",
+    baseUrl: "https://ark.example.com",
+    apiKeyMasked: "**ark**",
+    modelName: "ark/text",
+    videoInputMode: "NONE",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
+
 describe("aiSettingsService", () => {
   beforeEach(() => {
-    findAllMock.mockReset();
-    listImplementationsMock.mockReset();
+    findAllBindingsMock.mockReset();
+    findAllConfigsMock.mockReset();
     replaceAllMock.mockReset();
 
-    listImplementationsMock.mockReturnValue([
-      {
-        key: "volcengine-transcribe",
-        name: "火山引擎转录",
-        provider: "Volcengine Ark",
-        supportedSteps: ["TRANSCRIBE"],
-        available: true,
-        requiredEnvKeys: [],
-      },
-      {
-        key: "ark-decompose",
-        name: "Ark 拆解",
-        provider: "Ark",
-        supportedSteps: ["DECOMPOSE"],
-        available: true,
-        requiredEnvKeys: [],
-      },
-      {
-        key: "ark-rewrite",
-        name: "Ark 仿写",
-        provider: "Ark",
-        supportedSteps: ["REWRITE"],
-        available: true,
-        requiredEnvKeys: [],
-      },
-    ]);
+    findAllConfigsMock.mockResolvedValue(stubConfigs);
   });
 
-  it("returns implementation registry and current bindings for super admin", async () => {
-    findAllMock.mockResolvedValue([
-      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
-      { step: "DECOMPOSE", implementationKey: null },
-      { step: "REWRITE", implementationKey: "ark-rewrite" },
+  it("returns bindings and model config pool for super admin", async () => {
+    findAllBindingsMock.mockResolvedValue([
+      { step: "TRANSCRIBE", modelConfigId: "config_1" },
+      { step: "DECOMPOSE", modelConfigId: null },
+      { step: "REWRITE", modelConfigId: null },
     ]);
 
     const { aiSettingsService } = await import("@/server/services/ai-settings.service");
-    const result = await aiSettingsService.getSettings({
-      id: "user_1",
-      account: "admin",
-      role: UserRole.SUPER_ADMIN,
-      organizationId: "org_1",
-    });
+    const result = await aiSettingsService.getSettings(adminUser);
 
     expect(result.bindings).toHaveLength(3);
-    expect(result.steps).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ step: "TRANSCRIBE" }),
-        expect.objectContaining({ step: "DECOMPOSE" }),
-        expect.objectContaining({ step: "REWRITE" }),
-      ]),
-    );
+    expect(result.modelConfigs).toHaveLength(2);
+    expect(result.bindings.find((b) => b.step === "TRANSCRIBE")?.modelConfigId).toBe("config_1");
+    expect(result.bindings.find((b) => b.step === "DECOMPOSE")?.modelConfigId).toBeNull();
   });
 
   it("persists updated bindings", async () => {
     replaceAllMock.mockResolvedValue(undefined);
-    findAllMock.mockResolvedValue([
-      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
-      { step: "DECOMPOSE", implementationKey: "ark-decompose" },
-      { step: "REWRITE", implementationKey: "ark-rewrite" },
+    findAllBindingsMock.mockResolvedValue([
+      { step: "TRANSCRIBE", modelConfigId: "config_1" },
+      { step: "DECOMPOSE", modelConfigId: "config_2" },
+      { step: "REWRITE", modelConfigId: null },
     ]);
 
     const { aiSettingsService } = await import("@/server/services/ai-settings.service");
-    await aiSettingsService.updateSettings(
-      {
-        id: "user_1",
-        account: "admin",
-        role: UserRole.SUPER_ADMIN,
-        organizationId: "org_1",
-      },
-      {
-        steps: [
-          { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
-          { step: "DECOMPOSE", implementationKey: "ark-decompose" },
-          { step: "REWRITE", implementationKey: "ark-rewrite" },
-        ],
-      },
-    );
+    await aiSettingsService.updateSettings(adminUser, {
+      bindings: [
+        { step: "TRANSCRIBE", modelConfigId: "config_1" },
+        { step: "DECOMPOSE", modelConfigId: "config_2" },
+        { step: "REWRITE", modelConfigId: null },
+      ],
+    });
 
     expect(replaceAllMock).toHaveBeenCalledWith([
-      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
-      { step: "DECOMPOSE", implementationKey: "ark-decompose" },
-      { step: "REWRITE", implementationKey: "ark-rewrite" },
+      { step: "TRANSCRIBE", modelConfigId: "config_1" },
+      { step: "DECOMPOSE", modelConfigId: "config_2" },
+      { step: "REWRITE", modelConfigId: null },
     ]);
   });
 
   it("fills unspecified steps with null when replacing bindings", async () => {
     replaceAllMock.mockResolvedValue(undefined);
-    findAllMock.mockResolvedValue([]);
+    findAllBindingsMock.mockResolvedValue([]);
 
     const { aiSettingsService } = await import("@/server/services/ai-settings.service");
-    await aiSettingsService.updateSettings(
-      {
-        id: "user_1",
-        account: "admin",
-        role: UserRole.SUPER_ADMIN,
-        organizationId: "org_1",
-      },
-      {
-        steps: [{ step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" }],
-      },
-    );
+    await aiSettingsService.updateSettings(adminUser, {
+      bindings: [{ step: "TRANSCRIBE", modelConfigId: "config_1" }],
+    });
 
-    expect(replaceAllMock).toHaveBeenCalledWith([
-      { step: "TRANSCRIBE", implementationKey: "volcengine-transcribe" },
-      { step: "DECOMPOSE", implementationKey: null },
-      { step: "REWRITE", implementationKey: null },
-    ]);
+    expect(replaceAllMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        { step: "TRANSCRIBE", modelConfigId: "config_1" },
+        { step: "DECOMPOSE", modelConfigId: null },
+        { step: "REWRITE", modelConfigId: null },
+      ]),
+    );
   });
 });

@@ -1,6 +1,12 @@
 import { apiClient } from "@/lib/api-client";
 import type { PaginatedData } from "@/types/api";
-import type { AiSettingsDTO, UpdateAiSettingsInput } from "@/types/ai-config";
+import type {
+  AiModelConfigDTO,
+  AiSettingsDTO,
+  CreateAiModelConfigInput,
+  UpdateAiModelConfigInput,
+  UpdateAiSettingsInput,
+} from "@/types/ai-config";
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
 
@@ -43,23 +49,7 @@ interface OrganizationStatusResult {
   affectedUserCount: number;
 }
 
-function normalizeAiConfig(data: AiSettingsDTO): AiSettingsDTO {
-  if (data.steps && !data.bindings) {
-    return {
-      ...data,
-      bindings: data.steps,
-    };
-  }
 
-  if (data.bindings && !data.steps) {
-    return {
-      ...data,
-      steps: data.bindings,
-    };
-  }
-
-  return data;
-}
 
 function buildUserListPath(params: ListUsersParams): string {
   const searchParams = new URLSearchParams({
@@ -118,13 +108,27 @@ export const managementClient = {
     return apiClient.patch<UserDTO>(`/users/${id}/status`, payload);
   },
 
-  async getAiConfig(): Promise<AiSettingsDTO> {
-    const result = await apiClient.get<AiSettingsDTO>("/system-settings/ai");
-    return normalizeAiConfig(result);
+  getAiConfig(): Promise<AiSettingsDTO> {
+    return apiClient.get<AiSettingsDTO>("/system-settings/ai");
   },
 
-  async updateAiConfig(payload: UpdateAiSettingsInput): Promise<AiSettingsDTO> {
-    const result = await apiClient.put<AiSettingsDTO>("/system-settings/ai", payload);
-    return normalizeAiConfig(result);
+  updateAiConfig(payload: UpdateAiSettingsInput): Promise<AiSettingsDTO> {
+    return apiClient.put<AiSettingsDTO>("/system-settings/ai", payload);
+  },
+
+  listAiModelConfigs(): Promise<AiModelConfigDTO[]> {
+    return apiClient.get<AiModelConfigDTO[]>("/system-settings/ai/model-configs");
+  },
+
+  createAiModelConfig(payload: CreateAiModelConfigInput): Promise<AiModelConfigDTO> {
+    return apiClient.post<AiModelConfigDTO>("/system-settings/ai/model-configs", payload);
+  },
+
+  updateAiModelConfig(id: string, payload: UpdateAiModelConfigInput): Promise<AiModelConfigDTO> {
+    return apiClient.patch<AiModelConfigDTO>(`/system-settings/ai/model-configs/${id}`, payload);
+  },
+
+  deleteAiModelConfig(id: string): Promise<{ deleted: boolean }> {
+    return apiClient.del<{ deleted: boolean }>(`/system-settings/ai/model-configs/${id}`);
   },
 };

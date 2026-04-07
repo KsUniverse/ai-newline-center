@@ -266,7 +266,7 @@ describe("syncService", () => {
     const result = await syncService.syncAccount("account_1", "user_1", "org_1");
 
     expect(updateSecUserIdMock).toHaveBeenCalledWith("account_1", "sec_123");
-    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_123", 0, 10);
+    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_123", 0, 10, undefined);
     expect(updateAccountInfoMock).toHaveBeenCalledWith(
       "account_1",
       expect.objectContaining({
@@ -354,7 +354,7 @@ describe("syncService", () => {
 
     await expect(syncService.runVideoBatchSync()).resolves.toBeUndefined();
     expect(fetchVideoListMock).toHaveBeenCalledTimes(1);
-    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_shared", 0, 10);
+    expect(fetchVideoListMock).toHaveBeenCalledWith("sec_shared", 0, 10, undefined);
     expect(upsertVideoMock).toHaveBeenCalledTimes(1);
     expect(benchmarkUpsertVideoMock).toHaveBeenCalledTimes(1);
   });
@@ -401,5 +401,62 @@ describe("syncService", () => {
       source: BenchmarkAccountMemberSource.COLLECTION_SYNC,
     });
     expect(benchmarkCreateWithMemberMock).not.toHaveBeenCalled();
+  });
+
+  it("limits first collection sync to 10 favorites on cold start", async () => {
+    findAllMyAccountsForCollectionMock.mockResolvedValue([
+      {
+        id: "account_1",
+        userId: "user_1",
+        organizationId: "org_1",
+        secUserId: "sec_owner_1",
+        loginStatus: DouyinAccountLoginStatus.LOGGED_IN,
+        favoriteCookieHeader: "sessionid=abc123",
+      },
+    ]);
+    collectionExistsForAccountMock.mockResolvedValue(false);
+    fetchCollectionVideosMock.mockResolvedValue({
+      items: Array.from({ length: 10 }, (_, index) => ({
+        awemeId: `fav_${index + 1}`,
+        authorSecUserId: `author_${index + 1}`,
+        collectedAt: null,
+      })),
+      hasMore: true,
+      cursor: 10,
+    });
+    benchmarkFindByOrgSecUserIdMock.mockResolvedValue(null);
+    fetchUserProfileMock.mockImplementation(async (secUserId: string) => ({
+      secUserId,
+      nickname: `nickname_${secUserId}`,
+      avatar: "https://example.com/avatar.png",
+      bio: null,
+      signature: null,
+      followersCount: 0,
+      followingCount: 0,
+      likesCount: 0,
+      videosCount: 0,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    }));
+    benchmarkCreateWithMemberMock.mockResolvedValue({
+      id: "benchmark_created",
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runCollectionSync()).resolves.toBeUndefined();
+    expect(fetchCollectionVideosMock).toHaveBeenCalledTimes(1);
+    expect(fetchCollectionVideosMock).toHaveBeenCalledWith({
+      cookieHeader: "sessionid=abc123",
+      cursor: 0,
+      count: 10,
+    });
+    expect(collectionCreateMock).toHaveBeenCalledTimes(10);
   });
 });

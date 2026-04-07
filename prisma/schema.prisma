@@ -370,12 +370,33 @@ enum AiWorkspaceStatus {
   REWRITING
 }
 
+enum AiVideoInputMode {
+  NONE
+  DASHSCOPE_FILE
+  GOOGLE_FILE
+}
+
+model AiModelConfig {
+  id             String           @id @default(cuid())
+  name           String
+  baseUrl        String
+  apiKey         String
+  modelName      String
+  videoInputMode AiVideoInputMode @default(NONE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  stepBindings   AiStepBinding[]
+
+  @@map("ai_model_configs")
+}
+
 model AiStepBinding {
-  id                String   @id @default(cuid())
-  step              AiStep   @unique
-  implementationKey String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String          @id @default(cuid())
+  step          AiStep          @unique
+  modelConfigId String?
+  modelConfig   AiModelConfig?  @relation(fields: [modelConfigId], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   @@map("ai_step_bindings")
 }

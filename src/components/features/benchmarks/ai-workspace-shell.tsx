@@ -9,6 +9,11 @@ import { proxyImageUrl } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  WORKSPACE_BACKDROP_LAYER_CLASS,
+  WORKSPACE_GHOST_LAYER_CLASS,
+  WORKSPACE_SHELL_LAYER_CLASS,
+} from "@/components/ui/layering";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -257,7 +262,6 @@ export function AiWorkspaceShell({
       setGhostVisible(false);
       setGhostFading(false);
       setGhostRect(null);
-      setVisualStage(controller.stage);
       return;
     }
 
@@ -296,7 +300,7 @@ export function AiWorkspaceShell({
     return () => {
       clearTransitionTimers();
     };
-  }, [clearTransitionTimers, controller.stage, originRect, scheduleTransition, video]);
+  }, [clearTransitionTimers, originRect, scheduleTransition, video]);
 
   useEffect(() => {
     return () => {
@@ -353,7 +357,7 @@ export function AiWorkspaceShell({
     <>
       {ghostVisible && ghostRect ? (
         <div
-          className="pointer-events-none fixed z-90 overflow-hidden border border-border/60 bg-card/95 shadow-2xl shadow-black/25 transition-[top,left,width,height,border-radius,opacity] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          className={`pointer-events-none fixed ${WORKSPACE_GHOST_LAYER_CLASS} overflow-hidden border border-border/60 bg-card/95 shadow-2xl shadow-black/25 transition-[top,left,width,height,border-radius,opacity] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)]`}
           style={{
             top: ghostRect.top,
             left: ghostRect.left,
@@ -376,12 +380,12 @@ export function AiWorkspaceShell({
       ) : null}
 
       <div
-        className="fixed inset-0 z-80 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
+        className={`fixed inset-0 ${WORKSPACE_BACKDROP_LAYER_CLASS} bg-black/65 backdrop-blur-sm transition-opacity duration-300`}
         style={{ opacity: motionState.backdropOpacity }}
         onClick={handleRequestClose}
       />
 
-      <div className="fixed inset-2 z-85 flex items-center justify-center">
+      <div className={`fixed inset-2 ${WORKSPACE_SHELL_LAYER_CLASS} flex items-center justify-center`}>
         <div
           className="relative flex h-full w-full max-w-400 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-card/95 shadow-2xl shadow-black/20 transition-opacity duration-300"
           style={{ opacity: motionState.frameOpacity }}

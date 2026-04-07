@@ -1,24 +1,12 @@
+import path from "node:path";
+
 import { Worker } from "bullmq";
 
 import { TRANSCRIPTION_QUEUE_NAME, type TranscriptionJobData } from "@/lib/bullmq";
 import { env } from "@/lib/env";
-import {
-  createBullMQRedisConnection,
-} from "@/lib/redis";
+import { createBullMQRedisConnection } from "@/lib/redis";
 import { aiWorkspaceRepository } from "@/server/repositories/ai-workspace.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
-
-function buildShareUrlPrompt(shareUrl: string): string {
-  return [
-    "你是短视频文案研究助手。",
-    "请基于下面的短视频分享链接，整理出一份结构清晰、便于后续人工拆解的转录主文档。",
-    "要求：",
-    "1. 保留原视频表达顺序；",
-    "2. 语义连贯地分段；",
-    "3. 输出为可读中文正文，不要解释你的推理过程；",
-    `分享链接：${shareUrl}`,
-  ].join("\n");
-}
 
 declare global {
   // Persist worker startup across Next.js dev hot reloads in the same process.
@@ -43,32 +31,45 @@ export function startTranscriptionWorker(): void {
   const worker = new Worker<TranscriptionJobData>(
     TRANSCRIPTION_QUEUE_NAME,
     async (job) => {
-      const {
-        shareUrl,
-        aiProviderKey,
-        workspaceId,
+      const { workspaceId, videoStoragePath, organizationId } = job.data;
+
+      console.log("[TranscriptionWorker] Processing job", {
+        jobId: job.id,
+        workspaceId: workspaceId ?? null,
         organizationId,
-      } = job.data;
+        videoStoragePath: videoStoragePath ?? null,
+      });
 
       if (!workspaceId) {
         throw new Error("Workspace transcription job is missing workspaceId");
       }
 
-      if (!shareUrl) {
-        throw new Error("Workspace transcription job is missing shareUrl");
+      if (!videoStoragePath) {
+        throw new Error("Workspace transcription job is missing videoStoragePath");
       }
 
-      const { implementationKey, modelId, text: originalText } = await aiGateway.generateText(
-        "TRANSCRIBE",
-        buildShareUrlPrompt(shareUrl),
-        aiProviderKey ?? undefined,
+      const absoluteVideoPath = path.join(
+        process.cwd(),
+        "public",
+        videoStoragePath.startsWith("/") ? videoStoragePath.slice(1) : videoStoragePath,
       );
 
+      const result = await aiGateway.generateTranscriptionFromVideo(absoluteVideoPath);
+
       await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
-        originalText,
-        currentText: originalText,
-        aiProviderKey: implementationKey,
-        aiModel: modelId,
+        originalText: result.text,
+        currentText: result.text,
+        aiProviderKey: result.modelConfigId,
+        aiModel: result.modelName,
+      });
+
+      console.log("[TranscriptionWorker] Completed job", {
+        jobId: job.id,
+        workspaceId,
+        organizationId,
+        transcriptLength: result.text.length,
+        aiProviderKey: result.modelConfigId,
+        aiModel: result.modelName,
       });
     },
     {
@@ -78,12 +79,29 @@ export function startTranscriptionWorker(): void {
   );
 
   worker.on("failed", async (job, error) => {
+    const errorMessage = error instanceof Error ? error.message : "未知错误";
+    const maxAttempts = job?.opts.attempts ?? 3;
+
+    console.warn("[TranscriptionWorker] Job attempt failed", {
+      jobId: job?.id ?? null,
+      workspaceId: job?.data.workspaceId ?? null,
+      attemptsMade: job?.attemptsMade ?? null,
+      maxAttempts,
+      error: errorMessage,
+    });
+
     if (!job || job.attemptsMade < (job.opts.attempts ?? 3)) {
       return;
     }
 
     try {
-      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      console.error("[TranscriptionWorker] Job failed permanently", {
+        jobId: job.id,
+        workspaceId: job.data.workspaceId ?? null,
+        attemptsMade: job.attemptsMade,
+        maxAttempts,
+        error: errorMessage,
+      });
 
       if (!job.data.workspaceId) {
         throw new Error(errorMessage);

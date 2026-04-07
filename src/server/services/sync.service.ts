@@ -19,6 +19,7 @@ import { storageService } from "@/server/services/storage.service";
 const INITIAL_SYNC_LIMIT = 10;
 const INCREMENTAL_BATCH_SIZE = 5;
 const MAX_INCREMENTAL_BATCHES = 10;
+const INITIAL_COLLECTION_SYNC_LIMIT = 10;
 const COLLECTION_BATCH_SIZE = 30;
 const RECENT_VIDEO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MID_TERM_VIDEO_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -334,6 +335,9 @@ class SyncService {
           const hasCollectionBaseline = await employeeCollectionVideoRepository.existsForAccount(
             account.id,
           );
+          const collectionBatchSize = hasCollectionBaseline
+            ? COLLECTION_BATCH_SIZE
+            : INITIAL_COLLECTION_SYNC_LIMIT;
           let cursor = 0;
           let shouldContinuePaging = true;
 
@@ -341,11 +345,14 @@ class SyncService {
             const result = await crawlerService.fetchCollectionVideos({
               cookieHeader: account.favoriteCookieHeader,
               cursor,
-              count: COLLECTION_BATCH_SIZE,
+              count: collectionBatchSize,
             });
+            const items = hasCollectionBaseline
+              ? result.items
+              : result.items.slice(0, INITIAL_COLLECTION_SYNC_LIMIT);
             let pageHitExistingCollection = false;
 
-            for (const item of result.items) {
+            for (const item of items) {
               if (!item.awemeId) {
                 console.warn("[CollectionSync] 跳过无 awemeId 的收藏 item", {
                   accountId: account.id,
@@ -889,4 +896,3 @@ class SyncService {
 }
 
 export const syncService = new SyncService();
-

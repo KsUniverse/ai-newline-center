@@ -132,55 +132,37 @@ describe("managementClient", () => {
     });
   });
 
-  it("loads AI configuration bindings from the management endpoint", async () => {
+  it("loads AI configuration from the management endpoint", async () => {
     getMock.mockResolvedValue({
-      steps: [
-        {
-          step: "TRANSCRIBE",
-          implementationKey: "volcengine-transcribe",
-          name: "火山引擎转录",
-          provider: "Volcengine Ark",
-          available: true,
-          requiredEnvKeys: ["TRANSCRIBE_API_KEY"],
-        },
+      bindings: [
+        { step: "TRANSCRIBE", modelConfigId: "config_1", modelConfig: null },
       ],
+      modelConfigs: [{ id: "config_1", name: "Google Gemini" }],
     });
 
     const result = await managementClient.getAiConfig();
 
     expect(getMock).toHaveBeenCalledWith("/system-settings/ai");
-    expect(result.steps[0]?.step).toBe("TRANSCRIBE");
+    expect(result.bindings[0]?.step).toBe("TRANSCRIBE");
   });
 
   it("saves AI configuration bindings through the management endpoint", async () => {
     putMock.mockResolvedValue({
-      steps: [
-        {
-          step: "REWRITE",
-          implementationKey: "ark-rewrite",
-          name: "Ark 仿写",
-          provider: "Ark",
-          available: true,
-          requiredEnvKeys: ["ARK_API_KEY", "ARK_BASE_URL", "ARK_REWRITE_MODEL"],
-        },
+      bindings: [
+        { step: "REWRITE", modelConfigId: "config_2", modelConfig: null },
       ],
+      modelConfigs: [],
     });
 
     await managementClient.updateAiConfig({
       bindings: [
-        {
-          step: "REWRITE",
-          implementationKey: "ark-rewrite",
-        },
+        { step: "REWRITE", modelConfigId: "config_2" },
       ],
     });
 
     expect(putMock).toHaveBeenCalledWith("/system-settings/ai", {
       bindings: [
-        {
-          step: "REWRITE",
-          implementationKey: "ark-rewrite",
-        },
+        { step: "REWRITE", modelConfigId: "config_2" },
       ],
     });
   });

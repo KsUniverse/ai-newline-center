@@ -21,22 +21,16 @@ class AiStepBindingRepository {
 
   async findAll(db: DatabaseClient = prisma): Promise<AiStepBinding[]> {
     return db.aiStepBinding.findMany({
-      orderBy: {
-        step: "asc",
-      },
+      orderBy: { step: "asc" },
     });
   }
 
   async findByStep(step: AiStep, db: DatabaseClient = prisma): Promise<AiStepBinding | null> {
-    return db.aiStepBinding.findUnique({
-      where: {
-        step,
-      },
-    });
+    return db.aiStepBinding.findUnique({ where: { step } });
   }
 
   async replaceAll(
-    bindings: Array<{ step: AiStep; implementationKey: string | null }>,
+    bindings: Array<{ step: AiStep; modelConfigId: string | null }>,
     db: DatabaseClient = prisma,
   ): Promise<void> {
     await this.runTransaction(db, async (tx: Prisma.TransactionClient) => {
@@ -44,7 +38,7 @@ class AiStepBindingRepository {
       await tx.aiStepBinding.createMany({
         data: bindings.map((binding) => ({
           step: binding.step,
-          implementationKey: binding.implementationKey,
+          modelConfigId: binding.modelConfigId,
         })),
       });
     });
@@ -56,14 +50,12 @@ class AiStepBindingRepository {
       (step) => !existing.some((binding) => binding.step === step),
     );
 
-    if (missingSteps.length === 0) {
-      return;
-    }
+    if (missingSteps.length === 0) return;
 
     await db.aiStepBinding.createMany({
       data: missingSteps.map((step) => ({
         step,
-        implementationKey: null,
+        modelConfigId: null,
       })),
       skipDuplicates: true,
     });

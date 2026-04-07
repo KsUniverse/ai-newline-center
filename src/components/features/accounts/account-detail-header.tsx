@@ -33,7 +33,7 @@ export function AccountDetailHeader({
   ];
   const profileMetaItems = [
     { label: "内容源账号", icon: MonitorPlay, tone: "primary" as const },
-    ...(account.douyinNumber ? [{ label: `@${account.douyinNumber}` }] : []),
+    ...(account.douyinNumber ? [{ label: `${account.douyinNumber}` }] : []),
   ];
   const locationMetaItems = [
     ...(account.ipLocation ? [{ label: account.ipLocation, icon: MapPin }] : []),

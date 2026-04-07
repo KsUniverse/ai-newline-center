@@ -3,36 +3,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createWorkspaceMock,
-  fetchOneVideoMock,
-  findFirstActiveShareCookieMock,
   findByVideoIdAndUserIdMock,
   findByIdMock,
   findVideoByIdMock,
   queueTranscribeMock,
   resetTranscriptToDraftMock,
-  updateBenchmarkShareUrlMock,
   upsertAnnotationMock,
   upsertDraftMock,
   updateWorkspaceMock,
 } = vi.hoisted(() => ({
   createWorkspaceMock: vi.fn(),
-  fetchOneVideoMock: vi.fn(),
-  findFirstActiveShareCookieMock: vi.fn(),
   findByVideoIdAndUserIdMock: vi.fn(),
   findByIdMock: vi.fn(),
   findVideoByIdMock: vi.fn(),
   queueTranscribeMock: vi.fn(),
   resetTranscriptToDraftMock: vi.fn(),
-  updateBenchmarkShareUrlMock: vi.fn(),
   upsertAnnotationMock: vi.fn(),
   upsertDraftMock: vi.fn(),
   updateWorkspaceMock: vi.fn(),
-}));
-
-vi.mock("@/server/repositories/douyin-account.repository", () => ({
-  douyinAccountRepository: {
-    findFirstActiveShareCookie: findFirstActiveShareCookieMock,
-  },
 }));
 
 vi.mock("@/server/repositories/ai-workspace.repository", () => ({
@@ -50,13 +38,6 @@ vi.mock("@/server/repositories/ai-workspace.repository", () => ({
 vi.mock("@/server/repositories/benchmark-video.repository", () => ({
   benchmarkVideoRepository: {
     findByIdWithAccountOrganization: findVideoByIdMock,
-    updateShareUrl: updateBenchmarkShareUrlMock,
-  },
-}));
-
-vi.mock("@/server/services/crawler.service", () => ({
-  crawlerService: {
-    fetchOneVideo: fetchOneVideoMock,
   },
 }));
 
@@ -107,21 +88,17 @@ describe("aiWorkspaceService", () => {
 
   beforeEach(() => {
     createWorkspaceMock.mockReset();
-    fetchOneVideoMock.mockReset();
-    findFirstActiveShareCookieMock.mockReset();
     findByVideoIdAndUserIdMock.mockReset();
     findByIdMock.mockReset();
     findVideoByIdMock.mockReset();
     queueTranscribeMock.mockReset();
     resetTranscriptToDraftMock.mockReset();
-    updateBenchmarkShareUrlMock.mockReset();
     upsertAnnotationMock.mockReset();
     upsertDraftMock.mockReset();
     updateWorkspaceMock.mockReset();
-    findFirstActiveShareCookieMock.mockResolvedValue(null);
   });
 
-  it("requires shareUrl before scheduling transcription", async () => {
+  it("requires videoStoragePath before scheduling transcription", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
       videoId: "video_1",
@@ -129,14 +106,6 @@ describe("aiWorkspaceService", () => {
       shareUrl: null,
       videoStoragePath: null,
       account: { organizationId: "org_1" },
-    });
-    fetchOneVideoMock.mockResolvedValue({
-      awemeId: "video_1",
-      shareUrl: null,
-      playCount: 0,
-      likeCount: 0,
-      commentCount: 0,
-      shareCount: 0,
     });
 
     const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
@@ -151,55 +120,10 @@ describe("aiWorkspaceService", () => {
         },
         "video_1",
       ),
-    ).rejects.toMatchObject({ code: "AI_SHARE_URL_REQUIRED" });
+    ).rejects.toMatchObject({ code: "VIDEO_FILE_REQUIRED" });
   });
 
-  it("hydrates shareUrl from crawler detail before scheduling transcription", async () => {
-    findVideoByIdMock.mockResolvedValue({
-      id: "video_1",
-      videoId: "7624498926086786323",
-      title: "video",
-      shareUrl: null,
-      account: { organizationId: "org_1" },
-    });
-    fetchOneVideoMock.mockResolvedValue({
-      awemeId: "7624498926086786323",
-      shareUrl: "https://www.iesdouyin.com/share/video/7624498926086786323/?foo=bar",
-      playCount: 0,
-      likeCount: 0,
-      commentCount: 0,
-      shareCount: 0,
-    });
-    findByVideoIdAndUserIdMock.mockResolvedValue(null);
-    createWorkspaceMock.mockResolvedValue({
-      id: "workspace_1",
-      videoId: "video_1",
-      userId: "user_1",
-      organizationId: "org_1",
-      status: "IDLE",
-    });
-    findByIdMock
-      .mockResolvedValueOnce(createWorkspaceDetail({ status: "IDLE", transcript: null }))
-      .mockResolvedValueOnce(createWorkspaceDetail({ status: "TRANSCRIBING" }));
-
-    const { aiWorkspaceService } = await import("@/server/services/ai-workspace.service");
-    await aiWorkspaceService.startTranscription(
-      {
-        id: "user_1",
-        account: "employee",
-        role: UserRole.EMPLOYEE,
-        organizationId: "org_1",
-      },
-      "video_1",
-    );
-
-    expect(updateBenchmarkShareUrlMock).toHaveBeenCalledWith(
-      "video_1",
-      "https://www.iesdouyin.com/share/video/7624498926086786323/?foo=bar",
-    );
-  });
-
-  it("queues transcription for the workspace using the shareUrl", async () => {
+  it("queues transcription for the workspace using the videoStoragePath", async () => {
     findVideoByIdMock.mockResolvedValue({
       id: "video_1",
       videoId: "video_1",
@@ -245,7 +169,7 @@ describe("aiWorkspaceService", () => {
       expect.objectContaining({
         workspaceId: "workspace_1",
         videoId: "video_1",
-        shareUrl: "https://www.douyin.com/video/abc",
+        videoStoragePath: "/storage/video.mp4",
       }),
     );
   });
@@ -256,6 +180,7 @@ describe("aiWorkspaceService", () => {
       videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
+      videoStoragePath: "/storage/video.mp4",
       account: { organizationId: "org_1" },
     });
     findByVideoIdAndUserIdMock.mockResolvedValue({
@@ -316,6 +241,7 @@ describe("aiWorkspaceService", () => {
       videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
+      videoStoragePath: "/storage/video.mp4",
       account: { organizationId: "org_1" },
     });
     findByVideoIdAndUserIdMock.mockResolvedValue({
@@ -358,6 +284,7 @@ describe("aiWorkspaceService", () => {
       videoId: "video_1",
       title: "video",
       shareUrl: "https://www.douyin.com/video/abc",
+      videoStoragePath: "/storage/video.mp4",
       account: { organizationId: "org_1" },
     });
     findByVideoIdAndUserIdMock.mockResolvedValue({

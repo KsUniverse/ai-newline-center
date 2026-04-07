@@ -1,0 +1,10 @@
+export const SHARED_MODAL_LAYER = 50;
+
+export const WORKSPACE_BACKDROP_LAYER = 40;
+export const WORKSPACE_SHELL_LAYER = 45;
+export const WORKSPACE_GHOST_LAYER = 46;
+
+export const SHARED_MODAL_LAYER_CLASS = "z-50";
+export const WORKSPACE_BACKDROP_LAYER_CLASS = "z-40";
+export const WORKSPACE_SHELL_LAYER_CLASS = "z-[45]";
+export const WORKSPACE_GHOST_LAYER_CLASS = "z-[46]";

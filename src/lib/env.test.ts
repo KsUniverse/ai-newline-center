@@ -110,7 +110,7 @@ describe("parseEnv", () => {
     expect(result.COLLECTION_SYNC_CRON).toBe("*/5 * * * *");
   });
 
-  it("defaults TRANSCRIPTION_AI_MODEL and allows OPENAI_API_KEY to be omitted in development", async () => {
+  it("allows DEEPGRAM_API_KEY to be omitted in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
 
     const { parseEnv } = await import("@/lib/env");
@@ -120,7 +120,7 @@ describe("parseEnv", () => {
       NODE_ENV: "development",
     });
 
-    expect(result.TRANSCRIPTION_AI_MODEL).toBe("openai/whisper-1");
+    expect(result.DEEPGRAM_API_KEY).toBeUndefined();
     expect(result.OPENAI_API_KEY).toBeUndefined();
   });
 
@@ -162,7 +162,7 @@ describe("parseEnv", () => {
     expect(result.ARK_REWRITE_MODEL).toBe("ark/rewrite");
   });
 
-  it("accepts dedicated transcription runtime configuration", async () => {
+  it("accepts DEEPGRAM_API_KEY for transcription", async () => {
     vi.stubEnv("NODE_ENV", "development");
 
     const { parseEnv } = await import("@/lib/env");
@@ -170,13 +170,23 @@ describe("parseEnv", () => {
       DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
       NEXTAUTH_SECRET: "a".repeat(32),
       NODE_ENV: "development",
-      TRANSCRIBE_BASE_URL: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      TRANSCRIBE_API_KEY: "transcribe_test_key",
-      TRANSCRIBE_MODEL_NAME: "doubao-seed-2-0-lite-260215",
+      DEEPGRAM_API_KEY: "dg_test_key",
     });
 
-    expect(result.TRANSCRIBE_BASE_URL).toBe("https://ark.cn-beijing.volces.com/api/v3/chat/completions");
-    expect(result.TRANSCRIBE_API_KEY).toBe("transcribe_test_key");
-    expect(result.TRANSCRIBE_MODEL_NAME).toBe("doubao-seed-2-0-lite-260215");
+    expect(result.DEEPGRAM_API_KEY).toBe("dg_test_key");
+  });
+
+  it("accepts GOOGLE_API_KEY for Gemini transcription", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NODE_ENV: "development",
+      GOOGLE_API_KEY: "google_test_key",
+    });
+
+    expect(result.GOOGLE_API_KEY).toBe("google_test_key");
   });
 });

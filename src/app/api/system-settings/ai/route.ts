@@ -8,24 +8,12 @@ import { handleApiError, successResponse } from "@/lib/api-response";
 import { aiSettingsService } from "@/server/services/ai-settings.service";
 
 const updateSettingsSchema = z.object({
-  steps: z
-    .array(
-      z.object({
-        step: z.enum(["TRANSCRIBE", "DECOMPOSE", "REWRITE"]),
-        implementationKey: z.string().min(1).nullable(),
-      }),
-    )
-    .optional(),
-  bindings: z
-    .array(
-      z.object({
-        step: z.enum(["TRANSCRIBE", "DECOMPOSE", "REWRITE"]),
-        implementationKey: z.string().min(1).nullable(),
-      }),
-    )
-    .optional(),
-}).refine((value) => Boolean(value.steps?.length || value.bindings?.length), {
-  message: "至少提供一组 AI 步骤绑定",
+  bindings: z.array(
+    z.object({
+      step: z.enum(["TRANSCRIBE", "DECOMPOSE", "REWRITE"]),
+      modelConfigId: z.string().min(1).nullable(),
+    }),
+  ).min(1),
 });
 
 export async function GET(): Promise<NextResponse> {
@@ -61,3 +49,4 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   return updateSettings(request);
 }
+

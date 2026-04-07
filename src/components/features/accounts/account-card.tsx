@@ -38,7 +38,7 @@ export function AccountCard({ account, onClick }: AccountCardProps) {
             </span>
             {account.douyinNumber ? (
               <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 font-mono normal-case tracking-normal text-muted-foreground">
-                @{account.douyinNumber}
+                {account.douyinNumber}
               </span>
             ) : null}
           </div>

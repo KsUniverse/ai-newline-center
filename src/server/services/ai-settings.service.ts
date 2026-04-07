@@ -1,12 +1,17 @@
 import { UserRole } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
-import { aiGateway } from "@/server/services/ai-gateway.service";
+import { aiModelConfigRepository } from "@/server/repositories/ai-model-config.repository";
 import { aiStepBindingRepository } from "@/server/repositories/ai-step-binding.repository";
 import type { SessionUser } from "@/types/session";
-import type { AiSettingsDTO, UpdateAiSettingsInput, AiStep } from "@/types/ai-config";
+import type {
+  AiSettingsDTO,
+  AiStepBindingDTO,
+  UpdateAiSettingsInput,
+  AiStep,
+} from "@/types/ai-config";
 
-const aiSteps: AiStep[] = ["TRANSCRIBE", "DECOMPOSE", "REWRITE"];
+const AI_STEPS: AiStep[] = ["TRANSCRIBE", "DECOMPOSE", "REWRITE"];
 
 class AiSettingsService {
   private assertSuperAdmin(caller: SessionUser): void {
@@ -15,39 +20,27 @@ class AiSettingsService {
     }
   }
 
-  private normalizeBindings(input: UpdateAiSettingsInput): Array<{ step: AiStep; implementationKey: string | null }> {
-    const bindings = input.steps ?? input.bindings ?? [];
-    const bindingMap = new Map(bindings.map((binding) => [binding.step, binding.implementationKey ?? null] as const));
-
-    return aiSteps.map((step) => ({
-      step,
-      implementationKey: bindingMap.get(step) ?? null,
-    }));
-  }
-
   async getSettings(caller: SessionUser): Promise<AiSettingsDTO> {
     this.assertSuperAdmin(caller);
 
-    const [bindings, implementations] = await Promise.all([
+    const [bindings, modelConfigs] = await Promise.all([
       aiStepBindingRepository.findAll(),
-      aiGateway.listImplementations(),
+      aiModelConfigRepository.findAll(),
     ]);
 
-    return {
-      steps: aiSteps.map((step) => ({
-        step,
-        implementationKey: bindings.find((item) => item.step === step)?.implementationKey ?? null,
-      })),
-      bindings: aiSteps.map((step) => {
-        const binding = bindings.find((item) => item.step === step);
+    const configMap = new Map(modelConfigs.map((c) => [c.id, c]));
 
-        return {
-          step,
-          implementationKey: binding?.implementationKey ?? null,
-        };
-      }),
-      implementations,
-    };
+    const bindingDTOs: AiStepBindingDTO[] = AI_STEPS.map((step) => {
+      const binding = bindings.find((b) => b.step === step);
+      const modelConfigId = binding?.modelConfigId ?? null;
+      return {
+        step,
+        modelConfigId,
+        modelConfig: modelConfigId ? (configMap.get(modelConfigId) ?? null) : null,
+      };
+    });
+
+    return { bindings: bindingDTOs, modelConfigs };
   }
 
   async updateSettings(
@@ -56,25 +49,24 @@ class AiSettingsService {
   ): Promise<AiSettingsDTO> {
     this.assertSuperAdmin(caller);
 
-    const implementations = aiGateway.listImplementations();
-    const bindings = this.normalizeBindings(input);
+    const modelConfigs = await aiModelConfigRepository.findAll();
+    const configIds = new Set(modelConfigs.map((c) => c.id));
 
-    for (const binding of bindings) {
-      if (!binding.implementationKey) {
-        continue;
-      }
+    // Normalize: ensure all 3 steps are present
+    const bindingMap = new Map(input.bindings.map((b) => [b.step, b.modelConfigId]));
+    const normalizedBindings = AI_STEPS.map((step) => ({
+      step,
+      modelConfigId: bindingMap.get(step) ?? null,
+    }));
 
-      const implementation = implementations.find((item) => item.key === binding.implementationKey);
-      if (!implementation) {
-        throw new AppError("AI_IMPLEMENTATION_NOT_FOUND", "AI 实现不存在", 409);
-      }
-
-      if (!implementation.available) {
-        throw new AppError("AI_IMPLEMENTATION_UNAVAILABLE", "AI 实现当前不可用", 409);
+    for (const binding of normalizedBindings) {
+      if (!binding.modelConfigId) continue;
+      if (!configIds.has(binding.modelConfigId)) {
+        throw new AppError("AI_MODEL_NOT_FOUND", "绑定的模型配置不存在", 409);
       }
     }
 
-    await aiStepBindingRepository.replaceAll(bindings);
+    await aiStepBindingRepository.replaceAll(normalizedBindings);
     return this.getSettings(caller);
   }
 }
