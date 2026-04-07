@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "next build",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
@@ -11,7 +12,12 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "deploy:pack": "bash scripts/local-pack.sh",
+    "deploy:pack:win": "scripts\\local-pack.bat",
+    "deploy:docker:build": "docker build -t ai-newline-center:latest .",
+    "deploy:docker:up": "docker compose --env-file .env.docker up -d",
+    "deploy:docker:down": "docker compose down"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.50",

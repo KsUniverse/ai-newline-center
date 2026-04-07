@@ -1,5 +1,9 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native = 当前机器（Mac/Windows 开发用）
+  // debian-openssl-3.0.x = 宝塔服务器 Linux x64 Debian/Ubuntu
+  // linux-musl-openssl-3.0.x = Docker Alpine
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

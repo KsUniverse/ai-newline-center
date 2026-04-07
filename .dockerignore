@@ -1,0 +1,43 @@
+# === 依赖 ===
+node_modules
+.pnpm-store
+
+# === Next.js 构建产物（由 Docker 内部构建）===
+.next
+out
+
+# === 开发 / 测试 ===
+.env
+.env.*
+!.env.example
+!.env.production.example
+coverage
+*.test.*
+*.spec.*
+vitest.config.*
+
+# === 临时文件 ===
+.deploy-tmp
+deploy.tar.gz
+*.tar.gz
+*.log
+logs/
+
+# === 编辑器 / OS ===
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.swp
+
+# === Git ===
+.git
+.gitignore
+
+# === 文档 ===
+docs
+*.md
+!README.md
+
+# === Public 存储（运行时挂载卷）===
+public/storage
