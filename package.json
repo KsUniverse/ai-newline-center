@@ -4,8 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "bash ./scripts/build-bt.sh",
-    "build:next": "node ./scripts/run-build-production.mjs",
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit -p tsconfig.typecheck.json",
@@ -13,8 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed",
-    "build:bt": "bash ./scripts/build-bt.sh"
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.50",
