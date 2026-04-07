@@ -11,7 +11,7 @@
 - **Runtime**: Node.js 20+
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript (strict mode)
-- **Database**: PostgreSQL 16 + Prisma 6 ORM
+- **Database**: MySQL 8.0 + Prisma 6 ORM
 - **Cache/Queue**: Redis 7 + BullMQ 5
 - **Auth**: Auth.js (NextAuth) 5 — Credentials Provider
 - **AI**: Vercel AI SDK 4 (多模型网关)

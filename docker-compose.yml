@@ -1,12 +1,12 @@
 # ============================================================
 # Docker Compose — ai-newline-center 生产部署
-# 包含: app + PostgreSQL + Redis（可选择只用 app，外接宝塔已有数据库）
+# 包含: app + MySQL + Redis（可选择只用 app，外接宝塔已有数据库）
 #
 # 使用方式:
 #   cp .env.production.example .env.docker
 #   docker compose --env-file .env.docker up -d
 #
-# 如果宝塔已安装 PostgreSQL/Redis，请使用 docker-compose.app-only.yml
+# 如果宝塔已安装 MySQL/Redis，请使用 docker-compose.app-only.yml
 # ============================================================
 
 services:

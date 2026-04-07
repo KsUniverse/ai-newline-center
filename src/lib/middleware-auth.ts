@@ -13,10 +13,6 @@ export function getAuthRedirectPath(
   pathname: string,
   isAuthenticated: boolean,
 ): string | null {
-  if (pathname === "/login" && isAuthenticated) {
-    return "/dashboard";
-  }
-
   if (isDashboardRoute(pathname) && !isAuthenticated) {
     return "/login";
   }

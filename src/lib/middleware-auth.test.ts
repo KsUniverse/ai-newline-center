@@ -16,8 +16,8 @@ describe("middleware auth routing", () => {
     expect(isDashboardRoute("/users/abc")).toBe(true);
   });
 
-  it("redirects authenticated users away from login", () => {
-    expect(getAuthRedirectPath("/login", true)).toBe("/dashboard");
+  it("does not redirect login when only a token is present", () => {
+    expect(getAuthRedirectPath("/login", true)).toBeNull();
   });
 
   it("redirects unauthenticated users to login for dashboard routes", () => {

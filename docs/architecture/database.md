@@ -1,6 +1,6 @@
 # 数据库设计规范
 
-> 摘要：PostgreSQL + Prisma ORM。模型命名 PascalCase，字段 camelCase。每个模型必须有 id/createdAt/updatedAt。软删除用 deletedAt。业务模型必须有 organizationId 用于数据隔离。
+> 摘要：MySQL 8.0 + Prisma ORM。模型命名 PascalCase，字段 camelCase。每个模型必须有 id/createdAt/updatedAt。软删除用 deletedAt。业务模型必须有 organizationId 用于数据隔离。
 
 ## Prisma Schema 约定
 
@@ -11,7 +11,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
