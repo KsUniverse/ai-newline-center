@@ -57,7 +57,7 @@ class VideoService {
         collectCount: item.collectCount,
         admireCount: item.admireCount,
         recommendCount: item.recommendCount,
-        tags: item.tags ?? [],
+        tags: (Array.isArray(item.tags) ? item.tags as string[] : []),
         createdAt: item.createdAt.toISOString(),
         accountNickname: item.account.nickname,
         accountAvatar: item.account.avatar,

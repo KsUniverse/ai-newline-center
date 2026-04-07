@@ -22,7 +22,13 @@
 
 set -euo pipefail
 
-DEPLOY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 如果脚本放在 scripts/ 目录里（Git 仓库模式），向上一级
+if [[ "$(basename "$SCRIPT_DIR")" == "scripts" ]]; then
+  DEPLOY_DIR="$(dirname "$SCRIPT_DIR")"
+else
+  DEPLOY_DIR="$SCRIPT_DIR"
+fi
 APP_NAME="ai-newline-center"
 STANDALONE_DIR="$DEPLOY_DIR/standalone"
 LOG_DIR="$DEPLOY_DIR/logs"

@@ -173,7 +173,7 @@ class DouyinVideoRepository {
     const where: Prisma.DouyinVideoWhereInput = {
       deletedAt: null,
       ...(accountIds ? { accountId: { in: accountIds } } : {}),
-      ...(tag ? { tags: { has: tag } } : {}),
+      ...(tag ? { tags: { array_contains: tag } } : {}),
     };
     const orderBy: Prisma.DouyinVideoOrderByWithRelationInput[] = [
       { [sort]: order },

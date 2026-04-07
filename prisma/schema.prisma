@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -114,9 +114,9 @@ model DouyinAccount {
   profileUrl     String            @unique
   secUserId      String?           @unique
   nickname       String
-  avatar         String
-  bio            String?
-  signature      String?
+  avatar         String            @db.Text
+  bio            String?           @db.Text
+  signature      String?           @db.Text
   followersCount Int               @default(0)
   followingCount Int               @default(0)
   likesCount     Int               @default(0)
@@ -127,15 +127,15 @@ model DouyinAccount {
   province       String?
   city           String?
   verificationLabel   String?
-  verificationIconUrl String?
+  verificationIconUrl String?       @db.Text
   verificationType    Int?
   loginStatus    DouyinAccountLoginStatus @default(NOT_LOGGED_IN)
-  loginStatePath String?
+  loginStatePath String?           @db.Text
   loginStateUpdatedAt DateTime?
   loginStateCheckedAt DateTime?
   loginStateExpiresAt DateTime?
-  loginErrorMessage String?
-  favoriteCookieHeader String?
+  loginErrorMessage String?        @db.Text
+  favoriteCookieHeader String?     @db.LongText
   userId         String
   user           User              @relation(fields: [userId], references: [id])
   organizationId String
@@ -158,9 +158,9 @@ model BenchmarkAccount {
   profileUrl         String
   secUserId          String?
   nickname           String
-  avatar             String
-  bio                String?
-  signature          String?
+  avatar             String                  @db.Text
+  bio                String?                 @db.Text
+  signature          String?                 @db.Text
   followersCount     Int                     @default(0)
   followingCount     Int                     @default(0)
   likesCount         Int                     @default(0)
@@ -171,7 +171,7 @@ model BenchmarkAccount {
   province           String?
   city               String?
   verificationLabel  String?
-  verificationIconUrl String?
+  verificationIconUrl String?                @db.Text
   verificationType   Int?
   createdByUserId    String
   createdByUser      User                    @relation("BenchmarkAccountCreator", fields: [createdByUserId], references: [id])
@@ -232,10 +232,10 @@ model DouyinLoginSession {
   account            DouyinAccount?           @relation(fields: [accountId], references: [id])
   purpose            DouyinLoginSessionPurpose
   status             DouyinLoginSessionStatus @default(CREATED)
-  qrcodeDataUrl      String?
+  qrcodeDataUrl      String?          @db.LongText
   resolvedSecUserId  String?
   errorCode          String?
-  errorMessage       String?
+  errorMessage       String?          @db.Text
   expiresAt          DateTime?
   startedAt          DateTime                 @default(now())
   finishedAt         DateTime?
@@ -254,14 +254,14 @@ model DouyinVideo {
   videoId      String        @unique
   accountId    String
   account      DouyinAccount @relation(fields: [accountId], references: [id])
-  title        String
-  shareUrl     String?
-  coverUrl     String?
-  coverSourceUrl String?
-  coverStoragePath String?
-  videoUrl     String?
-  videoSourceUrl String?
-  videoStoragePath String?
+  title        String        @db.Text
+  shareUrl     String?       @db.Text
+  coverUrl     String?       @db.Text
+  coverSourceUrl String?     @db.Text
+  coverStoragePath String?   @db.Text
+  videoUrl     String?       @db.Text
+  videoSourceUrl String?     @db.Text
+  videoStoragePath String?   @db.Text
   publishedAt  DateTime?
   playCount    Int           @default(0)
   likeCount    Int           @default(0)
@@ -270,7 +270,8 @@ model DouyinVideo {
   collectCount Int           @default(0)
   admireCount  Int           @default(0)
   recommendCount Int         @default(0)
-  tags         String[]      @default([])
+  // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
+  tags         Json          @default("[]")
   snapshots    VideoSnapshot[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -287,14 +288,14 @@ model BenchmarkVideo {
   account          BenchmarkAccount        @relation(fields: [accountId], references: [id])
   organizationId   String
   organization     Organization            @relation(fields: [organizationId], references: [id])
-  title            String
-  shareUrl         String?
-  coverUrl         String?
-  coverSourceUrl   String?
-  coverStoragePath String?
-  videoUrl         String?
-  videoSourceUrl   String?
-  videoStoragePath String?
+  title            String                  @db.Text
+  shareUrl         String?                 @db.Text
+  coverUrl         String?                 @db.Text
+  coverSourceUrl   String?                 @db.Text
+  coverStoragePath String?                 @db.Text
+  videoUrl         String?                 @db.Text
+  videoSourceUrl   String?                 @db.Text
+  videoStoragePath String?                 @db.Text
   publishedAt      DateTime?
   playCount        Int                     @default(0)
   likeCount        Int                     @default(0)
@@ -303,7 +304,8 @@ model BenchmarkVideo {
   collectCount     Int                     @default(0)
   admireCount      Int                     @default(0)
   recommendCount   Int                     @default(0)
-  tags             String[]                @default([])
+  // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
+  tags             Json                    @default("[]")
   snapshots        BenchmarkVideoSnapshot[]
   transcription    Transcription?
   aiWorkspaces     AiWorkspace[]
@@ -383,8 +385,8 @@ enum AiVideoInputMode {
 model AiModelConfig {
   id             String           @id @default(cuid())
   name           String
-  baseUrl        String
-  apiKey         String
+  baseUrl        String           @db.Text
+  apiKey         String           @db.Text
   modelName      String
   videoInputMode AiVideoInputMode @default(NONE)
   createdAt      DateTime         @default(now())
@@ -433,8 +435,8 @@ model AiWorkspaceTranscript {
   workspace     AiWorkspace @relation(fields: [workspaceId], references: [id])
   organizationId String
   organization  Organization @relation(fields: [organizationId], references: [id])
-  originalText  String?
-  currentText   String?
+  originalText  String?     @db.LongText
+  currentText   String?     @db.LongText
   isConfirmed   Boolean     @default(false)
   confirmedAt   DateTime?
   lastEditedAt  DateTime?
@@ -454,9 +456,9 @@ model AiTranscriptSegment {
   organizationId String
   organization Organization @relation(fields: [organizationId], references: [id])
   sortOrder   Int
-  text        String
-  summary     String?
-  purpose     String?
+  text        String      @db.Text
+  summary     String?     @db.Text
+  purpose     String?     @db.Text
   startOffset Int
   endOffset   Int
   annotations AiDecompositionAnnotation[]
@@ -478,13 +480,13 @@ model AiDecompositionAnnotation {
   organization    Organization @relation(fields: [organizationId], references: [id])
   startOffset     Int
   endOffset       Int
-  quotedText      String
-  function        String?
-  argumentRole    String?
-  technique       String?
-  purpose         String?
-  effectiveness   String?
-  note            String?
+  quotedText      String      @db.Text
+  function        String?     @db.Text
+  argumentRole    String?     @db.Text
+  technique       String?     @db.Text
+  purpose         String?     @db.Text
+  effectiveness   String?     @db.Text
+  note            String?     @db.Text
   createdByUserId String
   createdByUser   User        @relation(fields: [createdByUserId], references: [id])
   createdAt       DateTime    @default(now())
@@ -502,9 +504,9 @@ model AiRewriteDraft {
   workspace                   AiWorkspace @relation(fields: [workspaceId], references: [id])
   organizationId              String
   organization                Organization @relation(fields: [organizationId], references: [id])
-  sourceTranscriptText        String?
+  sourceTranscriptText        String?     @db.LongText
   sourceDecompositionSnapshot Json?
-  currentDraft                String?
+  currentDraft                String?     @db.LongText
   createdAt                   DateTime    @default(now())
   updatedAt                   DateTime    @updatedAt
 
@@ -518,9 +520,9 @@ model Transcription {
   video        BenchmarkVideo      @relation(fields: [videoId], references: [id])
   status       TranscriptionStatus @default(PENDING)
   aiModel      String
-  originalText String?
-  editedText   String?
-  errorMessage String?
+  originalText String?     @db.LongText
+  editedText   String?     @db.LongText
+  errorMessage String?     @db.Text
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
