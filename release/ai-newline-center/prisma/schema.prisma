@@ -1,0 +1,525 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String           @id @default(cuid())
+  name      String
+  type      OrganizationType
+  status    OrganizationStatus @default(ACTIVE)
+  parentId  String?
+  parent    Organization?    @relation("OrgTree", fields: [parentId], references: [id])
+  children  Organization[]   @relation("OrgTree")
+  users     User[]
+  douyinAccounts DouyinAccount[]
+  benchmarkAccounts BenchmarkAccount[]
+  benchmarkAccountMembers BenchmarkAccountMember[]
+  benchmarkVideos BenchmarkVideo[]
+  aiWorkspaces AiWorkspace[]
+  aiWorkspaceTranscripts AiWorkspaceTranscript[]
+  aiTranscriptSegments AiTranscriptSegment[]
+  aiDecompositionAnnotations AiDecompositionAnnotation[]
+  aiRewriteDrafts AiRewriteDraft[]
+  douyinLoginSessions DouyinLoginSession[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  deletedAt DateTime?
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  account        String       @unique
+  passwordHash   String
+  name           String
+  role           UserRole     @default(EMPLOYEE)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  douyinAccounts DouyinAccount[]
+  createdBenchmarkAccounts BenchmarkAccount[] @relation("BenchmarkAccountCreator")
+  benchmarkAccountMembers BenchmarkAccountMember[]
+  douyinLoginSessions DouyinLoginSession[]
+  aiWorkspaces AiWorkspace[]
+  aiDecompositionAnnotations AiDecompositionAnnotation[]
+  status         UserStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  @@map("users")
+}
+
+enum OrganizationType {
+  GROUP
+  BRANCH
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  BRANCH_MANAGER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum DouyinAccountLoginStatus {
+  NOT_LOGGED_IN
+  PENDING
+  LOGGED_IN
+  EXPIRED
+  FAILED
+}
+
+enum DouyinLoginSessionPurpose {
+  CREATE_ACCOUNT
+  RELOGIN
+}
+
+enum DouyinLoginSessionStatus {
+  CREATED
+  QRCODE_READY
+  SCANNED
+  CONFIRMED
+  SUCCESS
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum BenchmarkAccountMemberSource {
+  MANUAL
+  COLLECTION_SYNC
+}
+
+model DouyinAccount {
+  id             String            @id @default(cuid())
+  profileUrl     String            @unique
+  secUserId      String?           @unique
+  nickname       String
+  avatar         String
+  bio            String?
+  signature      String?
+  followersCount Int               @default(0)
+  followingCount Int               @default(0)
+  likesCount     Int               @default(0)
+  videosCount    Int               @default(0)
+  douyinNumber   String?
+  ipLocation     String?
+  age            Int?
+  province       String?
+  city           String?
+  verificationLabel   String?
+  verificationIconUrl String?
+  verificationType    Int?
+  loginStatus    DouyinAccountLoginStatus @default(NOT_LOGGED_IN)
+  loginStatePath String?
+  loginStateUpdatedAt DateTime?
+  loginStateCheckedAt DateTime?
+  loginStateExpiresAt DateTime?
+  loginErrorMessage String?
+  favoriteCookieHeader String?
+  userId         String
+  user           User              @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  videos         DouyinVideo[]
+  collectionVideos EmployeeCollectionVideo[]
+  loginSessions  DouyinLoginSession[]
+  lastSyncedAt   DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  @@index([userId])
+  @@index([organizationId])
+  @@map("douyin_accounts")
+}
+
+model BenchmarkAccount {
+  id                 String                  @id @default(cuid())
+  profileUrl         String
+  secUserId          String?
+  nickname           String
+  avatar             String
+  bio                String?
+  signature          String?
+  followersCount     Int                     @default(0)
+  followingCount     Int                     @default(0)
+  likesCount         Int                     @default(0)
+  videosCount        Int                     @default(0)
+  douyinNumber       String?
+  ipLocation         String?
+  age                Int?
+  province           String?
+  city               String?
+  verificationLabel  String?
+  verificationIconUrl String?
+  verificationType   Int?
+  createdByUserId    String
+  createdByUser      User                    @relation("BenchmarkAccountCreator", fields: [createdByUserId], references: [id])
+  organizationId     String
+  organization       Organization            @relation(fields: [organizationId], references: [id])
+  members            BenchmarkAccountMember[]
+  videos             BenchmarkVideo[]
+  lastSyncedAt       DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  deletedAt          DateTime?
+
+  @@index([createdByUserId])
+  @@index([organizationId])
+  @@unique([organizationId, profileUrl])
+  @@unique([organizationId, secUserId])
+  @@map("benchmark_accounts")
+}
+
+model BenchmarkAccountMember {
+  id                 String                       @id @default(cuid())
+  benchmarkAccountId String
+  benchmarkAccount   BenchmarkAccount             @relation(fields: [benchmarkAccountId], references: [id])
+  userId             String
+  user               User                         @relation(fields: [userId], references: [id])
+  organizationId     String
+  organization       Organization                 @relation(fields: [organizationId], references: [id])
+  source             BenchmarkAccountMemberSource
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  @@unique([benchmarkAccountId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("benchmark_account_members")
+}
+
+model EmployeeCollectionVideo {
+  id              String        @id @default(cuid())
+  accountId       String
+  account         DouyinAccount @relation(fields: [accountId], references: [id])
+  awemeId         String
+  authorSecUserId String?
+  createdAt       DateTime      @default(now())
+
+  @@unique([accountId, awemeId])
+  @@index([accountId, createdAt])
+  @@map("employee_collection_videos")
+}
+
+model DouyinLoginSession {
+  id                 String                   @id @default(cuid())
+  userId             String
+  user               User                     @relation(fields: [userId], references: [id])
+  organizationId     String
+  organization       Organization             @relation(fields: [organizationId], references: [id])
+  accountId          String?
+  account            DouyinAccount?           @relation(fields: [accountId], references: [id])
+  purpose            DouyinLoginSessionPurpose
+  status             DouyinLoginSessionStatus @default(CREATED)
+  qrcodeDataUrl      String?
+  resolvedSecUserId  String?
+  errorCode          String?
+  errorMessage       String?
+  expiresAt          DateTime?
+  startedAt          DateTime                 @default(now())
+  finishedAt         DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([accountId])
+  @@index([organizationId, status])
+  @@map("douyin_login_sessions")
+}
+
+model DouyinVideo {
+  id           String        @id @default(cuid())
+  videoId      String        @unique
+  accountId    String
+  account      DouyinAccount @relation(fields: [accountId], references: [id])
+  title        String
+  shareUrl     String?
+  coverUrl     String?
+  coverSourceUrl String?
+  coverStoragePath String?
+  videoUrl     String?
+  videoSourceUrl String?
+  videoStoragePath String?
+  publishedAt  DateTime?
+  playCount    Int           @default(0)
+  likeCount    Int           @default(0)
+  commentCount Int           @default(0)
+  shareCount   Int           @default(0)
+  collectCount Int           @default(0)
+  admireCount  Int           @default(0)
+  recommendCount Int         @default(0)
+  tags         String[]      @default([])
+  snapshots    VideoSnapshot[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@index([accountId])
+  @@map("douyin_videos")
+}
+
+model BenchmarkVideo {
+  id               String                  @id @default(cuid())
+  videoId          String
+  accountId        String
+  account          BenchmarkAccount        @relation(fields: [accountId], references: [id])
+  organizationId   String
+  organization     Organization            @relation(fields: [organizationId], references: [id])
+  title            String
+  shareUrl         String?
+  coverUrl         String?
+  coverSourceUrl   String?
+  coverStoragePath String?
+  videoUrl         String?
+  videoSourceUrl   String?
+  videoStoragePath String?
+  publishedAt      DateTime?
+  playCount        Int                     @default(0)
+  likeCount        Int                     @default(0)
+  commentCount     Int                     @default(0)
+  shareCount       Int                     @default(0)
+  collectCount     Int                     @default(0)
+  admireCount      Int                     @default(0)
+  recommendCount   Int                     @default(0)
+  tags             String[]                @default([])
+  snapshots        BenchmarkVideoSnapshot[]
+  transcription    Transcription?
+  aiWorkspaces     AiWorkspace[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  deletedAt        DateTime?
+
+  @@index([accountId])
+  @@index([organizationId])
+  @@unique([accountId, videoId])
+  @@map("benchmark_videos")
+}
+
+model VideoSnapshot {
+  id            String      @id @default(cuid())
+  videoId       String
+  video         DouyinVideo @relation(fields: [videoId], references: [id])
+  timestamp     DateTime    @default(now())
+  playsCount    Int
+  likesCount    Int
+  commentsCount Int
+  sharesCount   Int
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([videoId])
+  @@index([videoId, timestamp])
+  @@map("video_snapshots")
+}
+
+model BenchmarkVideoSnapshot {
+  id            String         @id @default(cuid())
+  videoId       String
+  video         BenchmarkVideo @relation(fields: [videoId], references: [id])
+  timestamp     DateTime       @default(now())
+  playsCount    Int
+  likesCount    Int
+  commentsCount Int
+  sharesCount   Int
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([videoId])
+  @@index([videoId, timestamp])
+  @@map("benchmark_video_snapshots")
+}
+
+enum TranscriptionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AiStep {
+  TRANSCRIBE
+  DECOMPOSE
+  REWRITE
+}
+
+enum AiWorkspaceStatus {
+  IDLE
+  TRANSCRIBING
+  TRANSCRIPT_DRAFT
+  TRANSCRIPT_CONFIRMED
+  DECOMPOSING
+  DECOMPOSED
+  REWRITING
+}
+
+enum AiVideoInputMode {
+  NONE
+  DASHSCOPE_FILE
+  GOOGLE_FILE
+}
+
+model AiModelConfig {
+  id             String           @id @default(cuid())
+  name           String
+  baseUrl        String
+  apiKey         String
+  modelName      String
+  videoInputMode AiVideoInputMode @default(NONE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  stepBindings   AiStepBinding[]
+
+  @@map("ai_model_configs")
+}
+
+model AiStepBinding {
+  id            String          @id @default(cuid())
+  step          AiStep          @unique
+  modelConfigId String?
+  modelConfig   AiModelConfig?  @relation(fields: [modelConfigId], references: [id], onDelete: SetNull)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("ai_step_bindings")
+}
+
+model AiWorkspace {
+  id               String            @id @default(cuid())
+  videoId          String
+  video            BenchmarkVideo    @relation(fields: [videoId], references: [id])
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  organizationId   String
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  status           AiWorkspaceStatus @default(IDLE)
+  enteredRewriteAt DateTime?
+  transcript       AiWorkspaceTranscript?
+  segments         AiTranscriptSegment[]
+  annotations      AiDecompositionAnnotation[]
+  rewriteDraft     AiRewriteDraft?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@unique([videoId, userId])
+  @@index([organizationId])
+  @@map("ai_workspaces")
+}
+
+model AiWorkspaceTranscript {
+  id            String      @id @default(cuid())
+  workspaceId   String      @unique
+  workspace     AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  originalText  String?
+  currentText   String?
+  isConfirmed   Boolean     @default(false)
+  confirmedAt   DateTime?
+  lastEditedAt  DateTime?
+  aiProviderKey String?
+  aiModel       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@map("ai_workspace_transcripts")
+}
+
+model AiTranscriptSegment {
+  id          String      @id @default(cuid())
+  workspaceId String
+  workspace   AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sortOrder   Int
+  text        String
+  summary     String?
+  purpose     String?
+  startOffset Int
+  endOffset   Int
+  annotations AiDecompositionAnnotation[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([workspaceId, sortOrder])
+  @@index([organizationId])
+  @@map("ai_transcript_segments")
+}
+
+model AiDecompositionAnnotation {
+  id             String      @id @default(cuid())
+  workspaceId     String
+  workspace       AiWorkspace @relation(fields: [workspaceId], references: [id])
+  segmentId       String?
+  segment         AiTranscriptSegment? @relation(fields: [segmentId], references: [id])
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  startOffset     Int
+  endOffset       Int
+  quotedText      String
+  function        String?
+  argumentRole    String?
+  technique       String?
+  purpose         String?
+  effectiveness   String?
+  note            String?
+  createdByUserId String
+  createdByUser   User        @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([workspaceId])
+  @@index([organizationId])
+  @@index([workspaceId, startOffset, endOffset])
+  @@map("ai_decomposition_annotations")
+}
+
+model AiRewriteDraft {
+  id                          String      @id @default(cuid())
+  workspaceId                 String      @unique
+  workspace                   AiWorkspace @relation(fields: [workspaceId], references: [id])
+  organizationId              String
+  organization                Organization @relation(fields: [organizationId], references: [id])
+  sourceTranscriptText        String?
+  sourceDecompositionSnapshot Json?
+  currentDraft                String?
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@map("ai_rewrite_drafts")
+}
+
+model Transcription {
+  id           String              @id @default(cuid())
+  videoId      String              @unique
+  video        BenchmarkVideo      @relation(fields: [videoId], references: [id])
+  status       TranscriptionStatus @default(PENDING)
+  aiModel      String
+  originalText String?
+  editedText   String?
+  errorMessage String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("transcriptions")
+}
+

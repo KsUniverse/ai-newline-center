@@ -6,8 +6,6 @@ import { existsSync } from "node:fs";
 import { prisma } from "@/lib/prisma";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 
-type TargetWorkspace = Awaited<ReturnType<typeof resolveTargetWorkspace>>;
-
 async function resolveTargetWorkspace() {
   const workspaceId = process.env.LIVE_TRANSCRIPTION_WORKSPACE_ID;
 

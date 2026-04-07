@@ -382,7 +382,7 @@ export function AiConfigPageView() {
           >
             {!loading && modelConfigs.length === 0 && (
               <div className="rounded-3xl border border-dashed border-border/60 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground/70">
-                暂无模型配置，点击"新增"开始添加
+                暂无模型配置，点击“新增”开始添加
               </div>
             )}
 
@@ -523,4 +523,3 @@ export function AiConfigPageView() {
 }
 
 export const AiConfigPage = AiConfigPageView;
-
