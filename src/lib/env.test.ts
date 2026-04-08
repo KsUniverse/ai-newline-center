@@ -21,6 +21,24 @@ describe("parseEnv", () => {
     expect(result.NEXTAUTH_URL).toBeUndefined();
   });
 
+  it("coerces AUTH_TRUST_HOST to boolean when provided", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXTAUTH_URL", "https://app.example.com");
+    vi.stubEnv("CRAWLER_API_URL", "https://crawler.example.com");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      AUTH_TRUST_HOST: "true",
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+      NEXTAUTH_SECRET: "a".repeat(32),
+      NEXTAUTH_URL: "https://app.example.com",
+      CRAWLER_API_URL: "https://crawler.example.com",
+      NODE_ENV: "production",
+    });
+
+    expect(result.AUTH_TRUST_HOST).toBe(true);
+  });
+
   it("requires NEXTAUTH_URL in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("NEXTAUTH_URL", "https://app.example.com");

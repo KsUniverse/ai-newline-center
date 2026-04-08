@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
+  AUTH_TRUST_HOST: z.coerce.boolean().optional(),
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),

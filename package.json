@@ -13,11 +13,8 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "deploy:pack": "bash scripts/local-pack.sh",
-    "deploy:pack:win": "scripts\\local-pack.bat",
-    "deploy:docker:build": "docker build -t ai-newline-center:latest .",
-    "deploy:docker:up": "docker compose --env-file .env.docker up -d",
-    "deploy:docker:down": "docker compose down"
+    "deploy:pack": "node scripts/pack.mjs",
+    "deploy:pack:win": "node scripts/pack.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.50",
@@ -48,6 +45,7 @@
     "node-cron": "^3.0.3",
     "openai": "^6.33.0",
     "playwright": "^1.54.2",
+    "prisma": "^6.6.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.72.0",
@@ -67,7 +65,6 @@
     "eslint": "^9.22.0",
     "eslint-config-next": "^15.2.0",
     "postcss": "^8.5.3",
-    "prisma": "^6.6.0",
     "tailwindcss": "^4.1.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2",

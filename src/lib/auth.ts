@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { resolveAuthTrustHost } from "@/lib/auth-options";
 import { ensureServerBootstrap } from "@/lib/server-bootstrap";
 import { userRepository } from "@/server/repositories/user.repository";
 import { userService } from "@/server/services/user.service";
@@ -24,6 +25,9 @@ const sessionTokenSchema = z.object({
 
 const nextAuth = NextAuth({
   secret: env.NEXTAUTH_SECRET,
+  // next-auth beta only auto-enables host trust for AUTH_URL, while this
+  // project configures NEXTAUTH_URL in self-hosted deployments.
+  trustHost: resolveAuthTrustHost(env),
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,

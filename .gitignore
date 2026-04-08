@@ -10,10 +10,16 @@ out/
 build/
 dist/
 
-# env files
+# ─── 环境变量文件 ───────────────────────────────────
+# .env.example        ← 提交 Git  (安全模板，无真实值)
+# .env.local          ← 不提交    (本地开发用)
+# .env.production     ← 不提交    (服务器生产用，在服务器上手动创建)
 .env
 .env.local
 .env.*.local
+.env.production
+# 旧版模板文件，已由 .env.example 替代
+.env.production.example
 
 # prisma
 prisma/migrations/**/migration_lock.toml
@@ -41,4 +47,5 @@ Thumbs.db
 
 .private/
 
-public/
+# 用户上传的视频/图片存储 (不提交，服务器独立保存)
+public/storage/

@@ -2,8 +2,9 @@ generator client {
   provider      = "prisma-client-js"
   // native = 当前机器（Mac/Windows 开发用）
   // debian-openssl-3.0.x = 宝塔服务器 Linux x64 Debian/Ubuntu
+  // rhel-openssl-3.0.x / rhel-openssl-1.1.x = 宝塔/CentOS/Alibaba Cloud Linux 等 RHEL 系
   // linux-musl-openssl-3.0.x = Docker Alpine
-  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "debian-openssl-3.0.x", "rhel-openssl-3.0.x", "rhel-openssl-1.1.x", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -528,4 +529,3 @@ model Transcription {
 
   @@map("transcriptions")
 }
-
