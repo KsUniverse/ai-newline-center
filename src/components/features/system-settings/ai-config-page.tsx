@@ -51,7 +51,7 @@ const STEPS: Array<{ step: AiStep; label: string; description: string }> = [
 
 const VIDEO_INPUT_MODE_LABELS: Record<AiVideoInputMode, string> = {
   NONE: "纯文本",
-  DASHSCOPE_FILE: "DashScope 文件上传（千问 VL 系列）",
+  OSS_FILE: "OSS 直链（千问 VL 系列）",
   GOOGLE_FILE: "视频文件（Google AI Studio）",
 };
 
@@ -62,7 +62,7 @@ const modelConfigFormSchema = z.object({
   baseUrl: z.string().url("请输入有效的 API 地址"),
   apiKey: z.string().optional(),
   modelName: z.string().min(1, "请输入模型名称").max(128),
-  videoInputMode: z.enum(["NONE", "DASHSCOPE_FILE", "GOOGLE_FILE"] as const),
+  videoInputMode: z.enum(["NONE", "OSS_FILE", "GOOGLE_FILE"] as const),
 });
 
 type ModelConfigFormValues = z.infer<typeof modelConfigFormSchema>;
@@ -201,7 +201,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["NONE", "DASHSCOPE_FILE", "GOOGLE_FILE"] as AiVideoInputMode[]).map((mode) => (
+                {(["NONE", "OSS_FILE", "GOOGLE_FILE"] as AiVideoInputMode[]).map((mode) => (
                   <SelectItem key={mode} value={mode}>
                     {VIDEO_INPUT_MODE_LABELS[mode]}
                   </SelectItem>
@@ -209,7 +209,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
               </SelectContent>
             </Select>
             <p className="text-xs leading-5 text-muted-foreground/70">
-              {videoInputMode === "DASHSCOPE_FILE" && "将视频上传到 DashScope 临时 OSS，以 oss:// URL 传入千问 VL 模型。"}
+              {videoInputMode === "OSS_FILE" && "直接将 OSS HTTPS 链接传入千问 VL 模型，无需上传文件。"}
               {videoInputMode === "GOOGLE_FILE" && "将视频文件上传到 Google Files API，适用于 Google AI Studio 模型。"}
               {videoInputMode === "NONE" && "仅支持文字输入（DECOMPOSE / REWRITE），不可用于转录步骤。"}
             </p>

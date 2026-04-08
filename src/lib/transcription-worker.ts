@@ -1,6 +1,4 @@
-import os from "node:os";
 import path from "node:path";
-import { rm, writeFile } from "node:fs/promises";
 
 import { Worker } from "bullmq";
 
@@ -50,23 +48,14 @@ export function startTranscriptionWorker(): void {
         throw new Error("Workspace transcription job is missing videoStoragePath");
       }
 
-      // OSS 模式: videoStoragePath 是 https:// URL，需先下载到临时文件
-      // 本地模式: videoStoragePath 是 /storage/videos/... 本地路径
-      let absoluteVideoPath: string;
-      let tempFilePath: string | null = null;
+      // OSS 模式: videoStoragePath 是 https:// URL，直接传给 AI 网关（无需下载）
+      // 本地模式: videoStoragePath 是 /storage/videos/... 本地路径，转为绝对路径
+      let videoInput: string;
 
       if (videoStoragePath.startsWith("http://") || videoStoragePath.startsWith("https://")) {
-        const ext = path.extname(new URL(videoStoragePath).pathname) || ".mp4";
-        tempFilePath = path.join(os.tmpdir(), `transcription-${job.id}-${Date.now()}${ext}`);
-        const response = await fetch(videoStoragePath, { signal: AbortSignal.timeout(120_000) });
-        if (!response.ok) {
-          throw new Error(`OSS 视频下载失败: ${response.status} ${videoStoragePath}`);
-        }
-        const buffer = Buffer.from(await response.arrayBuffer());
-        await writeFile(tempFilePath, buffer);
-        absoluteVideoPath = tempFilePath;
+        videoInput = videoStoragePath;
       } else {
-        absoluteVideoPath = path.join(
+        videoInput = path.join(
           process.cwd(),
           "public",
           videoStoragePath.startsWith("/") ? videoStoragePath.slice(1) : videoStoragePath,
@@ -74,7 +63,7 @@ export function startTranscriptionWorker(): void {
       }
 
       try {
-        const result = await aiGateway.generateTranscriptionFromVideo(absoluteVideoPath);
+        const result = await aiGateway.generateTranscriptionFromVideo(videoInput);
 
         await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
           originalText: result.text,
@@ -92,10 +81,7 @@ export function startTranscriptionWorker(): void {
           aiModel: result.modelName,
         });
       } finally {
-        // 清理临时文件（OSS 模式下载的临时视频）
-        if (tempFilePath) {
-          await rm(tempFilePath, { force: true }).catch(() => undefined);
-        }
+        // no temp files to clean up; download (if any) is handled by the AI gateway
       }
     },
     {

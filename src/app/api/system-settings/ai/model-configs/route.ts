@@ -12,7 +12,7 @@ const createModelConfigSchema = z.object({
   baseUrl: z.string().url(),
   apiKey: z.string().min(1),
   modelName: z.string().min(1).max(128),
-  videoInputMode: z.enum(["NONE", "DASHSCOPE_FILE", "GOOGLE_FILE"]),
+  videoInputMode: z.enum(["NONE", "OSS_FILE", "GOOGLE_FILE"]),
 });
 
 export async function GET(): Promise<NextResponse> {

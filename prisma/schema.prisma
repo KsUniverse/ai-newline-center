@@ -379,7 +379,7 @@ enum AiWorkspaceStatus {
 
 enum AiVideoInputMode {
   NONE
-  DASHSCOPE_FILE
+  OSS_FILE
   GOOGLE_FILE
 }
 

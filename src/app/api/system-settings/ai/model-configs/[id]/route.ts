@@ -13,7 +13,7 @@ const updateModelConfigSchema = z.object({
   baseUrl: z.string().url().optional(),
   apiKey: z.string().min(1).nullable().optional(),
   modelName: z.string().min(1).max(128).optional(),
-  videoInputMode: z.enum(["NONE", "DASHSCOPE_FILE", "GOOGLE_FILE"]).optional(),
+  videoInputMode: z.enum(["NONE", "OSS_FILE", "GOOGLE_FILE"]).optional(),
 });
 
 export async function PATCH(

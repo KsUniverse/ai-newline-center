@@ -2,7 +2,8 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/ge
 import { FileState, GoogleAIFileManager } from "@google/generative-ai/server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
-import { readFile } from "node:fs/promises";
+import { writeFile, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { AppError } from "@/lib/errors";
@@ -131,119 +132,71 @@ async function uploadVideoFileToGoogle(
 
 async function transcribeWithGoogleFile(
   config: AiModelConfig,
-  videoFilePath: string,
+  videoInput: string,
 ): Promise<string> {
   const fileManager = new GoogleAIFileManager(config.apiKey);
   const genAI = new GoogleGenerativeAI(config.apiKey);
 
-  const fileUri = await uploadVideoFileToGoogle(fileManager, videoFilePath);
-  const mimeType = resolveVideoMimeType(videoFilePath);
-
-  const model = genAI.getGenerativeModel({
-    model: config.modelName,
-    safetySettings: [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ],
-  });
-
-  const result = await retryWithBackoff(() =>
-    model.generateContent({
-      contents: [{
-        role: "user",
-        parts: [
-          { fileData: { mimeType, fileUri } },
-          { text: buildVideoTranscriptionPrompt() },
-        ],
-      }],
-    }),
-  );
-
-  const text = result.response.text().trim();
-  if (!text) throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
-  return text;
-}
-
-// ─── 转录实现 — DashScope VL（文件上传到 OSS，oss:// URL） ─────────────────────
-
-interface DashScopeUploadPolicy {
-  upload_host: string;
-  upload_dir: string;
-  oss_access_key_id: string;
-  signature: string;
-  policy: string;
-  x_oss_object_acl: string;
-  x_oss_forbid_overwrite: string;
-}
-
-async function getDashScopeUploadPolicy(
-  apiKey: string,
-  modelName: string,
-): Promise<DashScopeUploadPolicy> {
-  const url = new URL("https://dashscope.aliyuncs.com/api/v1/uploads");
-  url.searchParams.set("action", "getPolicy");
-  url.searchParams.set("model", modelName);
-
-  const resp = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!resp.ok) {
-    const body = await resp.text().catch(() => "");
-    throw new AppError("AI_REQUEST_FAILED", `DashScope 获取上传凭证失败: ${body}`, 502);
+  // If videoInput is an HTTPS URL, download to a temp file first
+  let localFilePath: string;
+  let tempFile: string | null = null;
+  if (videoInput.startsWith("http://") || videoInput.startsWith("https://")) {
+    const ext = path.extname(new URL(videoInput).pathname) || ".mp4";
+    tempFile = path.join(os.tmpdir(), `google-transcription-${Date.now()}${ext}`);
+    const resp = await fetch(videoInput, { signal: AbortSignal.timeout(120_000) });
+    if (!resp.ok) {
+      throw new AppError("AI_REQUEST_FAILED", `视频下载失败: ${resp.status} ${videoInput}`, 502);
+    }
+    await writeFile(tempFile, Buffer.from(await resp.arrayBuffer()));
+    localFilePath = tempFile;
+  } else {
+    localFilePath = videoInput;
   }
 
-  const json = (await resp.json()) as { data: DashScopeUploadPolicy };
-  return json.data;
-}
+  try {
+    const fileUri = await uploadVideoFileToGoogle(fileManager, localFilePath);
+    const mimeType = resolveVideoMimeType(localFilePath);
 
-async function uploadFileToDashScopeOss(
-  policy: DashScopeUploadPolicy,
-  localFilePath: string,
-): Promise<string> {
-  const fileName = path.basename(localFilePath);
-  const key = `${policy.upload_dir}/${fileName}`;
-  const fileBuffer = await readFile(localFilePath);
+    const model = genAI.getGenerativeModel({
+      model: config.modelName,
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ],
+    });
 
-  const form = new FormData();
-  form.append("OSSAccessKeyId", policy.oss_access_key_id);
-  form.append("Signature", policy.signature);
-  form.append("policy", policy.policy);
-  form.append("x-oss-object-acl", policy.x_oss_object_acl);
-  form.append("x-oss-forbid-overwrite", policy.x_oss_forbid_overwrite);
-  form.append("key", key);
-  form.append("success_action_status", "200");
-  form.append(
-    "file",
-    new Blob([fileBuffer], { type: resolveVideoMimeType(localFilePath) }),
-    fileName,
-  );
+    const result = await retryWithBackoff(() =>
+      model.generateContent({
+        contents: [{
+          role: "user",
+          parts: [
+            { fileData: { mimeType, fileUri } },
+            { text: buildVideoTranscriptionPrompt() },
+          ],
+        }],
+      }),
+    );
 
-  const uploadResp = await fetch(policy.upload_host, { method: "POST", body: form });
-  if (uploadResp.status !== 200) {
-    const body = await uploadResp.text().catch(() => "");
-    throw new AppError("AI_REQUEST_FAILED", `DashScope 视频文件上传失败: ${body}`, 502);
+    const text = result.response.text().trim();
+    if (!text) throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+    return text;
+  } finally {
+    if (tempFile) await rm(tempFile, { force: true }).catch(() => undefined);
   }
-
-  return `oss://${key}`;
 }
 
-async function transcribeWithDashScopeFile(
+// ─── 转录实现 — OSS 直链（千问 VL，直接传 HTTPS URL） ─────────────────────────
+
+async function transcribeWithOssUrl(
   config: AiModelConfig,
-  videoFilePath: string,
+  videoUrl: string,
 ): Promise<string> {
-  const policy = await getDashScopeUploadPolicy(config.apiKey, config.modelName);
-  const ossUrl = await uploadFileToDashScopeOss(policy, videoFilePath);
-
-  console.log(`[DashScopeTranscribe] Uploaded to OSS: ${ossUrl}`);
-
-  // Call DashScope compatible-mode API with OSS resource resolve header
   const baseUrl = config.baseUrl.replace(/\/chat\/completions\/?$/, "");
   const chatResp = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json",
-      "X-DashScope-OssResourceResolve": "enable",
     },
     body: JSON.stringify({
       model: config.modelName,
@@ -251,7 +204,7 @@ async function transcribeWithDashScopeFile(
         {
           role: "user",
           content: [
-            { type: "video_url", video_url: { url: ossUrl } },
+            { type: "video_url", video_url: { url: videoUrl } },
             { type: "text", text: buildVideoTranscriptionPrompt() },
           ],
         },
@@ -293,7 +246,7 @@ async function generateTextWithConfig(
 
 class AiGatewayService {
   async generateTranscriptionFromVideo(
-    videoFilePath: string,
+    videoInput: string,
     modelConfigId?: string,
   ): Promise<{ modelConfigId: string; modelName: string; text: string }> {
     const config = await resolveModelConfig("TRANSCRIBE", modelConfigId);
@@ -308,10 +261,10 @@ class AiGatewayService {
 
     let text: string;
     if (config.videoInputMode === "GOOGLE_FILE") {
-      text = await transcribeWithGoogleFile(config, videoFilePath);
+      text = await transcribeWithGoogleFile(config, videoInput);
     } else {
-      // DASHSCOPE_FILE
-      text = await transcribeWithDashScopeFile(config, videoFilePath);
+      // OSS_FILE: pass the HTTPS URL directly to the model
+      text = await transcribeWithOssUrl(config, videoInput);
     }
 
     return { modelConfigId: config.id, modelName: config.modelName, text };

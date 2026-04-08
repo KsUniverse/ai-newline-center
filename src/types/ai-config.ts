@@ -2,9 +2,9 @@ export type AiStep = "TRANSCRIBE" | "DECOMPOSE" | "REWRITE";
 
 /** 视频输入方式，决定转录时如何传递视频文件 */
 export type AiVideoInputMode =
-  | "NONE"            // 纯文本模型，不支持转录
-  | "DASHSCOPE_FILE"  // 上传文件到 DashScope OSS，以 oss:// URL 传入（千问 VL 系列）
-  | "GOOGLE_FILE";    // 上传到 Google Files API（Google AI Studio）
+  | "NONE"       // 纯文本模型，不支持转录
+  | "OSS_FILE"   // 直接传入 OSS HTTPS URL（千问 VL 系列）
+  | "GOOGLE_FILE"; // 上传到 Google Files API（Google AI Studio）
 
 export interface AiModelConfigDTO {
   id: string;

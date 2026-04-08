@@ -265,7 +265,7 @@ CREATE TABLE `ai_model_configs` (
     `baseUrl` TEXT NOT NULL,
     `apiKey` TEXT NOT NULL,
     `modelName` VARCHAR(191) NOT NULL,
-    `videoInputMode` ENUM('NONE', 'DASHSCOPE_FILE', 'GOOGLE_FILE') NOT NULL DEFAULT 'NONE',
+    `videoInputMode` ENUM('NONE', 'OSS_FILE', 'GOOGLE_FILE') NOT NULL DEFAULT 'NONE',
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
