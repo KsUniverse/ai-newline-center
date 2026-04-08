@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { ossService } from "@/server/services/oss.service";
+
 class StorageService {
   async downloadAndStore(url: string, category: string): Promise<string> {
     const parsedUrl = this.parseUrl(url);
@@ -15,20 +17,24 @@ class StorageService {
       throw new Error(`资源下载失败: ${response.status}`);
     }
 
-    const storagePath = this.generatePath(
-      category,
-      url,
-      response.headers.get("content-type"),
-      parsedUrl,
-    );
-    const filePath = path.join(process.cwd(), "public", storagePath);
-
-    console.info(`[StorageService] 待下载: ${url} → ${storagePath}`);
-
+    const contentType = response.headers.get("content-type");
+    const storagePath = this.generatePath(category, url, contentType, parsedUrl);
     const buffer = Buffer.from(await response.arrayBuffer());
+
+    if (ossService.isConfigured()) {
+      // OSS 模式: 上传到阿里云 OSS，返回公网 URL
+      const key = storagePath.replace(/^storage\//, "storage/"); // 保持路径格式
+      const mimeType = contentType ?? "application/octet-stream";
+      console.info(`[StorageService] OSS 上传: ${url} → ${key}`);
+      const ossUrl = await ossService.upload(key, buffer, mimeType);
+      return ossUrl;
+    }
+
+    // 本地磁盘模式（fallback，OSS 未配置时使用）
+    const filePath = path.join(process.cwd(), "public", storagePath);
+    console.info(`[StorageService] 本地存储: ${url} → ${storagePath}`);
     await mkdir(path.dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
-
     return `/${storagePath}`;
   }
 

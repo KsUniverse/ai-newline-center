@@ -7,9 +7,19 @@ export function cn(...inputs: ClassValue[]): string {
 
 export function proxyImageUrl(originalUrl: string): string {
   if (!originalUrl) return "";
+  // 本地路径（本地存储模式）
   if (originalUrl.startsWith("/")) return originalUrl;
   if (originalUrl.startsWith("storage/")) return `/${originalUrl}`;
-  return `/api/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+  // 完整 URL：douyinpic.com 需要 referer 绕过代理，其他（如 OSS）直接返回
+  try {
+    const { hostname } = new URL(originalUrl);
+    if (hostname.endsWith("douyinpic.com")) {
+      return `/api/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+    }
+    return originalUrl;
+  } catch {
+    return `/api/proxy/image?url=${encodeURIComponent(originalUrl)}`;
+  }
 }
 
 export function formatNumber(num: number): string {

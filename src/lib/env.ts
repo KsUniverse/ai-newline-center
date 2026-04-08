@@ -31,6 +31,11 @@ const envSchema = z.object({
   SEED_ADMIN_PASSWORD: z.string().optional(),
   SEED_ADMIN_NAME: z.string().optional(),
   SEED_ORG_NAME: z.string().optional(),
+  // 阿里云 OSS（可选）— 配置后封面/视频存 OSS，否则存本地磁盘
+  OSS_ACCESS_KEY_ID: z.string().optional(),
+  OSS_ACCESS_KEY_SECRET: z.string().optional(),
+  // 格式: https://bucket-name.oss-cn-hangzhou.aliyuncs.com
+  OSS_ACCESS_BUCKET_ENDPOINT: z.string().url().optional(),
 }).superRefine((values, ctx) => {
   if (values.NODE_ENV === "production" && !values.NEXTAUTH_URL) {
     ctx.addIssue({

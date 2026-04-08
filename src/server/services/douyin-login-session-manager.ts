@@ -3,6 +3,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { resolveChromiumLaunchOptions } from "@/server/services/playwright-launch-options";
 import {
   douyinLoginStateStorageService,
   type DouyinStorageState,
@@ -81,6 +82,12 @@ class DouyinLoginSessionManager {
       this.runtimeValidatedAt = Date.now();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      console.error("[DouyinLoginSessionManager] ensureRuntimeReady launch failed", {
+        pid: process.pid,
+        platform: process.platform,
+        display: process.env.DISPLAY ?? null,
+        message,
+      });
 
       if (message.includes("Executable doesn't exist")) {
         throw new AppError(
@@ -253,15 +260,12 @@ class DouyinLoginSessionManager {
   }
 
   private getBrowserLaunchOptions(options: { headless: boolean }): Parameters<typeof chromium.launch>[0] {
-    const args =
-      !options.headless && env.DOUYIN_LOGIN_OPEN_DEVTOOLS
-        ? ["--auto-open-devtools-for-tabs"]
-        : [];
-
-    return {
-      headless: options.headless,
-      args,
-    };
+    return resolveChromiumLaunchOptions({
+      requestedHeadless: options.headless,
+      openDevtools: env.DOUYIN_LOGIN_OPEN_DEVTOOLS,
+      platform: process.platform,
+      display: process.env.DISPLAY,
+    });
   }
 
   private attachPageDiagnostics(page: Page, loginSessionId: string): void {
