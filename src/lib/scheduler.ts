@@ -21,7 +21,7 @@ export function startScheduler(): void {
   const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "3 * * * *";
   const videoSyncCron = env.VIDEO_SYNC_CRON ?? "*/10 * * * *";
   const videoSnapshotCron = env.VIDEO_SNAPSHOT_CRON ?? "*/10 * * * *";
-  const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/15 * * * *";
+  const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/6 * * * *";
   let accountSyncRunning = false;
   let videoSyncRunning = false;
   let videoSnapshotRunning = false;
