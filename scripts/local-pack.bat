@@ -55,9 +55,19 @@ if exist .deploy-tmp rmdir /s /q .deploy-tmp
 mkdir .deploy-tmp\standalone
 
 REM Standalone 产物
-xcopy /e /i /q .next\standalone .deploy-tmp\standalone >nul
+REM 必须用 robocopy 而非 xcopy！xcopy 遇到超过260字符的路径会静默跳过
+REM robocopy 退出码 0-7 均为成功（含各种"跳过/额外"的组合），>=8 才是真正失败
+robocopy ".next\standalone" ".deploy-tmp\standalone" /E /NFL /NDL /NJH /NJS /NC /NS /NP 2>nul
+if %ERRORLEVEL% GEQ 8 (
+    echo [ERROR] 复制 standalone 目录失败
+    goto :error
+)
 REM 静态资源
-xcopy /e /i /q .next\static .deploy-tmp\standalone\.next\static >nul
+robocopy ".next\static" ".deploy-tmp\standalone\.next\static" /E /NFL /NDL /NJH /NJS /NC /NS /NP 2>nul
+if %ERRORLEVEL% GEQ 8 (
+    echo [ERROR] 复制 static 目录失败
+    goto :error
+)
 REM public（跳过 storage 子目录）
 mkdir .deploy-tmp\standalone\public
 for /d %%D in (public\*) do (
