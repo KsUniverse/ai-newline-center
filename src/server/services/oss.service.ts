@@ -17,7 +17,8 @@ class OssService {
     return !!(
       env.OSS_ACCESS_KEY_ID &&
       env.OSS_ACCESS_KEY_SECRET &&
-      env.OSS_ACCESS_BUCKET_ENDPOINT
+      env.OSS_ACCESS_BUCKET_ENDPOINT &&
+      env.OSS_ACCESS_BUCKET_INTRANET_ENDPOINT
     );
   }
 
@@ -30,6 +31,8 @@ class OssService {
    */
   async upload(key: string, buffer: Buffer, contentType: string): Promise<string> {
     const endpoint = env.OSS_ACCESS_BUCKET_ENDPOINT!;
+    const intranetEndpoint = process.env.OSS_ACCESS_BUCKET_INTRANET_ENDPOINT?.trim();
+    const uploadEndpoint = intranetEndpoint || endpoint;
     const accessKeyId = env.OSS_ACCESS_KEY_ID!;
     const accessKeySecret = env.OSS_ACCESS_KEY_SECRET!;
 
@@ -43,9 +46,10 @@ class OssService {
       .update(stringToSign)
       .digest("base64");
 
-    const url = `${endpoint.replace(/\/$/, "")}/${key}`;
+    const uploadUrl = `${uploadEndpoint.replace(/\/$/, "")}/${key}`;
+    const publicUrl = `${endpoint.replace(/\/$/, "")}/${key}`;
 
-    const response = await fetch(url, {
+    const response = await fetch(uploadUrl, {
       method: "PUT",
       headers: {
         Authorization: `OSS ${accessKeyId}:${signature}`,
@@ -61,7 +65,7 @@ class OssService {
       throw new Error(`OSS 上传失败: ${response.status} ${body}`);
     }
 
-    return url;
+    return publicUrl;
   }
 
   private parseBucket(endpoint: string): string {

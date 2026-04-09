@@ -36,6 +36,7 @@ const envSchema = z.object({
   OSS_ACCESS_KEY_SECRET: z.string().optional(),
   // 格式: https://bucket-name.oss-cn-hangzhou.aliyuncs.com
   OSS_ACCESS_BUCKET_ENDPOINT: z.string().url().optional(),
+  OSS_ACCESS_BUCKET_INTRANET_ENDPOINT: z.string().url().optional(),
 }).superRefine((values, ctx) => {
   if (values.NODE_ENV === "production" && !values.NEXTAUTH_URL) {
     ctx.addIssue({
