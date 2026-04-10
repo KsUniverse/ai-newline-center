@@ -178,6 +178,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       setDraftDirty(false);
       setManualSelection(options?.nextSelection ?? null);
       setActiveAnnotationId(resolvedActiveAnnotationId);
+      setSelectedFragmentIds([]);
       if (options?.nextStage) {
         setStage(options.nextStage);
       } else if (!options?.preserveStage) {
