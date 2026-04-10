@@ -30,3 +30,29 @@ export function getTranscriptionQueue(): Queue<TranscriptionJobData> {
 
   return transcriptionQueue;
 }
+
+export const REWRITE_QUEUE_NAME = "rewrite";
+
+export interface RewriteJobData {
+  rewriteVersionId: string;
+  workspaceId: string;
+  organizationId: string;
+  userId: string;
+}
+
+let rewriteQueue: Queue<RewriteJobData> | null = null;
+
+export function getRewriteQueue(): Queue<RewriteJobData> {
+  if (!rewriteQueue) {
+    rewriteQueue = new Queue<RewriteJobData>(REWRITE_QUEUE_NAME, {
+      connection: createBullMQRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: { age: 86_400 },
+        removeOnFail: false,
+      },
+    });
+  }
+  return rewriteQueue;
+}

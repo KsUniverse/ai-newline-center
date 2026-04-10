@@ -37,7 +37,7 @@ import type { AiWorkspaceTransitionOrigin } from "./ai-workspace-transition";
 import { AiWorkspaceVideoPane } from "./ai-workspace-video-pane";
 import { AiWorkspaceTranscriptCanvas } from "./ai-workspace-transcript-canvas";
 import { AiWorkspaceDecompositionPanel } from "./ai-workspace-decomposition-panel";
-import { AiWorkspaceRewriteStageModern } from "./ai-workspace-rewrite-stage-modern";
+import { AiWorkspaceRewriteStageV2 } from "./ai-workspace-rewrite-stage-v2";
 
 type TransitionPhase =
   | "idle"
@@ -554,17 +554,18 @@ export function AiWorkspaceShell({
                       opacity: scale,
                     }}
                   >
-                    <AiWorkspaceRewriteStageModern
+                    <AiWorkspaceRewriteStageV2
                       transcriptText={controller.transcriptText}
                       annotations={controller.annotations}
                       activeAnnotationId={controller.activeAnnotationId}
-                      draft={controller.draft}
-                      savingDraft={controller.savingDraft}
-                      onDraftChange={controller.setDraft}
                       onAnnotationSelect={controller.handleToggleAnnotationFocus}
-                      selectedFragmentIds={controller.selectedFragmentIds}
-                      onFragmentToggle={controller.handleFragmentToggle}
-                      onFragmentsClear={controller.handleFragmentsClear}
+                      videoId={video.id}
+                      rewrite={controller.rewrite}
+                      activeVersionId={controller.activeVersionId}
+                      generatingRewrite={controller.generatingRewrite}
+                      onGenerateRewrite={controller.onGenerateRewrite}
+                      onSaveVersionEdit={controller.onSaveVersionEdit}
+                      onSetActiveVersionId={controller.onSetActiveVersionId}
                     />
                   </div>
                 );

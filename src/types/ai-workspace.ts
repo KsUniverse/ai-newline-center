@@ -106,3 +106,53 @@ export interface SaveRewriteDraftInput {
   currentDraft: string;
 }
 
+// ─── Rewrite 仿写类型 ────────────────────────────────────────────────────────
+
+export type RewriteVersionStatus = "GENERATING" | "COMPLETED" | "FAILED";
+
+export interface RewriteVersionDTO {
+  id: string;
+  rewriteId: string;
+  versionNumber: number;
+  generatedContent: string | null;
+  editedContent: string | null;
+  usedFragmentIds: string[];
+  userInputContent: string | null;
+  status: RewriteVersionStatus;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  modelConfig: {
+    id: string;
+    name: string;
+  } | null;
+}
+
+export interface RewriteDTO {
+  id: string;
+  workspaceId: string;
+  targetAccountId: string | null;
+  organizationId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  versions: RewriteVersionDTO[];
+  targetAccount: {
+    id: string;
+    nickname: string;
+    avatar: string;
+    signature: string | null;
+  } | null;
+}
+
+export interface GenerateRewriteInput {
+  targetAccountId: string;
+  modelConfigId: string;
+  usedFragmentIds: string[];
+  userInputContent?: string;
+}
+
+export interface SaveRewriteEditInput {
+  editedContent: string;
+}
+

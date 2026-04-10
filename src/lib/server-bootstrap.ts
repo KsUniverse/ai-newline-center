@@ -22,9 +22,11 @@ export async function ensureServerBootstrap(): Promise<void> {
 
     const { startScheduler } = await import("@/lib/scheduler");
     const { startTranscriptionWorker } = await import("@/lib/transcription-worker");
+    const { startRewriteWorker } = await import("@/lib/rewrite-worker");
 
     startScheduler();
     startTranscriptionWorker();
+    startRewriteWorker();
 
     console.log("[ServerBootstrap] background services started", {
       pid: process.pid,

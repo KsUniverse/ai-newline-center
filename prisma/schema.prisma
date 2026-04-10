@@ -31,6 +31,7 @@ model Organization {
   aiTranscriptSegments AiTranscriptSegment[]
   aiDecompositionAnnotations AiDecompositionAnnotation[]
   aiRewriteDrafts AiRewriteDraft[]
+  rewrites Rewrite[]
   douyinLoginSessions DouyinLoginSession[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -54,6 +55,7 @@ model User {
   douyinLoginSessions DouyinLoginSession[]
   aiWorkspaces AiWorkspace[]
   aiDecompositionAnnotations AiDecompositionAnnotation[]
+  rewrites Rewrite[]
   status         UserStatus   @default(ACTIVE)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -166,6 +168,7 @@ model DouyinAccount {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   deletedAt      DateTime?
+  rewrites       Rewrite[]
 
   @@index([userId])
   @@index([organizationId])
@@ -411,6 +414,7 @@ model AiModelConfig {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   stepBindings   AiStepBinding[]
+  rewriteVersions RewriteVersion[]
 
   @@map("ai_model_configs")
 }
@@ -440,6 +444,7 @@ model AiWorkspace {
   segments         AiTranscriptSegment[]
   annotations      AiDecompositionAnnotation[]
   rewriteDraft     AiRewriteDraft?
+  rewrite          Rewrite?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -546,4 +551,54 @@ model Transcription {
   updatedAt    DateTime            @updatedAt
 
   @@map("transcriptions")
+}
+
+// ─── Rewrite 仿写 ────────────────────────────────────────────────────────────
+
+enum RewriteVersionStatus {
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+model Rewrite {
+  id              String           @id @default(cuid())
+  workspaceId     String           @unique
+  targetAccountId String?
+  organizationId  String
+  userId          String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  workspace     AiWorkspace      @relation(fields: [workspaceId], references: [id])
+  targetAccount DouyinAccount?   @relation(fields: [targetAccountId], references: [id])
+  organization  Organization     @relation(fields: [organizationId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  versions      RewriteVersion[]
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("rewrites")
+}
+
+model RewriteVersion {
+  id               String               @id @default(cuid())
+  rewriteId        String
+  versionNumber    Int
+  generatedContent String?              @db.Text
+  editedContent    String?              @db.Text
+  modelConfigId    String?
+  usedFragmentIds  Json                 @default("[]")
+  userInputContent String?              @db.Text
+  status           RewriteVersionStatus @default(GENERATING)
+  errorMessage     String?              @db.Text
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  rewrite     Rewrite        @relation(fields: [rewriteId], references: [id])
+  modelConfig AiModelConfig? @relation(fields: [modelConfigId], references: [id], onDelete: SetNull)
+
+  @@unique([rewriteId, versionNumber])
+  @@index([rewriteId])
+  @@map("rewrite_versions")
 }

@@ -4,7 +4,13 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { toast } from "sonner";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
-import type { AiWorkspaceDTO, SaveAnnotationInput, SaveTranscriptInput } from "@/types/ai-workspace";
+import type {
+  AiWorkspaceDTO,
+  GenerateRewriteInput,
+  RewriteDTO,
+  SaveAnnotationInput,
+  SaveTranscriptInput,
+} from "@/types/ai-workspace";
 import { ApiError, apiClient } from "@/lib/api-client";
 
 import {
@@ -113,12 +119,20 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [selectedFragmentIds, setSelectedFragmentIds] = useState<string[]>([]);
+  const [rewrite, setRewrite] = useState<RewriteDTO | null>(null);
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+  const [generatingRewrite, setGeneratingRewrite] = useState(false);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workspacePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rewritePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
   const transcriptionFailureToastShownRef = useRef(false);
 
   const resetToInitialWorkspace = useCallback(() => {
+    if (rewritePollTimerRef.current) {
+      clearTimeout(rewritePollTimerRef.current);
+      rewritePollTimerRef.current = null;
+    }
     startTransition(() => {
       setWorkspace(null);
       setStage("transcribe");
@@ -128,6 +142,9 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       setDraft("");
       setDraftDirty(false);
       setSelectedFragmentIds([]);
+      setRewrite(null);
+      setActiveVersionId(null);
+      setGeneratingRewrite(false);
     });
   }, []);
 
@@ -356,6 +373,135 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       }
     };
   }, [activeAnnotationId, applyWorkspace, draft, draftDirty, manualSelection, stage, video, workspace?.id]);
+
+  // ─── Rewrite Stage: load & poll ───────────────────────────────────────────
+
+  // Reset rewrite state when video changes
+  useEffect(() => {
+    setRewrite(null);
+    setActiveVersionId(null);
+    setGeneratingRewrite(false);
+    if (rewritePollTimerRef.current) {
+      clearTimeout(rewritePollTimerRef.current);
+      rewritePollTimerRef.current = null;
+    }
+  }, [video?.id]);
+
+  // Load rewrite when entering rewrite stage
+  useEffect(() => {
+    if (stage !== "rewrite" || !video) return;
+
+    let cancelled = false;
+
+    void apiClient
+      .get<{ rewrite: RewriteDTO | null }>(`/ai-workspace/${video.id}/rewrite`)
+      .then((result) => {
+        if (cancelled) return;
+        setRewrite(result.rewrite);
+        setActiveVersionId((prev) => prev ?? result.rewrite?.versions[0]?.id ?? null);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        toast.error(error instanceof ApiError ? error.message : "仿写数据加载失败");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, video?.id]);
+
+  // Cleanup rewrite poll on unmount
+  useEffect(() => {
+    return () => {
+      if (rewritePollTimerRef.current) {
+        clearTimeout(rewritePollTimerRef.current);
+        rewritePollTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // ─── Rewrite Methods ─────────────────────────────────────────────────────
+
+  const startRewritePoll = useCallback(
+    function startRewritePoll(targetVersionId: string) {
+      if (!video) return;
+
+      if (rewritePollTimerRef.current) {
+        clearTimeout(rewritePollTimerRef.current);
+        rewritePollTimerRef.current = null;
+      }
+
+      const poll = async () => {
+        try {
+          const result = await apiClient.get<{ rewrite: RewriteDTO | null }>(
+            `/ai-workspace/${video.id}/rewrite`,
+          );
+          setRewrite(result.rewrite);
+
+          const targetVersion = result.rewrite?.versions.find((v) => v.id === targetVersionId);
+
+          if (!targetVersion || targetVersion.status === "GENERATING") {
+            rewritePollTimerRef.current = setTimeout(() => void poll(), 2000);
+          } else {
+            setGeneratingRewrite(false);
+            setActiveVersionId(targetVersionId);
+          }
+        } catch {
+          rewritePollTimerRef.current = setTimeout(() => void poll(), 3000);
+        }
+      };
+
+      rewritePollTimerRef.current = setTimeout(() => void poll(), 2000);
+    },
+    [video],
+  );
+
+  const generateRewrite = useCallback(
+    async function generateRewrite(input: GenerateRewriteInput) {
+      if (!video) return;
+
+      setGeneratingRewrite(true);
+      try {
+        const result = await apiClient.post<{ rewriteVersionId: string; versionNumber: number }>(
+          `/ai-workspace/${video.id}/rewrite/generate`,
+          input,
+        );
+        startRewritePoll(result.rewriteVersionId);
+      } catch (error) {
+        setGeneratingRewrite(false);
+        toast.error(error instanceof ApiError ? error.message : "发起仿写失败");
+      }
+    },
+    [video, startRewritePoll],
+  );
+
+  const saveVersionEdit = useCallback(
+    async function saveVersionEdit(versionId: string, content: string) {
+      if (!video) return;
+      try {
+        const result = await apiClient.patch<{
+          id: string;
+          editedContent: string;
+          updatedAt: string;
+        }>(`/ai-workspace/${video.id}/rewrite/versions/${versionId}`, { editedContent: content });
+        setRewrite((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            versions: prev.versions.map((v) =>
+              v.id === result.id
+                ? { ...v, editedContent: result.editedContent, updatedAt: result.updatedAt }
+                : v,
+            ),
+          };
+        });
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "保存仿写编辑失败");
+      }
+    },
+    [video],
+  );
 
   const requestTranscription = useCallback(function requestTranscription() {
     if (!video) {
@@ -610,5 +756,11 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     selectedFragmentIds,
     handleFragmentToggle,
     handleFragmentsClear,
+    rewrite,
+    activeVersionId,
+    generatingRewrite,
+    onGenerateRewrite: generateRewrite,
+    onSaveVersionEdit: saveVersionEdit,
+    onSetActiveVersionId: setActiveVersionId,
   };
 }
