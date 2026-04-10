@@ -112,6 +112,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [destructiveAction, setDestructiveAction] = useState<DestructiveAction>("unlock");
   const [loadingWorkspace, setLoadingWorkspace] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [selectedFragmentIds, setSelectedFragmentIds] = useState<string[]>([]);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const workspacePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
@@ -126,6 +127,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       setActiveAnnotationId(null);
       setDraft("");
       setDraftDirty(false);
+      setSelectedFragmentIds([]);
     });
   }, []);
 
@@ -176,6 +178,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       setDraftDirty(false);
       setManualSelection(options?.nextSelection ?? null);
       setActiveAnnotationId(resolvedActiveAnnotationId);
+      setSelectedFragmentIds([]);
       if (options?.nextStage) {
         setStage(options.nextStage);
       } else if (!options?.preserveStage) {
@@ -566,6 +569,16 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     setDraftDirty(true);
   }, []);
 
+  const handleFragmentToggle = useCallback((id: string) => {
+    setSelectedFragmentIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
+
+  const handleFragmentsClear = useCallback(() => {
+    setSelectedFragmentIds([]);
+  }, []);
+
   return {
     stage,
     focusState,
@@ -594,5 +607,8 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     handleToggleAnnotationFocus,
     handleCreateAnnotation,
     handleEnterRewriteStage,
+    selectedFragmentIds,
+    handleFragmentToggle,
+    handleFragmentsClear,
   };
 }
