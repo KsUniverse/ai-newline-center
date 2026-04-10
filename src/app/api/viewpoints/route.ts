@@ -13,7 +13,7 @@ const listFragmentsSchema = z.object({
 });
 
 const createFragmentsSchema = z.object({
-  contents: z.array(z.string()).min(1).max(50),
+  contents: z.array(z.string().min(1).max(500, "每条观点不超过 500 字")).min(1).max(50),
 });
 
 export async function GET(request: Request) {

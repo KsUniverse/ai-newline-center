@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 interface ViewpointsListProps {
   currentUserId: string;
   currentUserRole: string;
-  onRefreshNeeded?: () => void;
 }
 
 function formatRelativeTime(iso: string) {
@@ -55,7 +54,6 @@ function ViewpointSkeleton() {
 export function ViewpointsList({
   currentUserId,
   currentUserRole,
-  onRefreshNeeded,
 }: ViewpointsListProps) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<FragmentDTO[]>([]);
@@ -69,15 +67,14 @@ export function ViewpointsList({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const pendingLoadRef = useRef(false);
+  const loadVersionRef = useRef(0);
 
   const canManageAny =
     currentUserRole === "BRANCH_MANAGER" || currentUserRole === "SUPER_ADMIN";
 
   const loadPage = useCallback(
     async (cursor: string | null, reset: boolean) => {
-      if (pendingLoadRef.current) return;
-      pendingLoadRef.current = true;
+      const version = ++loadVersionRef.current;
       setLoading(true);
 
       try {
@@ -89,6 +86,9 @@ export function ViewpointsList({
           `/viewpoints?${params.toString()}`,
         );
 
+        // Discard stale responses if a newer load was triggered
+        if (version !== loadVersionRef.current) return;
+
         if (reset) {
           setItems(result.items);
         } else {
@@ -97,11 +97,13 @@ export function ViewpointsList({
         setNextCursor(result.nextCursor);
         setHasMore(result.hasMore);
       } catch (error) {
+        if (version !== loadVersionRef.current) return;
         toast.error(error instanceof Error ? error.message : "加载观点列表失败");
       } finally {
-        setLoading(false);
-        setInitialLoaded(true);
-        pendingLoadRef.current = false;
+        if (version === loadVersionRef.current) {
+          setLoading(false);
+          setInitialLoaded(true);
+        }
       }
     },
     [query],
@@ -126,7 +128,7 @@ export function ViewpointsList({
     observerRef.current = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry?.isIntersecting && hasMore && !loading && !pendingLoadRef.current) {
+        if (entry?.isIntersecting && hasMore && !loading) {
           void loadPage(nextCursor, false);
         }
       },
@@ -139,16 +141,6 @@ export function ViewpointsList({
       observerRef.current?.disconnect();
     };
   }, [hasMore, loading, loadPage, nextCursor]);
-
-  // Support parent-triggered refresh
-  useEffect(() => {
-    if (onRefreshNeeded) {
-      setQuery("");
-    }
-    // This is intentionally not including onRefreshNeeded in deps -
-    // parent calls this by changing the key prop instead
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   function handleQueryChange(value: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current);

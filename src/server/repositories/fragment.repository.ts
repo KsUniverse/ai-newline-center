@@ -167,13 +167,13 @@ class FragmentRepository {
 
   async findById(
     id: string,
-    organizationId?: string,
+    organizationId: string,
     db: DatabaseClient = prisma,
   ): Promise<FragmentWithCreator | null> {
     return db.fragment.findFirst({
       where: {
         id,
-        ...(organizationId ? { organizationId } : {}),
+        organizationId,
         deletedAt: null,
       },
       include: createdByUserInclude,

@@ -77,7 +77,7 @@ export function ViewpointsAddDialog({ open, onOpenChange, onCreated }: Viewpoint
           <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">
             Viewpoints
           </p>
-          <DialogTitle>批量录入观点</DialogTitle>
+          <DialogTitle>添加观点</DialogTitle>
           <DialogDescription>
             每行输入一条观点，支持批量录入，每次最多 50 条，每条不超过 500 字。
           </DialogDescription>
