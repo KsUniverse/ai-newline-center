@@ -36,7 +36,7 @@
 
 ## 任务列表
 
-- [ ] **FE-001**: (P0) 新增共享类型与导航入口
+- [x] **FE-001**: (P0) 新增共享类型与导航入口
 
   - 文件:
     - `src/types/fragment.ts`（与后端 BE-002 共用，前端侧确认文件存在即可，如已创建则跳过）
@@ -61,7 +61,7 @@
 
 ---
 
-- [ ] **FE-002**: (P0) 新增观点库页面路由入口
+- [x] **FE-002**: (P0) 新增观点库页面路由入口
 
   - 文件:
     - `src/app/(dashboard)/viewpoints/page.tsx`（新增）
@@ -77,7 +77,7 @@
 
 ---
 
-- [ ] **FE-003**: (P0) 实现批量录入弹窗 `ViewpointsAddDialog`
+- [x] **FE-003**: (P0) 实现批量录入弹窗 `ViewpointsAddDialog`
 
   - 文件: `src/components/features/viewpoints/viewpoints-add-dialog.tsx`（新增）
   - 详情:
@@ -95,7 +95,7 @@
 
 ---
 
-- [ ] **FE-004**: (P0) 实现观点列表组件 `ViewpointsList`
+- [x] **FE-004**: (P0) 实现观点列表组件 `ViewpointsList`
 
   - 文件: `src/components/features/viewpoints/viewpoints-list.tsx`（新增）
   - 详情:
@@ -120,7 +120,7 @@
 
 ---
 
-- [ ] **FE-005**: (P0) 实现观点库页面视图 `ViewpointsPageView`
+- [x] **FE-005**: (P0) 实现观点库页面视图 `ViewpointsPageView`
 
   - 文件:
     - `src/components/features/viewpoints/viewpoints-page-view.tsx`（新增）
@@ -147,7 +147,7 @@
 
 ---
 
-- [ ] **FE-006**: (P0) 扩展 AI 工作台仿写阶段的观点选择区
+- [x] **FE-006**: (P0) 扩展 AI 工作台仿写阶段的观点选择区
 
   - 文件:
     - `src/components/features/benchmarks/ai-workspace-controller.ts`（扩展）
@@ -223,11 +223,11 @@
 
 ## 完成标准
 
-- [ ] `pnpm lint` 无报错
-- [ ] `pnpm type-check` 全部通过
-- [ ] 侧边导航可见「观点库」，点击进入 `/viewpoints`
-- [ ] 观点库页面正常渲染，批量录入弹窗可用，删除带确认
-- [ ] 搜索防抖正常工作（300ms），无 input 过快导致竞态
-- [ ] 无限滚动加载下一页正常工作
-- [ ] 仿写阶段可见「观点参考」区域，搜索+多选+清空功能正常
-- [ ] 切换视频后 `selectedFragmentIds` 重置为空
+- [x] `pnpm lint` 无报错
+- [x] `pnpm type-check` 全部通过
+- [x] 侧边导航可见「观点库」，点击进入 `/viewpoints`
+- [x] 观点库页面正常渲染，批量录入弹窗可用，删除带确认
+- [x] 搜索防抖正常工作（300ms），无 input 过快导致竞态
+- [x] 无限滚动加载下一页正常工作
+- [x] 仿写阶段可见「观点参考」区域，搜索+多选+清空功能正常
+- [x] 切换视频后 `selectedFragmentIds` 重置为空

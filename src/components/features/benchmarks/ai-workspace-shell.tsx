@@ -562,6 +562,9 @@ export function AiWorkspaceShell({
                       savingDraft={controller.savingDraft}
                       onDraftChange={controller.setDraft}
                       onAnnotationSelect={controller.handleToggleAnnotationFocus}
+                      selectedFragmentIds={controller.selectedFragmentIds}
+                      onFragmentToggle={controller.handleFragmentToggle}
+                      onFragmentsClear={controller.handleFragmentsClear}
                     />
                   </div>
                 );
