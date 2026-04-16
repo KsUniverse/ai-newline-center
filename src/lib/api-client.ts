@@ -1,4 +1,10 @@
 import type { ApiResponse } from "@/types/api";
+import type {
+  BannedAccountItem,
+  BenchmarkVideoTag,
+  DashboardVideoItem,
+  SearchAccountItem,
+} from "@/types/benchmark-video";
 
 const BASE_URL = "/api";
 
@@ -178,3 +184,64 @@ export const apiClient = {
 };
 
 export { ApiError };
+
+// ---- Dashboard API ----
+
+export interface DashboardVideoQueryParams {
+  dateRange?: "today" | "yesterday" | "this_week";
+  customTag?: BenchmarkVideoTag;
+  isBringOrder?: boolean;
+  cursor?: string;
+  limit?: number;
+}
+
+export const dashboardApi = {
+  getVideos(params: DashboardVideoQueryParams): Promise<{
+    items: DashboardVideoItem[];
+    nextCursor: string | null;
+    total: number;
+  }> {
+    const query = new URLSearchParams();
+    if (params.dateRange) query.set("dateRange", params.dateRange);
+    if (params.customTag) query.set("customTag", params.customTag);
+    if (params.isBringOrder !== undefined)
+      query.set("isBringOrder", String(params.isBringOrder));
+    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return apiClient.get(`/dashboard/benchmark-videos${qs ? `?${qs}` : ""}`);
+  },
+
+  getBannedAccounts(dateRange: "today" | "yesterday" | "this_week" | "this_month"): Promise<{
+    items: BannedAccountItem[];
+  }> {
+    return apiClient.get(`/dashboard/banned-accounts?dateRange=${dateRange}`);
+  },
+
+  updateVideoTag(id: string, customTag: BenchmarkVideoTag | null): Promise<{
+    id: string;
+    customTag: BenchmarkVideoTag | null;
+  }> {
+    return apiClient.patch(`/benchmark-videos/${id}/tag`, { customTag });
+  },
+
+  updateVideoBringOrder(id: string, isBringOrder: boolean): Promise<{
+    id: string;
+    isBringOrder: boolean;
+  }> {
+    return apiClient.patch(`/benchmark-videos/${id}/bring-order`, { isBringOrder });
+  },
+
+  updateAccountBan(id: string, isBanned: boolean): Promise<{
+    id: string;
+    isBanned: boolean;
+    bannedAt: string | null;
+  }> {
+    return apiClient.patch(`/benchmarks/${id}/ban`, { isBanned });
+  },
+
+  searchAccounts(q: string, limit = 10): Promise<{ items: SearchAccountItem[] }> {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    return apiClient.get(`/benchmarks/search?${params.toString()}`);
+  },
+};

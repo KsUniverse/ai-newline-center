@@ -199,12 +199,15 @@ model BenchmarkAccount {
   members            BenchmarkAccountMember[]
   videos             BenchmarkVideo[]
   lastSyncedAt       DateTime?
+  isBanned           Boolean                 @default(false)
+  bannedAt           DateTime?
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
   deletedAt          DateTime?
 
   @@index([createdByUserId])
   @@index([organizationId])
+  @@index([organizationId, isBanned, bannedAt])
   @@unique([organizationId, profileUrl])
   @@unique([organizationId, secUserId])
   @@map("benchmark_accounts")
@@ -325,6 +328,8 @@ model BenchmarkVideo {
   recommendCount   Int                     @default(0)
   // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
   tags             Json                    @default("[]")
+  customTag        BenchmarkVideoTag?
+  isBringOrder     Boolean                 @default(false)
   snapshots        BenchmarkVideoSnapshot[]
   transcription    Transcription?
   aiWorkspaces     AiWorkspace[]
@@ -334,6 +339,7 @@ model BenchmarkVideo {
 
   @@index([accountId])
   @@index([organizationId])
+  @@index([organizationId, publishedAt])
   @@unique([accountId, videoId])
   @@map("benchmark_videos")
 }
@@ -370,6 +376,17 @@ model BenchmarkVideoSnapshot {
   @@index([videoId])
   @@index([videoId, timestamp])
   @@map("benchmark_video_snapshots")
+}
+
+enum BenchmarkVideoTag {
+  LIMIT_UP
+  DRAGON_TIGER
+  OVERNIGHT
+  DARK_POOL
+  THEME_REVIEW
+  THREE_DRAGONS
+  NOON_REVIEW
+  RECAP
 }
 
 enum TranscriptionStatus {

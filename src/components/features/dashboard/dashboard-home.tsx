@@ -5,6 +5,8 @@ import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-sh
 import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { ArrowUpRight, Building2, LayoutDashboard, Users } from "lucide-react";
 import Link from "next/link";
+import { DashboardVideoSection } from "./dashboard-video-section";
+import { DashboardBannedSection } from "./dashboard-banned-section";
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "超级管理员",
@@ -94,6 +96,10 @@ export async function DashboardHome() {
             })}
           </div>
         </SurfaceSection>
+      </div>
+      <div className="animate-in-up-d2 mt-6 space-y-6">
+        <DashboardVideoSection />
+        <DashboardBannedSection />
       </div>
     </DashboardPageShell>
   );

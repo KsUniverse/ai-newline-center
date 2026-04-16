@@ -300,6 +300,88 @@ class BenchmarkAccountRepository {
       data,
     });
   }
+
+  async findBannedAccounts(
+    params: {
+      organizationId: string;
+      bannedAtGte?: Date;
+      bannedAtLt?: Date;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<
+    Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: Date;
+    }>
+  > {
+    const results = await db.benchmarkAccount.findMany({
+      where: {
+        organizationId: params.organizationId,
+        isBanned: true,
+        deletedAt: null,
+        bannedAt: {
+          not: null,
+          ...(params.bannedAtGte ? { gte: params.bannedAtGte } : {}),
+          ...(params.bannedAtLt ? { lt: params.bannedAtLt } : {}),
+        },
+      },
+      orderBy: { bannedAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        nickname: true,
+        avatar: true,
+        douyinNumber: true,
+        bannedAt: true,
+      },
+    });
+
+    return results.filter((r) => r.bannedAt !== null) as Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: Date;
+    }>;
+  }
+
+  async updateBanStatus(
+    id: string,
+    organizationId: string,
+    isBanned: boolean,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkAccount> {
+    return db.benchmarkAccount.update({
+      where: { id, organizationId },
+      data: {
+        isBanned,
+        bannedAt: isBanned ? new Date() : null,
+      },
+    });
+  }
+
+  async searchAccounts(
+    organizationId: string,
+    q: string,
+    limit: number,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkAccount[]> {
+    return db.benchmarkAccount.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        OR: [
+          { nickname: { contains: q } },
+          { douyinNumber: { contains: q } },
+        ],
+      },
+      orderBy: { nickname: "asc" },
+      take: limit,
+    });
+  }
 }
 
 export const benchmarkAccountRepository = new BenchmarkAccountRepository();

@@ -211,6 +211,130 @@ class BenchmarkAccountService {
     });
   }
 
+  async listBannedAccounts(
+    caller: SessionUser,
+    params: { dateRange: "today" | "yesterday" | "this_week" | "this_month" },
+  ): Promise<{
+    items: Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: string;
+    }>;
+  }> {
+    this.assertSupportedCaller(caller);
+    const dateRange = this.resolveBannedDateRange(params.dateRange);
+
+    const items = await benchmarkAccountRepository.findBannedAccounts({
+      organizationId: caller.organizationId,
+      bannedAtGte: dateRange.gte,
+      bannedAtLt: dateRange.lt,
+    });
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        bannedAt: item.bannedAt.toISOString(),
+      })),
+    };
+  }
+
+  async toggleBanStatus(
+    caller: SessionUser,
+    accountId: string,
+    isBanned: boolean,
+  ): Promise<{ id: string; isBanned: boolean; bannedAt: string | null }> {
+    this.assertSupportedCaller(caller);
+
+    const existing = await benchmarkAccountRepository.findById(accountId);
+    if (!existing || existing.organizationId !== caller.organizationId) {
+      throw new AppError("NOT_FOUND", "对标账号不存在", 404);
+    }
+    if (existing.deletedAt) {
+      throw new AppError("BENCHMARK_ARCHIVED", "该对标博主已被归档", 409);
+    }
+
+    const updated = await benchmarkAccountRepository.updateBanStatus(
+      accountId,
+      caller.organizationId,
+      isBanned,
+    );
+
+    return {
+      id: updated.id,
+      isBanned: updated.isBanned,
+      bannedAt: updated.bannedAt?.toISOString() ?? null,
+    };
+  }
+
+  async searchBenchmarkAccounts(
+    caller: SessionUser,
+    q: string,
+    limit: number,
+  ): Promise<{
+    items: Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      isBanned: boolean;
+    }>;
+  }> {
+    this.assertSupportedCaller(caller);
+
+    if (!q.trim()) {
+      return { items: [] };
+    }
+
+    const results = await benchmarkAccountRepository.searchAccounts(
+      caller.organizationId,
+      q.trim(),
+      Math.min(limit, 20),
+    );
+
+    return {
+      items: results.map((r) => ({
+        id: r.id,
+        nickname: r.nickname,
+        avatar: r.avatar,
+        douyinNumber: r.douyinNumber,
+        isBanned: r.isBanned,
+      })),
+    };
+  }
+
+  private resolveBannedDateRange(
+    token: "today" | "yesterday" | "this_week" | "this_month",
+  ): { gte: Date; lt?: Date } {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (token) {
+      case "today": {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return { gte: today, lt: tomorrow };
+      }
+      case "yesterday": {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return { gte: yesterday, lt: today };
+      }
+      case "this_week": {
+        const dayOfWeek = today.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + diff);
+        return { gte: monday };
+      }
+      case "this_month": {
+        const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { gte: firstOfMonth };
+      }
+    }
+  }
+
   private resolveOrganizationScope(caller: SessionUser): string | undefined {
     this.assertSupportedCaller(caller);
     return caller.role === UserRole.SUPER_ADMIN ? undefined : caller.organizationId;
