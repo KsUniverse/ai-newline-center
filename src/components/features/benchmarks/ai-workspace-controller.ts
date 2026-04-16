@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
 import type { AiWorkspaceDTO, SaveAnnotationInput, SaveTranscriptInput } from "@/types/ai-workspace";
+import type { AiStreamDeltaEvent, AiStreamDoneEvent, AiStreamErrorEvent } from "@/types/ai-stream";
 import { ApiError, apiClient } from "@/lib/api-client";
 
 import {
@@ -12,6 +13,7 @@ import {
   splitTranscriptIntoSegments,
   type SelectedTextRange,
 } from "./ai-workspace-view-model";
+import { useTypewriterText } from "./use-typewriter-text";
 
 export type AiWorkspaceStage = "transcribe" | "decompose" | "rewrite";
 type DestructiveAction = "unlock" | "retranscribe";
@@ -114,9 +116,25 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [savingDraft, setSavingDraft] = useState(false);
   const [selectedFragmentIds, setSelectedFragmentIds] = useState<string[]>([]);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const workspacePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptEventSourceRef = useRef<EventSource | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
   const transcriptionFailureToastShownRef = useRef(false);
+  const [generatingRewrite, setGeneratingRewrite] = useState(false);
+  const transcriptTypewriter = useTypewriterText();
+  const rewriteTypewriter = useTypewriterText();
+  const {
+    displayedText: displayedTranscriptStreamText,
+    reset: resetTranscriptTypewriter,
+    appendTarget: appendTranscriptTarget,
+    replaceTarget: replaceTranscriptTarget,
+    whenIdle: onTranscriptTypewriterIdle,
+  } = transcriptTypewriter;
+  const {
+    displayedText: displayedRewriteStreamText,
+    reset: resetRewriteTypewriter,
+    appendTarget: appendRewriteTarget,
+    replaceTarget: replaceRewriteTarget,
+  } = rewriteTypewriter;
 
   const resetToInitialWorkspace = useCallback(() => {
     startTransition(() => {
@@ -129,7 +147,10 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       setDraftDirty(false);
       setSelectedFragmentIds([]);
     });
-  }, []);
+    resetTranscriptTypewriter("");
+    resetRewriteTypewriter("");
+    setGeneratingRewrite(false);
+  }, [resetRewriteTypewriter, resetTranscriptTypewriter]);
 
   const annotations = useMemo(
     () => mapWorkspaceAnnotations(workspace),
@@ -251,71 +272,89 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
 
   useEffect(() => {
     if (!video || !workspace?.id || workspace.status !== "TRANSCRIBING") {
-      if (workspacePollTimerRef.current) {
-        clearTimeout(workspacePollTimerRef.current);
-        workspacePollTimerRef.current = null;
-      }
+      transcriptEventSourceRef.current?.close();
+      transcriptEventSourceRef.current = null;
       return;
     }
 
-    let cancelled = false;
+    resetTranscriptTypewriter("");
+    const source = new EventSource(`/api/ai-workspaces/${workspace.id}/transcript/sse`);
+    transcriptEventSourceRef.current = source;
 
-    const pollWorkspace = async () => {
-      try {
-        const next = await apiClient.get<AiWorkspaceDTO>(`/ai-workspaces?videoId=${video.id}`);
-        if (cancelled) {
-          return;
-        }
-
-        applyWorkspace(next, video, {
-          preserveStage: true,
-          nextSelection: manualSelection,
-          nextActiveAnnotationId: activeAnnotationIdRef.current,
-        });
-
-        if (next.status === "TRANSCRIBING") {
-          workspacePollTimerRef.current = setTimeout(() => {
-            void pollWorkspace();
-          }, 2000);
-          return;
-        }
-
-        if (
-          next.status === "IDLE" &&
-          !next.transcript &&
-          !transcriptionFailureToastShownRef.current
-        ) {
-          transcriptionFailureToastShownRef.current = true;
-          toast.error("AI 转录未成功生成正文，请重试");
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        workspacePollTimerRef.current = setTimeout(() => {
-          void pollWorkspace();
-        }, 3000);
-
-        if (!transcriptionFailureToastShownRef.current && error instanceof ApiError) {
-          transcriptionFailureToastShownRef.current = true;
-          toast.error(error.message);
-        }
-      }
+    const refreshWorkspace = () => {
+      onTranscriptTypewriterIdle(() => {
+        void apiClient
+          .get<AiWorkspaceDTO>(`/ai-workspaces?videoId=${video.id}`)
+          .then((next) => {
+            applyWorkspace(next, video, {
+              preserveStage: true,
+              nextSelection: manualSelection,
+              nextActiveAnnotationId: activeAnnotationIdRef.current,
+            });
+          })
+          .catch((error) => {
+            if (!transcriptionFailureToastShownRef.current && error instanceof ApiError) {
+              transcriptionFailureToastShownRef.current = true;
+              toast.error(error.message);
+            }
+          });
+      });
     };
 
-    workspacePollTimerRef.current = setTimeout(() => {
-      void pollWorkspace();
-    }, 1500);
+    source.addEventListener("delta", (event) => {
+      if (!(event instanceof MessageEvent)) {
+        return;
+      }
+
+      const payload = JSON.parse(event.data as string) as AiStreamDeltaEvent;
+      appendTranscriptTarget(payload.delta);
+    });
+
+    source.addEventListener("done", (event) => {
+      if (event instanceof MessageEvent) {
+        const payload = JSON.parse(event.data as string) as AiStreamDoneEvent;
+        replaceTranscriptTarget(payload.text);
+      }
+      source.close();
+      if (transcriptEventSourceRef.current === source) {
+        transcriptEventSourceRef.current = null;
+      }
+      refreshWorkspace();
+    });
+
+    source.addEventListener("error", (event) => {
+      if (event instanceof MessageEvent) {
+        const payload = JSON.parse(event.data as string) as AiStreamErrorEvent;
+        toast.error(payload.message);
+      } else if (!transcriptionFailureToastShownRef.current) {
+        transcriptionFailureToastShownRef.current = true;
+        toast.error("转录流已中断，请稍后重试");
+      }
+
+      source.close();
+      if (transcriptEventSourceRef.current === source) {
+        transcriptEventSourceRef.current = null;
+      }
+      refreshWorkspace();
+    });
 
     return () => {
-      cancelled = true;
-      if (workspacePollTimerRef.current) {
-        clearTimeout(workspacePollTimerRef.current);
-        workspacePollTimerRef.current = null;
+      source.close();
+      if (transcriptEventSourceRef.current === source) {
+        transcriptEventSourceRef.current = null;
       }
     };
-  }, [applyWorkspace, manualSelection, video, workspace?.id, workspace?.status]);
+  }, [
+    appendTranscriptTarget,
+    applyWorkspace,
+    manualSelection,
+    onTranscriptTypewriterIdle,
+    replaceTranscriptTarget,
+    resetTranscriptTypewriter,
+    video,
+    workspace?.id,
+    workspace?.status,
+  ]);
 
   useEffect(() => {
     if (!workspace?.id || stage !== "rewrite" || !draftDirty) {
@@ -569,6 +608,56 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     setDraftDirty(true);
   }, []);
 
+  const handleGenerateRewrite = useCallback(async (selectedViewpoints: string[]) => {
+    if (!workspace?.id) {
+      toast.error("请先进入 AI 工作台");
+      return;
+    }
+
+    setGeneratingRewrite(true);
+    setDraftDirty(false);
+    resetRewriteTypewriter("");
+
+    try {
+      await apiClient.stream(
+        `/ai-workspaces/${workspace.id}/rewrite/generate`,
+        {
+          method: "POST",
+          body: {
+            currentDraft: draft,
+            selectedViewpoints,
+          },
+        },
+        ({ event, data }) => {
+          if (event === "delta") {
+            const payload = data as AiStreamDeltaEvent;
+            appendRewriteTarget(payload.delta);
+            return;
+          }
+
+          if (event === "done") {
+            const payload = data as AiStreamDoneEvent;
+            replaceRewriteTarget(payload.text, () => {
+              setDraft(payload.text);
+              setDraftDirty(true);
+              setGeneratingRewrite(false);
+            });
+            return;
+          }
+
+          if (event === "error") {
+            const payload = data as AiStreamErrorEvent;
+            setGeneratingRewrite(false);
+            toast.error(payload.message);
+          }
+        },
+      );
+    } catch (error) {
+      setGeneratingRewrite(false);
+      toast.error(error instanceof ApiError ? error.message : "AI 仿写生成失败");
+    }
+  }, [appendRewriteTarget, draft, replaceRewriteTarget, resetRewriteTypewriter, workspace?.id]);
+
   const handleFragmentToggle = useCallback((id: string) => {
     setSelectedFragmentIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
@@ -586,6 +675,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     transcriptText,
     annotations,
     draft,
+    displayedDraft: generatingRewrite ? displayedRewriteStreamText : draft,
     canGenerate,
     loadingWorkspace,
     locked,
@@ -595,6 +685,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     selectedRange: manualSelection,
     activeAnnotationId,
     savingDraft,
+    generatingRewrite,
     setPreviewOpen,
     handleUnlockDialogOpenChange,
     setTranscriptText,
@@ -607,8 +698,11 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     handleToggleAnnotationFocus,
     handleCreateAnnotation,
     handleEnterRewriteStage,
+    handleGenerateRewrite,
     selectedFragmentIds,
     handleFragmentToggle,
     handleFragmentsClear,
+    displayedTranscriptText:
+      workspace?.status === "TRANSCRIBING" ? displayedTranscriptStreamText : transcriptText,
   };
 }

@@ -14,26 +14,32 @@ import { Input } from "@/components/ui/input";
 import type { DecompositionAnnotation } from "./ai-workspace-view-model";
 
 interface AiWorkspaceRewriteStageProps {
+  workspaceId: string | null;
   transcriptText: string;
   annotations: DecompositionAnnotation[];
   activeAnnotationId: string | null;
   draft: string;
   savingDraft: boolean;
+  generatingRewrite: boolean;
   onDraftChange: (next: string) => void;
   onAnnotationSelect: (annotationId: string) => void;
+  onGenerateRewrite: (selectedViewpoints: string[]) => void;
   selectedFragmentIds: string[];
   onFragmentToggle: (id: string) => void;
   onFragmentsClear: () => void;
 }
 
 export const AiWorkspaceRewriteStage = memo(function AiWorkspaceRewriteStage({
+  workspaceId,
   transcriptText,
   annotations,
   activeAnnotationId,
   draft,
   savingDraft,
+  generatingRewrite,
   onDraftChange,
   onAnnotationSelect,
+  onGenerateRewrite,
   selectedFragmentIds,
   onFragmentToggle,
   onFragmentsClear,
@@ -93,17 +99,35 @@ export const AiWorkspaceRewriteStage = memo(function AiWorkspaceRewriteStage({
       <div className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1.35fr)_minmax(0,0.9fr)] gap-4 px-4 py-4 sm:px-5">
         <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
           <div className="flex min-h-0 flex-col rounded-3xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
-                仿写稿
-              </p>
-              <span className="text-xs text-muted-foreground/70">
-                对照原文与拆解，先写结构，再调语气。
-              </span>
-            </div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                  仿写稿
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground/70">
+                    对照原文与拆解，先写结构，再调语气。
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-8 rounded-md px-3 text-sm"
+                    disabled={!workspaceId || generatingRewrite}
+                    onClick={() =>
+                      onGenerateRewrite(
+                        fragments
+                          .filter((fragment) => selectedFragmentIds.includes(fragment.id))
+                          .map((fragment) => fragment.content),
+                      )
+                    }
+                  >
+                    {generatingRewrite ? "AI 仿写中…" : "AI 仿写"}
+                  </Button>
+                </div>
+              </div>
             <textarea
               value={draft}
               onChange={(event) => onDraftChange(event.target.value)}
+              readOnly={generatingRewrite}
               rows={16}
               className="min-h-0 flex-1 resize-none rounded-2xl border border-border/60 bg-background/82 px-4 py-4 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
               placeholder="在这里写仿写草稿。"

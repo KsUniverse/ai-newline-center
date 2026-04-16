@@ -5,11 +5,13 @@ const {
   findByIdRawMock,
   findByStepMock,
   generateTextMock,
+  streamTextMock,
 } = vi.hoisted(() => ({
   createOpenAIMock: vi.fn(),
   findByIdRawMock: vi.fn(),
   findByStepMock: vi.fn(),
   generateTextMock: vi.fn(),
+  streamTextMock: vi.fn(),
 }));
 
 vi.mock("@/server/repositories/ai-step-binding.repository", () => ({
@@ -30,6 +32,7 @@ vi.mock("@ai-sdk/openai", () => ({
 
 vi.mock("ai", () => ({
   generateText: generateTextMock,
+  streamText: streamTextMock,
 }));
 
 const textConfig = {
@@ -49,9 +52,36 @@ describe("aiGateway", () => {
     findByIdRawMock.mockReset();
     findByStepMock.mockReset();
     generateTextMock.mockReset();
+    streamTextMock.mockReset();
 
     createOpenAIMock.mockReturnValue(vi.fn().mockReturnValue("mock-model"));
     generateTextMock.mockResolvedValue({ text: "generated text" });
+  });
+
+  it("streams text using the configured step binding", async () => {
+    findByStepMock.mockResolvedValue({ step: "REWRITE", modelConfigId: "config_2" });
+    findByIdRawMock.mockResolvedValue(textConfig);
+    streamTextMock.mockResolvedValue({
+      textStream: (async function* () {
+        yield "逐";
+        yield "字";
+      })(),
+    });
+
+    const { aiGateway } = await import("@/server/services/ai-gateway.service");
+    const result = await aiGateway.streamText("REWRITE", "stream this");
+
+    const chunks: string[] = [];
+    for await (const chunk of result.textStream) {
+      chunks.push(chunk);
+    }
+
+    expect(findByStepMock).toHaveBeenCalledWith("REWRITE");
+    expect(findByIdRawMock).toHaveBeenCalledWith("config_2");
+    expect(streamTextMock).toHaveBeenCalled();
+    expect(result.modelConfigId).toBe("config_2");
+    expect(result.modelName).toBe("ark/decompose");
+    expect(chunks).toEqual(["逐", "字"]);
   });
 
   it("generates text using the configured step binding", async () => {
@@ -93,5 +123,4 @@ describe("aiGateway", () => {
     });
   });
 });
-
 

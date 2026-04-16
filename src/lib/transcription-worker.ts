@@ -2,11 +2,13 @@ import path from "node:path";
 
 import { Worker } from "bullmq";
 
+import { buildTranscriptStreamChannel, chunkText } from "@/lib/ai-stream";
 import { TRANSCRIPTION_QUEUE_NAME, type TranscriptionJobData } from "@/lib/bullmq";
 import { env } from "@/lib/env";
-import { createBullMQRedisConnection } from "@/lib/redis";
+import { createBullMQRedisConnection, createPubSubRedisClient } from "@/lib/redis";
 import { aiWorkspaceRepository } from "@/server/repositories/ai-workspace.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
+import { AppError } from "@/lib/errors";
 
 declare global {
   // Persist worker startup across Next.js dev hot reloads in the same process.
@@ -27,6 +29,21 @@ export function startTranscriptionWorker(): void {
   }
 
   globalThis.__transcriptionWorkerInitialized = true;
+  const publisher = createPubSubRedisClient();
+
+  async function publishTranscriptionEvent(
+    workspaceId: string,
+    event: string,
+    data: unknown,
+  ): Promise<void> {
+    await publisher.publish(
+      buildTranscriptStreamChannel(workspaceId),
+      JSON.stringify({
+        event,
+        data,
+      }),
+    );
+  }
 
   const worker = new Worker<TranscriptionJobData>(
     TRANSCRIPTION_QUEUE_NAME,
@@ -63,13 +80,29 @@ export function startTranscriptionWorker(): void {
       }
 
       try {
+        await publishTranscriptionEvent(workspaceId, "start", {
+          kind: "transcript",
+        });
         const result = await aiGateway.generateTranscriptionFromVideo(videoInput);
+        for (const delta of chunkText(result.text, 24)) {
+          await publishTranscriptionEvent(workspaceId, "delta", {
+            kind: "transcript",
+            delta,
+          });
+        }
 
         await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
           originalText: result.text,
           currentText: result.text,
           aiProviderKey: result.modelConfigId,
           aiModel: result.modelName,
+        });
+
+        await publishTranscriptionEvent(workspaceId, "done", {
+          kind: "transcript",
+          text: result.text,
+          modelConfigId: result.modelConfigId,
+          modelName: result.modelName,
         });
 
         console.log("[TranscriptionWorker] Completed job", {
@@ -120,6 +153,11 @@ export function startTranscriptionWorker(): void {
       }
 
       await aiWorkspaceRepository.markQueuedTranscriptionFailed(job.data.workspaceId);
+      await publishTranscriptionEvent(job.data.workspaceId, "error", {
+        kind: "transcript",
+        code: error instanceof AppError ? error.code : "TRANSCRIPTION_FAILED",
+        message: errorMessage,
+      });
     } catch (handlerError) {
       console.error("[TranscriptionWorker] Failed to persist FAILED state:", handlerError);
     }

@@ -4,12 +4,14 @@ const {
   completeQueuedTranscriptionMock,
   generateTranscriptionFromVideoMock,
   markQueuedTranscriptionFailedMock,
+  publishMock,
   workerHandlers,
   workerState,
 } = vi.hoisted(() => ({
   completeQueuedTranscriptionMock: vi.fn(),
   generateTranscriptionFromVideoMock: vi.fn(),
   markQueuedTranscriptionFailedMock: vi.fn(),
+  publishMock: vi.fn(),
   workerHandlers: new Map<string, (job: unknown, error: unknown) => unknown>(),
   workerState: {
     processFn: null as null | ((job: unknown) => Promise<unknown>),
@@ -26,6 +28,10 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/redis", () => ({
   createBullMQRedisConnection: vi.fn(() => ({ mocked: true })),
+  createPubSubRedisClient: vi.fn(() => ({
+    publish: publishMock,
+    quit: vi.fn(),
+  })),
 }));
 
 vi.mock("@/server/services/ai-gateway.service", () => ({
@@ -60,6 +66,7 @@ describe("startTranscriptionWorker", () => {
     completeQueuedTranscriptionMock.mockReset();
     generateTranscriptionFromVideoMock.mockReset();
     markQueuedTranscriptionFailedMock.mockReset();
+    publishMock.mockReset();
     workerHandlers.clear();
     workerState.processFn = null;
     vi.restoreAllMocks();
@@ -70,8 +77,8 @@ describe("startTranscriptionWorker", () => {
 
   it("uses the configured TRANSCRIBE implementation for successful jobs", async () => {
     generateTranscriptionFromVideoMock.mockResolvedValue({
-      implementationKey: "google-transcribe",
-      modelId: "gemini-2.5-flash-lite",
+      modelConfigId: "google-transcribe",
+      modelName: "gemini-2.5-flash-lite",
       text: "Gemini 转录正文",
     });
 
@@ -102,6 +109,7 @@ describe("startTranscriptionWorker", () => {
         aiModel: "gemini-2.5-flash-lite",
       }),
     );
+    expect(publishMock).toHaveBeenCalled();
   });
 
   it("logs permanent transcription failures and marks the workspace as failed", async () => {

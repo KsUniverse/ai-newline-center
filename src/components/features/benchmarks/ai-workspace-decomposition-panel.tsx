@@ -2,7 +2,10 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
 
+import type { AiStreamDeltaEvent, AiStreamDoneEvent, AiStreamErrorEvent } from "@/types/ai-stream";
+import { ApiError, apiClient } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +21,10 @@ import {
   type DecompositionAnnotation,
   type SelectedTextRange,
 } from "./ai-workspace-view-model";
+import { useTypewriterText } from "./use-typewriter-text";
 
 interface AiWorkspaceDecompositionPanelProps {
+  workspaceId: string | null;
   focusState: AiWorkspaceFocusState;
   annotations: DecompositionAnnotation[];
   selectedRange: SelectedTextRange | null;
@@ -30,6 +35,7 @@ interface AiWorkspaceDecompositionPanelProps {
 }
 
 export const AiWorkspaceDecompositionPanel = memo(function AiWorkspaceDecompositionPanel({
+  workspaceId,
   focusState,
   annotations,
   selectedRange,
@@ -40,6 +46,8 @@ export const AiWorkspaceDecompositionPanel = memo(function AiWorkspaceDecomposit
 }: AiWorkspaceDecompositionPanelProps) {
   const annotationRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [content, setContent] = useState("");
+  const [generatingAnnotation, setGeneratingAnnotation] = useState(false);
+  const typewriter = useTypewriterText();
   const inputMode = focusState === "selecting" && Boolean(selectedRange);
 
   useEffect(() => {
@@ -56,6 +64,55 @@ export const AiWorkspaceDecompositionPanel = memo(function AiWorkspaceDecomposit
       behavior: "smooth",
     });
   }, [activeAnnotationId, inputMode]);
+
+  async function handleGenerateAnnotation() {
+    if (!workspaceId || !selectedRange) {
+      return;
+    }
+
+    setGeneratingAnnotation(true);
+    typewriter.reset("");
+
+    try {
+      await apiClient.stream(
+        `/ai-workspaces/${workspaceId}/annotations/generate`,
+        {
+          method: "POST",
+          body: {
+            segmentId: selectedRange.segmentId,
+            startOffset: selectedRange.startOffset,
+            endOffset: selectedRange.endOffset,
+            quotedText: selectedRange.quotedText,
+          },
+        },
+        ({ event, data }) => {
+          if (event === "delta") {
+            const payload = data as AiStreamDeltaEvent;
+            typewriter.appendTarget(payload.delta);
+            return;
+          }
+
+          if (event === "done") {
+            const payload = data as AiStreamDoneEvent;
+            typewriter.replaceTarget(payload.text, () => {
+              setContent(payload.text);
+              setGeneratingAnnotation(false);
+            });
+            return;
+          }
+
+          if (event === "error") {
+            const payload = data as AiStreamErrorEvent;
+            setGeneratingAnnotation(false);
+            toast.error(payload.message);
+          }
+        },
+      );
+    } catch (error) {
+      setGeneratingAnnotation(false);
+      toast.error(error instanceof ApiError ? error.message : "AI 拆解生成失败");
+    }
+  }
 
   return (
     <section className="relative flex h-full min-h-0 flex-1 flex-col">
@@ -116,8 +173,9 @@ export const AiWorkspaceDecompositionPanel = memo(function AiWorkspaceDecomposit
                 说明这一段在结构、表达或节奏上的作用，后续仿写会直接引用这里的拆解。
               </p>
               <textarea
-                value={content}
+                value={generatingAnnotation ? typewriter.displayedText : content}
                 onChange={(event) => setContent(event.target.value)}
+                readOnly={generatingAnnotation}
                 rows={10}
                 className="mt-4 min-h-0 w-full resize-none rounded-2xl border border-border/60 bg-card/82 px-4 py-3 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
                 placeholder="拆解说明: 直接写这一段为什么好、做了什么、为什么值得学。"
@@ -125,10 +183,19 @@ export const AiWorkspaceDecompositionPanel = memo(function AiWorkspaceDecomposit
               <div className="mt-4 flex justify-end">
                 <Button
                   size="sm"
+                  variant="outline"
+                  className="mr-2 h-8 rounded-md px-3 text-sm"
+                  disabled={!workspaceId || !selectedRange?.quotedText || generatingAnnotation}
+                  onClick={handleGenerateAnnotation}
+                >
+                  {generatingAnnotation ? "AI 拆解中…" : "AI 拆解"}
+                </Button>
+                <Button
+                  size="sm"
                   className="h-8 rounded-md px-3 text-sm"
-                  disabled={!selectedRange?.quotedText || !content.trim()}
+                  disabled={!selectedRange?.quotedText || !(generatingAnnotation ? typewriter.displayedText : content).trim() || generatingAnnotation}
                   onClick={() => {
-                    onCreateAnnotation(content.trim());
+                    onCreateAnnotation((generatingAnnotation ? typewriter.displayedText : content).trim());
                     setContent("");
                   }}
                 >

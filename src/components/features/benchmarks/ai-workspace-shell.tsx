@@ -490,7 +490,7 @@ export function AiWorkspaceShell({
                     >
                       <AiWorkspaceTranscriptCanvas
                         stage={visualStage}
-                        transcriptText={controller.transcriptText}
+                        transcriptText={controller.displayedTranscriptText}
                         transcribing={
                           controller.loadingWorkspace ||
                           controller.workspace?.status === "TRANSCRIBING"
@@ -532,6 +532,7 @@ export function AiWorkspaceShell({
                       }}
                     >
                       <AiWorkspaceDecompositionPanel
+                        workspaceId={controller.workspace?.id ?? null}
                         focusState={controller.focusState}
                         annotations={controller.annotations}
                         selectedRange={controller.selectedRange}
@@ -555,13 +556,16 @@ export function AiWorkspaceShell({
                     }}
                   >
                     <AiWorkspaceRewriteStage
+                      workspaceId={controller.workspace?.id ?? null}
                       transcriptText={controller.transcriptText}
                       annotations={controller.annotations}
                       activeAnnotationId={controller.activeAnnotationId}
-                      draft={controller.draft}
+                      draft={controller.displayedDraft}
                       savingDraft={controller.savingDraft}
+                      generatingRewrite={controller.generatingRewrite}
                       onDraftChange={controller.setDraft}
                       onAnnotationSelect={controller.handleToggleAnnotationFocus}
+                      onGenerateRewrite={controller.handleGenerateRewrite}
                       selectedFragmentIds={controller.selectedFragmentIds}
                       onFragmentToggle={controller.handleFragmentToggle}
                       onFragmentsClear={controller.handleFragmentsClear}
