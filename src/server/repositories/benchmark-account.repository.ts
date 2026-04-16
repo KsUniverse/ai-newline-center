@@ -289,6 +289,7 @@ class BenchmarkAccountRepository {
       verificationLabel: string | null;
       verificationIconUrl: string | null;
       verificationType: number | null;
+      bannedAt?: Date | null;
       lastSyncedAt: Date;
     },
     db: DatabaseClient = prisma,
@@ -320,7 +321,6 @@ class BenchmarkAccountRepository {
     const results = await db.benchmarkAccount.findMany({
       where: {
         organizationId: params.organizationId,
-        isBanned: true,
         deletedAt: null,
         bannedAt: {
           not: null,
@@ -346,41 +346,6 @@ class BenchmarkAccountRepository {
       douyinNumber: string | null;
       bannedAt: Date;
     }>;
-  }
-
-  async updateBanStatus(
-    id: string,
-    organizationId: string,
-    isBanned: boolean,
-    db: DatabaseClient = prisma,
-  ): Promise<BenchmarkAccount> {
-    return db.benchmarkAccount.update({
-      where: { id, organizationId },
-      data: {
-        isBanned,
-        bannedAt: isBanned ? new Date() : null,
-      },
-    });
-  }
-
-  async searchAccounts(
-    organizationId: string,
-    q: string,
-    limit: number,
-    db: DatabaseClient = prisma,
-  ): Promise<BenchmarkAccount[]> {
-    return db.benchmarkAccount.findMany({
-      where: {
-        organizationId,
-        deletedAt: null,
-        OR: [
-          { nickname: { contains: q } },
-          { douyinNumber: { contains: q } },
-        ],
-      },
-      orderBy: { nickname: "asc" },
-      take: limit,
-    });
   }
 }
 

@@ -15,15 +15,21 @@ export async function ensureServerBootstrap(): Promise<void> {
   globalThis.__serverBootstrapStarted = true;
 
   try {
+    const shouldStartScheduler = process.env.NODE_ENV === "production";
+
     console.log("[ServerBootstrap] starting background services", {
       pid: process.pid,
       nodeEnv: process.env.NODE_ENV ?? null,
+      schedulerEnabled: shouldStartScheduler,
     });
 
     const { startScheduler } = await import("@/lib/scheduler");
     const { startTranscriptionWorker } = await import("@/lib/transcription-worker");
 
-    startScheduler();
+    if (shouldStartScheduler) {
+      startScheduler();
+    }
+
     startTranscriptionWorker();
 
     console.log("[ServerBootstrap] background services started", {

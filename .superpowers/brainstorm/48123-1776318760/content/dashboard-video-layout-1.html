@@ -1,0 +1,99 @@
+<h2>Dashboard 短视频区块方向</h2>
+<p class="subtitle">两种方案都改成桌面端一行 5 个，不再使用纵向列表。重点看你更偏向哪种信息密度和卡片气质。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 靠近博主视频卡片</div>
+        <div class="mockup-body">
+          <div class="label">Video Monitor</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 14px;gap:12px;">
+            <div>
+              <div style="font-size:22px;font-weight:700;">短视频列表</div>
+              <div class="subtitle" style="margin-top:4px;">更强封面感，信息下沉到卡片底部和顶部小标签</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="mock-button">今日</button>
+              <button class="mock-button">标签</button>
+              <button class="mock-button">带单</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;">
+            <div style="aspect-ratio:3/4;border-radius:18px;background:linear-gradient(180deg,#8ad7cb 0%,#23313a 100%);position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.12);">
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.1),rgba(0,0,0,0.76));"></div>
+              <div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:6px;font-size:11px;">
+                <span style="padding:3px 8px;border-radius:999px;background:rgba(0,0,0,0.4);color:#fff;">观点拆解</span>
+                <span style="padding:3px 8px;border-radius:999px;background:rgba(16,185,129,0.18);color:#d1fae5;">带单</span>
+              </div>
+              <div style="position:absolute;left:12px;right:12px;bottom:12px;color:#fff;">
+                <div style="font-size:13px;font-weight:600;line-height:1.45;">学会这 3 个短视频起手式，播放量会更稳</div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:rgba(255,255,255,0.78);">
+                  <span>@品牌增长研究所</span>
+                  <span>1.2w 赞</span>
+                </div>
+              </div>
+            </div>
+            <div class="placeholder" style="aspect-ratio:3/4;border-radius:18px;">卡片 2</div>
+            <div class="placeholder" style="aspect-ratio:3/4;border-radius:18px;">卡片 3</div>
+            <div class="placeholder" style="aspect-ratio:3/4;border-radius:18px;">卡片 4</div>
+            <div class="placeholder" style="aspect-ratio:3/4;border-radius:18px;">卡片 5</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A</h3>
+      <p>更像“博主短视频列表”，封面优先，标签和带单做成浮层小标记，适合先看内容气质再做操作。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 信息增强型视频卡片</div>
+        <div class="mockup-body">
+          <div class="label">Video Monitor</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 14px;gap:12px;">
+            <div>
+              <div style="font-size:22px;font-weight:700;">短视频列表</div>
+              <div class="subtitle" style="margin-top:4px;">保留卡片感，但把运营信息拉到封面下方，便于快速编辑</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="mock-button">今日</button>
+              <button class="mock-button">标签</button>
+              <button class="mock-button">带单</button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;">
+            <div style="border-radius:20px;background:rgba(255,255,255,0.78);border:1px solid rgba(148,163,184,0.28);overflow:hidden;">
+              <div style="aspect-ratio:3/4;background:linear-gradient(180deg,#9fd4ff 0%,#4f5d75 100%);position:relative;">
+                <div style="position:absolute;left:10px;top:10px;padding:3px 8px;border-radius:999px;background:rgba(255,255,255,0.78);font-size:11px;">观点拆解</div>
+              </div>
+              <div style="padding:12px;">
+                <div style="font-size:13px;font-weight:600;line-height:1.45;">学会这 3 个短视频起手式，播放量会更稳</div>
+                <div style="margin-top:6px;font-size:11px;color:#64748b;">@品牌增长研究所</div>
+                <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:#475569;">
+                  <span>1.2w 赞</span>
+                  <span>2 小时前</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:10px;">
+                  <div style="padding:4px 8px;border-radius:999px;background:#ecfeff;color:#0f766e;font-size:11px;">带单</div>
+                  <div style="padding:4px 8px;border-radius:999px;background:#f8fafc;color:#475569;font-size:11px;">可改标签</div>
+                </div>
+              </div>
+            </div>
+            <div class="placeholder" style="aspect-ratio:1/1.42;border-radius:20px;">卡片 2</div>
+            <div class="placeholder" style="aspect-ratio:1/1.42;border-radius:20px;">卡片 3</div>
+            <div class="placeholder" style="aspect-ratio:1/1.42;border-radius:20px;">卡片 4</div>
+            <div class="placeholder" style="aspect-ratio:1/1.42;border-radius:20px;">卡片 5</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B</h3>
+      <p>仍然是 5 列卡片，但把状态、带单、标签和时间都放到卡片内容区，运营改动会更顺手。</p>
+    </div>
+  </div>
+</div>

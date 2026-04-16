@@ -28,10 +28,23 @@ describe("ensureServerBootstrap", () => {
     resetServerBootstrapForTests();
   });
 
-  it("starts background services only once", async () => {
+  it("skips scheduler outside production but still starts the worker only once", async () => {
     const { ensureServerBootstrap } = await import("@/lib/server-bootstrap");
 
     await ensureServerBootstrap();
+    await ensureServerBootstrap();
+
+    expect(startSchedulerMock).not.toHaveBeenCalled();
+    expect(startTranscriptionWorkerMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the scheduler in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const { resetServerBootstrapForTests, ensureServerBootstrap } = await import(
+      "@/lib/server-bootstrap"
+    );
+    resetServerBootstrapForTests();
+
     await ensureServerBootstrap();
 
     expect(startSchedulerMock).toHaveBeenCalledTimes(1);

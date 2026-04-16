@@ -3,7 +3,6 @@ import type {
   BannedAccountItem,
   BenchmarkVideoTag,
   DashboardVideoItem,
-  SearchAccountItem,
 } from "@/types/benchmark-video";
 
 const BASE_URL = "/api";
@@ -230,18 +229,5 @@ export const dashboardApi = {
     isBringOrder: boolean;
   }> {
     return apiClient.patch(`/benchmark-videos/${id}/bring-order`, { isBringOrder });
-  },
-
-  updateAccountBan(id: string, isBanned: boolean): Promise<{
-    id: string;
-    isBanned: boolean;
-    bannedAt: string | null;
-  }> {
-    return apiClient.patch(`/benchmarks/${id}/ban`, { isBanned });
-  },
-
-  searchAccounts(q: string, limit = 10): Promise<{ items: SearchAccountItem[] }> {
-    const params = new URLSearchParams({ q, limit: String(limit) });
-    return apiClient.get(`/benchmarks/search?${params.toString()}`);
   },
 };

@@ -57,14 +57,6 @@ export interface BannedAccountItem {
   bannedAt: string;
 }
 
-export interface SearchAccountItem {
-  id: string;
-  nickname: string;
-  avatar: string;
-  douyinNumber: string | null;
-  isBanned: boolean;
-}
-
 export function formatLikeCount(count: number): string {
   if (count >= 10000) {
     return `${(count / 10000).toFixed(1)}w`;

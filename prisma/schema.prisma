@@ -199,7 +199,6 @@ model BenchmarkAccount {
   members            BenchmarkAccountMember[]
   videos             BenchmarkVideo[]
   lastSyncedAt       DateTime?
-  isBanned           Boolean                 @default(false)
   bannedAt           DateTime?
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
@@ -207,7 +206,7 @@ model BenchmarkAccount {
 
   @@index([createdByUserId])
   @@index([organizationId])
-  @@index([organizationId, isBanned, bannedAt])
+  @@index([organizationId, bannedAt])
   @@unique([organizationId, profileUrl])
   @@unique([organizationId, secUserId])
   @@map("benchmark_accounts")

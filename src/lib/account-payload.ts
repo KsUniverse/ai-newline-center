@@ -21,6 +21,18 @@ export interface CreateDouyinAccountPayload {
   verificationType: number | null;
 }
 
+function clampNonNegative(value: number): number {
+  return value < 0 ? 0 : value;
+}
+
+function normalizeNullableAge(value: number | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  return value < 0 ? null : value;
+}
+
 export function toCreateDouyinAccountPayload(
   preview: AccountPreview,
 ): CreateDouyinAccountPayload {
@@ -31,13 +43,13 @@ export function toCreateDouyinAccountPayload(
     avatar: preview.avatar,
     bio: preview.bio,
     signature: preview.signature,
-    followersCount: preview.followersCount,
-    followingCount: preview.followingCount,
-    likesCount: preview.likesCount,
-    videosCount: preview.videosCount,
+    followersCount: clampNonNegative(preview.followersCount),
+    followingCount: clampNonNegative(preview.followingCount),
+    likesCount: clampNonNegative(preview.likesCount),
+    videosCount: clampNonNegative(preview.videosCount),
     douyinNumber: preview.douyinNumber,
     ipLocation: preview.ipLocation,
-    age: preview.age,
+    age: normalizeNullableAge(preview.age),
     province: preview.province,
     city: preview.city,
     verificationLabel: preview.verificationLabel,
