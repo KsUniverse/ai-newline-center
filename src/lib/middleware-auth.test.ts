@@ -16,6 +16,11 @@ describe("middleware auth routing", () => {
     expect(isDashboardRoute("/users/abc")).toBe(true);
   });
 
+  it("identifies settings routes as protected", () => {
+    expect(isDashboardRoute("/settings")).toBe(true);
+    expect(isDashboardRoute("/settings/crawler-cookies")).toBe(true);
+  });
+
   it("does not redirect login when only a token is present", () => {
     expect(getAuthRedirectPath("/login", true)).toBeNull();
   });

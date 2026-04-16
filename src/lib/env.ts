@@ -37,6 +37,16 @@ const envSchema = z.object({
   // 格式: https://bucket-name.oss-cn-hangzhou.aliyuncs.com
   OSS_ACCESS_BUCKET_ENDPOINT: z.string().url().optional(),
   OSS_ACCESS_BUCKET_INTRANET_ENDPOINT: z.string().url().optional(),
+  // 爬虫 Cookie 管理
+  // 降级兜底 Cookie（可选，不由本应用管理，由运维直接配置到爬虫 API 侧）
+  CRAWLER_COOKIE: z.string().optional(),
+  // Cookie 加密密钥，64 位十六进制字符串（= 32 字节 AES key）
+  CRAWLER_COOKIE_ENCRYPTION_KEY: z
+    .string()
+    .regex(
+      /^[0-9a-fA-F]{64}$/,
+      "CRAWLER_COOKIE_ENCRYPTION_KEY 必须为 64 位十六进制字符串",
+    ),
 }).superRefine((values, ctx) => {
   if (values.NODE_ENV === "production" && !values.NEXTAUTH_URL) {
     ctx.addIssue({

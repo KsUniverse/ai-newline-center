@@ -1,5 +1,8 @@
 import { env } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { decryptCookieValue } from "@/lib/crypto";
+import { getSharedRedisClient } from "@/lib/redis";
+import { crawlerCookieRepository } from "@/server/repositories/crawler-cookie.repository";
 
 interface CrawlerResponse<T> {
   code: number;
@@ -86,10 +89,11 @@ interface ShareResolveRequestOptions {
 type UnknownRecord = Record<string, unknown>;
 
 class CrawlerService {
-  async getSecUserId(url: string): Promise<string> {
+  async getSecUserId(url: string, organizationId?: string): Promise<string> {
     const raw = await this.callCrawlerApi<unknown>(
       "/api/douyin/web/get_sec_user_id",
       { url },
+      { organizationId },
     );
 
     if (typeof raw === "string" && raw.length > 0) {
@@ -104,10 +108,11 @@ class CrawlerService {
     return secUserId;
   }
 
-  async fetchUserProfile(secUserId: string): Promise<CrawlerUserProfile> {
+  async fetchUserProfile(secUserId: string, organizationId?: string): Promise<CrawlerUserProfile> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/handler_user_profile",
       { sec_user_id: secUserId },
+      { organizationId },
     );
     const user = this.pickRecord(raw, ["user", "user_info"]) ?? raw;
     const firstEndorsement = this.pickFirstRecord(user, ["endorsement_info_list"]);
@@ -158,6 +163,7 @@ class CrawlerService {
     cursor: number = 0,
     count: number = 35,
     options: ShareResolveRequestOptions = {},
+    organizationId?: string,
   ): Promise<CrawlerVideoListResult> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_user_post_videos",
@@ -166,6 +172,7 @@ class CrawlerService {
         max_cursor: cursor,
         count,
       },
+      { organizationId },
     );
 
     const rawVideos = this.pickArray(raw, ["aweme_list", "videos", "video_list"]);
@@ -180,6 +187,7 @@ class CrawlerService {
 
   async fetchCollectionVideos(
     input: FetchCollectionVideosInput,
+    organizationId?: string,
   ): Promise<CrawlerCollectionResult> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_user_collection_videos",
@@ -188,7 +196,7 @@ class CrawlerService {
         max_cursor: input.cursor ?? 0,
         count: input.count ?? 30,
       },
-      { authSensitive: true },
+      { authSensitive: true, organizationId },
     );
     const items = this.pickArray(raw, ["aweme_list", "collect_list", "video_list"]).map((item) => {
       const author = this.pickRecord(item, ["author", "author_info"]) ?? {};
@@ -214,10 +222,12 @@ class CrawlerService {
   async fetchOneVideo(
     awemeId: string,
     options: ShareResolveRequestOptions = {},
+    organizationId?: string,
   ): Promise<CrawlerVideoDetail> {
     const raw = await this.callCrawlerApi<UnknownRecord>(
       "/api/douyin/web/fetch_one_video",
       { aweme_id: awemeId },
+      { organizationId },
     );
     const detail = this.pickRecord(raw, ["aweme_detail", "aweme", "video"]) ?? raw;
     const statistics = this.pickRecord(detail, ["statistics", "stats"]) ?? detail;
@@ -246,10 +256,15 @@ class CrawlerService {
     options: {
       authSensitive?: boolean;
       requestHeaders?: HeadersInit;
+      organizationId?: string;
     } = {},
   ): Promise<T> {
     if (!env.CRAWLER_API_URL) {
       throw new AppError("CRAWLER_ERROR", "未配置 CRAWLER_API_URL", 502);
+    }
+
+    if (options.organizationId) {
+      await this.maybeRotateCookie(options.organizationId);
     }
 
     const maxRetries = 2;
@@ -625,6 +640,63 @@ class CrawlerService {
       return parsed && typeof parsed === "object" ? (parsed as UnknownRecord) : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * 每 5 次带 organizationId 的爬虫请求轮询切换一次 Cookie，
+   * 并异步调用爬虫 update_cookie 接口同步最新 Cookie。
+   */
+  private async maybeRotateCookie(organizationId: string): Promise<void> {
+    const redis = getSharedRedisClient();
+    if (!redis) return;
+
+    try {
+      const count = await redis.incr(`crawler:cookie:counter:${organizationId}`);
+      if (count % 5 !== 0) return;
+
+      const cookies = await crawlerCookieRepository.findRawByOrganization(organizationId);
+      if (cookies.length === 0) return;
+
+      const currentPointerStr = await redis.get(`crawler:cookie:pointer:${organizationId}`);
+      const parsed = parseInt(currentPointerStr ?? "0", 10);
+      const currentPointer = isNaN(parsed) ? 0 : parsed;
+      const nextPointer = (currentPointer + 1) % cookies.length;
+
+      await redis.set(`crawler:cookie:pointer:${organizationId}`, String(nextPointer));
+
+      const nextCookie = cookies[nextPointer];
+      if (!nextCookie) return;
+      const plainCookie = decryptCookieValue(nextCookie.value);
+      void this.callUpdateCookieApi(plainCookie);
+    } catch (error) {
+      console.warn("[CrawlerService] maybeRotateCookie failed", {
+        organizationId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 调用爬虫 update_cookie 接口同步 Cookie（fire-and-forget，失败只 warn）。
+   */
+  private async callUpdateCookieApi(cookie: string): Promise<void> {
+    if (!env.CRAWLER_API_URL) {
+      console.warn("[CrawlerService] callUpdateCookieApi: CRAWLER_API_URL 未配置，跳过");
+      return;
+    }
+
+    try {
+      await fetch(`${env.CRAWLER_API_URL}/api/hybrid/update_cookie`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service: "douyin_web", cookie }),
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch (error) {
+      console.warn("[CrawlerService] update_cookie failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 }

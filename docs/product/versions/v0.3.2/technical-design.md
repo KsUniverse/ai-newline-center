@@ -350,7 +350,7 @@ const handleFragmentsClear = useCallback(() => {
 }
 ```
 
-> 插入位置：在「组织研究库」（/benchmarks）之后，「组织管理」之前。
+> 插入位置：在「对标账号」（/benchmarks）之后，「组织管理」之前。
 
 ---
 

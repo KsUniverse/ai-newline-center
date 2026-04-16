@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useState } from "react";
 import {
   ArrowUpRight,
   BriefcaseBusiness,
+  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
@@ -30,7 +32,89 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { getVisibleNavItems } from "@/components/shared/layout/app-navigation";
+import {
+  getVisibleNavEntries,
+  isNavGroup,
+  type AppNavGroup,
+} from "@/components/shared/layout/app-navigation";
+
+// ─── NavGroupItem ─────────────────────────────────────────────────────────────
+
+interface NavGroupItemProps {
+  entry: AppNavGroup;
+  isGroupActive: boolean;
+  pathname: string;
+  GroupIcon: AppNavGroup["icon"];
+}
+
+function NavGroupItem({ entry, isGroupActive, pathname, GroupIcon }: NavGroupItemProps) {
+  const [open, setOpen] = useState(isGroupActive);
+
+  return (
+    <div className="space-y-0.5">
+      {/* Group header — clickable */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-background/60",
+          isGroupActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        <span className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
+          isGroupActive
+            ? "border-primary/20 bg-background/90 text-primary"
+            : "border-border/50 bg-background/80 text-muted-foreground",
+        )}>
+          <GroupIcon className="h-3.5 w-3.5" />
+        </span>
+        <span className="flex-1 text-left text-2xs font-medium uppercase tracking-[0.16em]">{entry.label}</span>
+        <ChevronDown className={cn(
+          "h-3 w-3 shrink-0 transition-transform duration-200",
+          open ? "rotate-180" : "rotate-0",
+        )} />
+      </button>
+      {/* Children */}
+      {open && (
+        <div className="ml-3 space-y-0.5 border-l border-border/40 pl-3">
+          {entry.children.map((child) => {
+            const isActive = pathname === child.href || pathname.startsWith(child.href + "/");
+            const ChildIcon = child.icon;
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                className={cn(
+                  "group flex items-center gap-2.5 rounded-xl border px-2.5 py-2.5 text-sm transition-all",
+                  isActive
+                    ? "border-primary/20 bg-primary/10 text-foreground shadow-sm shadow-primary/10"
+                    : "border-transparent bg-background/35 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
+                )}
+              >
+                <span className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                  isActive
+                    ? "border-primary/20 bg-background/90 text-primary"
+                    : "border-border/50 bg-background/80 text-muted-foreground group-hover:text-foreground",
+                )}>
+                  <ChildIcon className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium tracking-tight">{child.label}</span>
+                <ArrowUpRight className={cn(
+                  "h-3 w-3 shrink-0 transition-opacity",
+                  isActive ? "text-primary opacity-100" : "opacity-0 group-hover:opacity-70",
+                )} />
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AppSidebar ───────────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "超级管理员",
@@ -48,7 +132,7 @@ export function AppSidebar() {
   const userInitial = userName.charAt(0).toUpperCase();
   const roleLabel = userRole ? (ROLE_LABELS[userRole] ?? "成员") : "访客";
 
-  const visibleNavItems = getVisibleNavItems(userRole);
+  const visibleNavEntries = getVisibleNavEntries(userRole);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -102,7 +186,53 @@ export function AppSidebar() {
               </div>
             ) : null}
             <nav className="space-y-2">
-              {visibleNavItems.map((item) => {
+              {visibleNavEntries.map((entry) => {
+                if (isNavGroup(entry)) {
+                  const GroupIcon = entry.icon;
+                  const isGroupActive = pathname.startsWith(entry.basePath);
+
+                  if (entry.children.length === 0) return null;
+
+                  if (collapsed) {
+                    // Collapsed: show each child as individual icon
+                    return entry.children.map((child) => {
+                      const isActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                      const ChildIcon = child.icon;
+                      return (
+                        <Tooltip key={child.href}>
+                          <TooltipTrigger asChild>
+                            <Link
+                              href={child.href}
+                              className={cn(
+                                "relative mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border transition-all",
+                                isActive
+                                  ? "border-primary/25 bg-primary/12 text-primary shadow-lg shadow-primary/10"
+                                  : "border-transparent bg-background/60 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
+                              )}
+                            >
+                              <ChildIcon className="h-4 w-4" />
+                              {isActive ? <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" /> : null}
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">{child.label}</TooltipContent>
+                        </Tooltip>
+                      );
+                    });
+                  }
+
+                  return (
+                    <NavGroupItem
+                      key={entry.basePath}
+                      entry={entry}
+                      isGroupActive={isGroupActive}
+                      pathname={pathname}
+                      GroupIcon={GroupIcon}
+                    />
+                  );
+                }
+
+                // Flat nav item
+                const item = entry;
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 const Icon = item.icon;
 

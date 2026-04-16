@@ -9,6 +9,11 @@ import type {
 } from "@/types/ai-config";
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
+import type {
+  CrawlerCookieDTO,
+  CreateCrawlerCookieInput,
+  DeleteCrawlerCookiesInput,
+} from "@/types/crawler-cookie";
 
 type OrganizationStatus = OrganizationDTO["status"];
 type UserStatus = UserDTO["status"];
@@ -130,5 +135,21 @@ export const managementClient = {
 
   deleteAiModelConfig(id: string): Promise<{ deleted: boolean }> {
     return apiClient.del<{ deleted: boolean }>(`/system-settings/ai/model-configs/${id}`);
+  },
+
+  listCrawlerCookies(): Promise<CrawlerCookieDTO[]> {
+    return apiClient.get<CrawlerCookieDTO[]>("/settings/crawler-cookies");
+  },
+
+  createCrawlerCookie(input: CreateCrawlerCookieInput): Promise<CrawlerCookieDTO> {
+    return apiClient.post<CrawlerCookieDTO>("/settings/crawler-cookies", input);
+  },
+
+  deleteCrawlerCookie(id: string): Promise<{ deletedCount: number }> {
+    return apiClient.del<{ deletedCount: number }>(`/settings/crawler-cookies/${id}`);
+  },
+
+  deleteCrawlerCookies(input: DeleteCrawlerCookiesInput): Promise<{ deletedCount: number }> {
+    return apiClient.delWithBody<{ deletedCount: number }>("/settings/crawler-cookies", input);
   },
 };

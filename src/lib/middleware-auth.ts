@@ -5,7 +5,9 @@ export function isDashboardRoute(pathname: string): boolean {
     pathname === "/organizations" ||
     pathname.startsWith("/organizations/") ||
     pathname === "/users" ||
-    pathname.startsWith("/users/")
+    pathname.startsWith("/users/") ||
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/")
   );
 }
 

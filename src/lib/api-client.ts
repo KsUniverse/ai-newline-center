@@ -80,6 +80,14 @@ export const apiClient = {
     return request<T>(path, { ...options, method: "DELETE" });
   },
 
+  delWithBody<T>(path: string, body?: unknown, options?: Omit<RequestInit, "method" | "body">): Promise<T> {
+    return request<T>(path, {
+      ...options,
+      method: "DELETE",
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+
   async stream(
     path: string,
     options: Omit<RequestInit, "body"> & { body?: unknown },

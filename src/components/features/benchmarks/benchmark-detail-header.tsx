@@ -33,7 +33,7 @@ export function BenchmarkDetailHeader({
     { label: "获赞", value: formatNumber(account.likesCount) },
   ];
   const profileMetaItems = [
-    { label: "组织研究库", icon: ScanSearch, tone: "primary" as const },
+    { label: "对标账号", icon: ScanSearch, tone: "primary" as const },
     ...(isArchived && account.deletedAt
       ? [{ label: `归档于 ${formatDateTime(account.deletedAt)}` }]
       : [{ label: "Active 档案", tone: "success" as const }]),

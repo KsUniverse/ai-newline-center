@@ -21,3 +21,17 @@ export function createPubSubRedisClient(): IORedis {
 
   return new IORedis(env.REDIS_URL);
 }
+
+let _sharedRedisClient: IORedis | null = null;
+
+/**
+ * 懒初始化的 Redis 共享单例，供 Service 层复用。
+ * REDIS_URL 未配置时返回 null。
+ */
+export function getSharedRedisClient(): IORedis | null {
+  if (!env.REDIS_URL) return null;
+  if (!_sharedRedisClient) {
+    _sharedRedisClient = new IORedis(env.REDIS_URL);
+  }
+  return _sharedRedisClient;
+}

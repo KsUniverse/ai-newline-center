@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api-client";
 
 export const BENCHMARK_LIBRARY_EYEBROW = "Shared Research Library";
-export const BENCHMARK_LIBRARY_TITLE = "组织研究库";
+export const BENCHMARK_LIBRARY_TITLE = "对标账号";
 export const BENCHMARK_LIBRARY_DESCRIPTION =
   "集中管理在库研究对象，支持纳入、浏览与归档。";
 export const BENCHMARK_LIBRARY_LIST_TITLE = "在库研究对象";

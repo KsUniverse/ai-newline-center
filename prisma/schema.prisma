@@ -32,6 +32,7 @@ model Organization {
   aiDecompositionAnnotations AiDecompositionAnnotation[]
   aiRewriteDrafts AiRewriteDraft[]
   douyinLoginSessions DouyinLoginSession[]
+  crawlerCookies CrawlerCookie[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -562,4 +563,16 @@ model Transcription {
   updatedAt    DateTime            @updatedAt
 
   @@map("transcriptions")
+}
+
+model CrawlerCookie {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  value          String       @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@map("crawler_cookies")
 }

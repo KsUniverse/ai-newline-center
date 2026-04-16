@@ -43,7 +43,7 @@ describe("benchmark copy helpers", () => {
   });
 
   it("returns stable shared-library labels", () => {
-    expect(BENCHMARK_LIBRARY_TITLE).toBe("组织研究库");
+    expect(BENCHMARK_LIBRARY_TITLE).toBe("对标账号");
     expect(getBenchmarkAddSuccessMessage()).toBe("已加入组织共享研究库。");
     expect(getBenchmarkArchiveSuccessMessage()).toBe("研究对象已移入归档库。");
     expect(getBenchmarkSharedLabel("陈晨")).toBe("组织共享 · 最初由 陈晨 录入");

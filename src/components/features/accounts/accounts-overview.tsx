@@ -25,7 +25,7 @@ export function AccountsOverview({ total, role }: AccountsOverviewProps) {
       icon: ShieldCheck,
       label: "查看范围",
       value: getAccountsScopeLabel(role),
-      description: "我的账号链路与组织研究库分开管理，避免与 benchmark 语义混淆。",
+      description: "我的账号链路与对标账号分开管理，避免与 benchmark 语义混淆。",
     },
     {
       icon: RefreshCw,

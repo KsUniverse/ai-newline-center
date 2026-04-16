@@ -1,8 +1,10 @@
 import {
   Building2,
+  Cookie,
   LayoutDashboard,
   Lightbulb,
   MonitorPlay,
+  Settings,
   Sparkles,
   Target,
   Users,
@@ -14,6 +16,21 @@ export interface AppNavItem {
   label: string;
   href: string;
   roles: readonly string[];
+}
+
+export interface AppNavGroup {
+  type: "group";
+  icon: LucideIcon;
+  label: string;
+  basePath: string;
+  roles: readonly string[];
+  children: AppNavItem[];
+}
+
+export type AppNavEntry = AppNavItem | AppNavGroup;
+
+export function isNavGroup(entry: AppNavEntry): entry is AppNavGroup {
+  return "type" in entry && entry.type === "group";
 }
 
 export const APP_NAV_ITEMS: readonly AppNavItem[] = [
@@ -31,7 +48,7 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   },
   {
     icon: Target,
-    label: "组织研究库",
+    label: "对标账号",
     href: "/benchmarks",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
@@ -61,6 +78,33 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
   },
 ] as const;
 
+export const APP_NAV_ENTRIES: readonly AppNavEntry[] = [
+  ...APP_NAV_ITEMS,
+  {
+    type: "group",
+    icon: Settings,
+    label: "系统设置",
+    basePath: "/settings",
+    roles: ["SUPER_ADMIN"],
+    children: [
+      {
+        icon: Cookie,
+        label: "爬虫 Cookie 管理",
+        href: "/settings/crawler-cookies",
+        roles: ["SUPER_ADMIN"],
+      },
+    ],
+  },
+] as const;
+
 export function getVisibleNavItems(role?: string): readonly AppNavItem[] {
   return APP_NAV_ITEMS.filter((item) => !role || item.roles.includes(role));
+}
+
+export function getVisibleNavEntries(role?: string): readonly AppNavEntry[] {
+  return APP_NAV_ENTRIES.filter((entry) => {
+    if (!role) return false;
+    if (isNavGroup(entry)) return entry.roles.includes(role);
+    return entry.roles.includes(role);
+  });
 }
