@@ -211,6 +211,66 @@ class BenchmarkAccountService {
     });
   }
 
+  async listBannedAccounts(
+    caller: SessionUser,
+    params: { dateRange: "today" | "yesterday" | "this_week" | "this_month" },
+  ): Promise<{
+    items: Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: string;
+    }>;
+  }> {
+    this.assertSupportedCaller(caller);
+    const dateRange = this.resolveBannedDateRange(params.dateRange);
+
+    const items = await benchmarkAccountRepository.findBannedAccounts({
+      organizationId: caller.organizationId,
+      bannedAtGte: dateRange.gte,
+      bannedAtLt: dateRange.lt,
+    });
+
+    return {
+      items: items.map((item) => ({
+        ...item,
+        bannedAt: item.bannedAt.toISOString(),
+      })),
+    };
+  }
+
+  private resolveBannedDateRange(
+    token: "today" | "yesterday" | "this_week" | "this_month",
+  ): { gte: Date; lt?: Date } {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (token) {
+      case "today": {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return { gte: today, lt: tomorrow };
+      }
+      case "yesterday": {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return { gte: yesterday, lt: today };
+      }
+      case "this_week": {
+        const dayOfWeek = today.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + diff);
+        return { gte: monday };
+      }
+      case "this_month": {
+        const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        return { gte: firstOfMonth };
+      }
+    }
+  }
+
   private resolveOrganizationScope(caller: SessionUser): string | undefined {
     this.assertSupportedCaller(caller);
     return caller.role === UserRole.SUPER_ADMIN ? undefined : caller.organizationId;

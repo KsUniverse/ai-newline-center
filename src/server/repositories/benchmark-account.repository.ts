@@ -289,6 +289,7 @@ class BenchmarkAccountRepository {
       verificationLabel: string | null;
       verificationIconUrl: string | null;
       verificationType: number | null;
+      bannedAt?: Date | null;
       lastSyncedAt: Date;
     },
     db: DatabaseClient = prisma,
@@ -299,6 +300,52 @@ class BenchmarkAccountRepository {
       },
       data,
     });
+  }
+
+  async findBannedAccounts(
+    params: {
+      organizationId: string;
+      bannedAtGte?: Date;
+      bannedAtLt?: Date;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<
+    Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: Date;
+    }>
+  > {
+    const results = await db.benchmarkAccount.findMany({
+      where: {
+        organizationId: params.organizationId,
+        deletedAt: null,
+        bannedAt: {
+          not: null,
+          ...(params.bannedAtGte ? { gte: params.bannedAtGte } : {}),
+          ...(params.bannedAtLt ? { lt: params.bannedAtLt } : {}),
+        },
+      },
+      orderBy: { bannedAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        nickname: true,
+        avatar: true,
+        douyinNumber: true,
+        bannedAt: true,
+      },
+    });
+
+    return results.filter((r) => r.bannedAt !== null) as Array<{
+      id: string;
+      nickname: string;
+      avatar: string;
+      douyinNumber: string | null;
+      bannedAt: Date;
+    }>;
   }
 }
 

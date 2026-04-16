@@ -21,6 +21,7 @@ model Organization {
   parent    Organization?    @relation("OrgTree", fields: [parentId], references: [id])
   children  Organization[]   @relation("OrgTree")
   users     User[]
+  fragments Fragment[]
   douyinAccounts DouyinAccount[]
   benchmarkAccounts BenchmarkAccount[]
   benchmarkAccountMembers BenchmarkAccountMember[]
@@ -46,6 +47,7 @@ model User {
   role           UserRole     @default(EMPLOYEE)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  createdFragments Fragment[] @relation("FragmentCreator")
   douyinAccounts DouyinAccount[]
   createdBenchmarkAccounts BenchmarkAccount[] @relation("BenchmarkAccountCreator")
   benchmarkAccountMembers BenchmarkAccountMember[]
@@ -58,6 +60,22 @@ model User {
   deletedAt      DateTime?
 
   @@map("users")
+}
+
+model Fragment {
+  id              String       @id @default(cuid())
+  content         String       @db.Text
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  createdByUserId String
+  createdByUser   User         @relation("FragmentCreator", fields: [createdByUserId], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  @@index([organizationId])
+  @@index([createdByUserId])
+  @@map("fragments")
 }
 
 enum OrganizationType {
@@ -181,12 +199,14 @@ model BenchmarkAccount {
   members            BenchmarkAccountMember[]
   videos             BenchmarkVideo[]
   lastSyncedAt       DateTime?
+  bannedAt           DateTime?
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
   deletedAt          DateTime?
 
   @@index([createdByUserId])
   @@index([organizationId])
+  @@index([organizationId, bannedAt])
   @@unique([organizationId, profileUrl])
   @@unique([organizationId, secUserId])
   @@map("benchmark_accounts")
@@ -307,6 +327,8 @@ model BenchmarkVideo {
   recommendCount   Int                     @default(0)
   // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
   tags             Json                    @default("[]")
+  customTag        BenchmarkVideoTag?
+  isBringOrder     Boolean                 @default(false)
   snapshots        BenchmarkVideoSnapshot[]
   transcription    Transcription?
   aiWorkspaces     AiWorkspace[]
@@ -316,6 +338,7 @@ model BenchmarkVideo {
 
   @@index([accountId])
   @@index([organizationId])
+  @@index([organizationId, publishedAt])
   @@unique([accountId, videoId])
   @@map("benchmark_videos")
 }
@@ -352,6 +375,17 @@ model BenchmarkVideoSnapshot {
   @@index([videoId])
   @@index([videoId, timestamp])
   @@map("benchmark_video_snapshots")
+}
+
+enum BenchmarkVideoTag {
+  LIMIT_UP
+  DRAGON_TIGER
+  OVERNIGHT
+  DARK_POOL
+  THEME_REVIEW
+  THREE_DRAGONS
+  NOON_REVIEW
+  RECAP
 }
 
 enum TranscriptionStatus {

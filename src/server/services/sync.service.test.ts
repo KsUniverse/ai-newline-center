@@ -205,6 +205,10 @@ describe("syncService", () => {
       id: "account_1",
       lastSyncedAt: new Date("2026-04-03T00:00:00.000Z"),
     });
+    benchmarkUpdateAccountInfoMock.mockResolvedValue({
+      id: "benchmark_1",
+      lastSyncedAt: new Date("2026-04-03T00:00:00.000Z"),
+    });
     updateSecUserIdMock.mockResolvedValue({ id: "account_1", secUserId: "sec_123" });
     upsertVideoMock.mockResolvedValue(undefined);
   });
@@ -357,6 +361,93 @@ describe("syncService", () => {
     expect(fetchVideoListMock).toHaveBeenCalledWith("sec_shared", 0, 10, undefined);
     expect(upsertVideoMock).toHaveBeenCalledTimes(1);
     expect(benchmarkUpsertVideoMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("records bannedAt when benchmark sync detects nickname equals douyinNumber", async () => {
+    benchmarkFindAllMock.mockResolvedValue([
+      {
+        id: "benchmark_1",
+        organizationId: "org_1",
+        profileUrl: "https://www.douyin.com/user/shared",
+        secUserId: "sec_banned",
+        bannedAt: null,
+      },
+    ]);
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "sec_banned",
+      nickname: "abc123",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 100,
+      followingCount: 20,
+      likesCount: 300,
+      videosCount: 5,
+      douyinNumber: "abc123",
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runAccountInfoBatchSync()).resolves.toBeUndefined();
+    expect(benchmarkUpdateAccountInfoMock).toHaveBeenCalledWith(
+      "benchmark_1",
+      expect.objectContaining({
+        nickname: "abc123",
+        douyinNumber: "abc123",
+        bannedAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it("keeps an existing bannedAt timestamp even when later sync payloads no longer match", async () => {
+    const bannedAt = new Date("2026-04-16T08:00:00.000Z");
+    benchmarkFindAllMock.mockResolvedValue([
+      {
+        id: "benchmark_1",
+        organizationId: "org_1",
+        profileUrl: "https://www.douyin.com/user/shared",
+        secUserId: "sec_banned",
+        bannedAt,
+      },
+    ]);
+    fetchUserProfileMock.mockResolvedValue({
+      secUserId: "sec_banned",
+      nickname: "恢复后的昵称",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 100,
+      followingCount: 20,
+      likesCount: 300,
+      videosCount: 5,
+      douyinNumber: "abc123",
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runAccountInfoBatchSync()).resolves.toBeUndefined();
+    expect(benchmarkUpdateAccountInfoMock).toHaveBeenCalledWith(
+      "benchmark_1",
+      expect.objectContaining({
+        nickname: "恢复后的昵称",
+        douyinNumber: "abc123",
+        bannedAt,
+      }),
+    );
   });
 
   it("adds benchmark membership when collection sync rediscovers an existing organization benchmark", async () => {

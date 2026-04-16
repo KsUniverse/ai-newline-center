@@ -30,6 +30,7 @@ interface SyncableAccount {
   profileUrl: string;
   secUserId: string | null;
   organizationId: string;
+  bannedAt?: Date | null;
 }
 
 interface SyncableVideo {
@@ -124,6 +125,7 @@ interface AccountSyncAdapter {
       verificationLabel: string | null;
       verificationIconUrl: string | null;
       verificationType: number | null;
+      bannedAt?: Date | null;
       lastSyncedAt: Date;
     },
   ) => Promise<{ lastSyncedAt: Date | null }>;
@@ -430,7 +432,10 @@ class SyncService {
     return {
       label: "MY_ACCOUNT",
       updateSecUserId: (id, secUserId) => douyinAccountRepository.updateSecUserId(id, secUserId),
-      updateAccountInfo: (id, data) => douyinAccountRepository.updateAccountInfo(id, data),
+      updateAccountInfo: (id, data) => {
+        const { bannedAt: _bannedAt, ...rest } = data;
+        return douyinAccountRepository.updateAccountInfo(id, rest);
+      },
     };
   }
 
@@ -533,6 +538,10 @@ class SyncService {
   ): Promise<Date> {
     const secUserId = await this.ensureSecUserId(account, adapter.updateSecUserId, caches);
     const profile = await this.getCachedUserProfile(secUserId, caches);
+    const bannedAt =
+      adapter.label === "BENCHMARK_ACCOUNT"
+        ? this.resolveBenchmarkBannedAt(account, profile)
+        : undefined;
     const updatedAccount = await adapter.updateAccountInfo(account.id, {
       nickname: profile.nickname,
       avatar: profile.avatar,
@@ -550,6 +559,7 @@ class SyncService {
       verificationLabel: profile.verificationLabel,
       verificationIconUrl: profile.verificationIconUrl,
       verificationType: profile.verificationType,
+      bannedAt,
       lastSyncedAt: new Date(),
     });
 
@@ -892,6 +902,24 @@ class SyncService {
     });
     cache.set(key, created);
     return created;
+  }
+
+  private resolveBenchmarkBannedAt(
+    account: SyncableAccount,
+    profile: CrawlerProfile,
+  ): Date | null {
+    if (account.bannedAt) {
+      return account.bannedAt;
+    }
+
+    const nickname = profile.nickname.trim();
+    const douyinNumber = profile.douyinNumber?.trim() ?? "";
+
+    if (nickname !== "" && douyinNumber !== "" && nickname === douyinNumber) {
+      return new Date();
+    }
+
+    return null;
   }
 }
 

@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { FileState, GoogleAIFileManager } from "@google/generative-ai/server";
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateText, streamText } from "ai";
 import { writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -242,6 +242,19 @@ async function generateTextWithConfig(
   return text;
 }
 
+async function streamTextWithConfig(
+  config: AiModelConfig,
+  prompt: string,
+): Promise<AsyncIterable<string>> {
+  const modelClient = createOpenAI({ apiKey: config.apiKey, baseURL: config.baseUrl });
+  const result = await streamText({
+    model: modelClient(config.modelName),
+    prompt,
+  });
+
+  return result.textStream;
+}
+
 // ─── AiGatewayService ─────────────────────────────────────────────────────────
 
 class AiGatewayService {
@@ -287,7 +300,29 @@ class AiGatewayService {
     const text = await generateTextWithConfig(config, prompt);
     return { modelConfigId: config.id, modelName: config.modelName, text };
   }
+
+  async streamText(
+    step: AiStep,
+    prompt: string,
+    modelConfigId?: string,
+  ): Promise<{ modelConfigId: string; modelName: string; textStream: AsyncIterable<string> }> {
+    if (step === "TRANSCRIBE") {
+      throw new AppError(
+        "AI_TRANSCRIBE_INPUT_MISMATCH",
+        "转录步骤需通过视频文件入口发起，不能走纯文本入口",
+        409,
+      );
+    }
+
+    const config = await resolveModelConfig(step, modelConfigId);
+    const textStream = await streamTextWithConfig(config, prompt);
+
+    return {
+      modelConfigId: config.id,
+      modelName: config.modelName,
+      textStream,
+    };
+  }
 }
 
 export const aiGateway = new AiGatewayService();
-

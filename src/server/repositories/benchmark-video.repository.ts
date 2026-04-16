@@ -1,4 +1,4 @@
-import type { BenchmarkVideo, Prisma, PrismaClient } from "@prisma/client";
+import type { BenchmarkVideo, BenchmarkVideoTag, Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 
@@ -232,6 +232,127 @@ class BenchmarkVideoRepository {
         id,
       },
       data,
+    });
+  }
+
+  async findDashboardVideos(
+    params: {
+      organizationId: string;
+      publishedAtGte?: Date;
+      publishedAtLt?: Date;
+      customTag?: BenchmarkVideoTag | null;
+      isBringOrder?: boolean;
+      cursor?: string;
+      limit: number;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<{
+    items: Array<{
+      id: string;
+      videoId: string;
+      title: string;
+      coverUrl: string | null;
+      likeCount: number;
+      publishedAt: Date | null;
+      customTag: BenchmarkVideoTag | null;
+      isBringOrder: boolean;
+      account: { id: string; nickname: string; avatar: string };
+    }>;
+    nextCursor: string | null;
+    total: number;
+  }> {
+    const where: Prisma.BenchmarkVideoWhereInput = {
+      organizationId: params.organizationId,
+      deletedAt: null,
+      account: { deletedAt: null },
+      ...(params.publishedAtGte || params.publishedAtLt
+        ? {
+            publishedAt: {
+              ...(params.publishedAtGte ? { gte: params.publishedAtGte } : {}),
+              ...(params.publishedAtLt ? { lt: params.publishedAtLt } : {}),
+            },
+          }
+        : {}),
+      ...(params.customTag !== undefined ? { customTag: params.customTag } : {}),
+      ...(params.isBringOrder !== undefined ? { isBringOrder: params.isBringOrder } : {}),
+    };
+
+    // cursor decoding: "{likeCount}_{id}"
+    let cursorWhere: Prisma.BenchmarkVideoWhereInput | undefined;
+    if (params.cursor) {
+      const parts = params.cursor.split("_");
+      const firstPart = parts[0];
+      const cursorLikeCount = firstPart !== undefined ? parseInt(firstPart, 10) : NaN;
+      const cursorId = parts.slice(1).join("_");
+      if (!isNaN(cursorLikeCount) && cursorId) {
+        cursorWhere = {
+          OR: [
+            { likeCount: { lt: cursorLikeCount } },
+            { likeCount: cursorLikeCount, id: { gt: cursorId } },
+          ],
+        };
+      }
+    }
+
+    const finalWhere: Prisma.BenchmarkVideoWhereInput = cursorWhere
+      ? { AND: [where, cursorWhere] }
+      : where;
+
+    const [items, total] = await Promise.all([
+      db.benchmarkVideo.findMany({
+        where: finalWhere,
+        orderBy: [{ likeCount: "desc" }, { id: "asc" }],
+        take: params.limit + 1,
+        select: {
+          id: true,
+          videoId: true,
+          title: true,
+          coverUrl: true,
+          likeCount: true,
+          publishedAt: true,
+          customTag: true,
+          isBringOrder: true,
+          account: {
+            select: { id: true, nickname: true, avatar: true },
+          },
+        },
+      }),
+      db.benchmarkVideo.count({ where }),
+    ]);
+
+    let nextCursor: string | null = null;
+    if (items.length > params.limit) {
+      items.pop();
+      const last = items[items.length - 1];
+      if (last) {
+        nextCursor = `${last.likeCount}_${last.id as string}`;
+      }
+    }
+
+    return { items, nextCursor, total };
+  }
+
+  async updateCustomTag(
+    id: string,
+    organizationId: string,
+    customTag: BenchmarkVideoTag | null,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkVideo> {
+    return db.benchmarkVideo.update({
+      where: { id, organizationId, deletedAt: null },
+      data: { customTag },
+    });
+  }
+
+  async updateBringOrder(
+    id: string,
+    organizationId: string,
+    isBringOrder: boolean,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkVideo> {
+    return db.benchmarkVideo.update({
+      where: { id, organizationId, deletedAt: null },
+      data: { isBringOrder },
     });
   }
 }

@@ -1,6 +1,7 @@
 import {
   Building2,
   LayoutDashboard,
+  Lightbulb,
   MonitorPlay,
   Sparkles,
   Target,
@@ -32,6 +33,12 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     icon: Target,
     label: "组织研究库",
     href: "/benchmarks",
+    roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
+  },
+  {
+    icon: Lightbulb,
+    label: "观点库",
+    href: "/viewpoints",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
   },
   {

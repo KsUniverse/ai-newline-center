@@ -20,3 +20,9 @@ export interface PaginationParams {
   sort?: string;
   order?: "asc" | "desc";
 }
+
+export interface CursorPaginatedData<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}

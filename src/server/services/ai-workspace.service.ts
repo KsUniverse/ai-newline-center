@@ -18,6 +18,82 @@ import type {
   SaveRewriteDraftInput,
   SaveTranscriptInput,
 } from "@/types/ai-workspace";
+import type {
+  GenerateAnnotationDraftInput,
+  GenerateRewriteDraftInput,
+} from "@/types/ai-stream";
+
+function buildDecompositionPrompt(params: {
+  transcriptText: string;
+  quotedText: string;
+  startOffset: number;
+  endOffset: number;
+}): string {
+  return [
+    "你是一名短视频文案拆解助手。",
+    "请围绕给定选区，输出一段适合直接放入“拆解说明”输入框的中文分析。",
+    "要求：",
+    "1. 只输出拆解说明正文，不要标题、不要项目符号、不要额外前言。",
+    "2. 聚焦这段话在结构、情绪、节奏、表达技巧上的作用。",
+    "3. 尽量具体，可直接指导后续仿写。",
+    "4. 控制在 120 字以内。",
+    "",
+    `选区位置：${params.startOffset}-${params.endOffset}`,
+    "选区原文：",
+    params.quotedText,
+    "",
+    "完整转录稿：",
+    params.transcriptText,
+  ].join("\n");
+}
+
+function buildRewritePrompt(params: {
+  transcriptText: string;
+  annotations: Array<{
+    quotedText: string;
+    note: string | null;
+    function: string | null;
+  }>;
+  selectedViewpoints: string[];
+  currentDraft?: string;
+}): string {
+  const annotationLines =
+    params.annotations.length === 0
+      ? "暂无拆解参考"
+      : params.annotations
+          .map(
+            (annotation, index) =>
+              `${index + 1}. 原文片段：${annotation.quotedText}\n拆解：${annotation.note ?? annotation.function ?? "无"}`,
+          )
+          .join("\n\n");
+
+  const viewpointLines =
+    params.selectedViewpoints.length === 0
+      ? "暂无额外观点参考"
+      : params.selectedViewpoints.map((item, index) => `${index + 1}. ${item}`).join("\n");
+
+  return [
+    "你是一名短视频仿写助手。",
+    "请基于原始转录稿、拆解参考和补充观点，输出一篇新的中文短视频口播稿。",
+    "要求：",
+    "1. 只输出仿写正文，不要标题、不要说明、不要项目符号。",
+    "2. 保留原内容的节奏感、推进方式和说服结构，但不要逐句照抄。",
+    "3. 如果提供了补充观点，请尽量自然融入。",
+    "4. 若已有草稿，请在其基础上优化，而不是完全忽略。",
+    "",
+    "原始转录稿：",
+    params.transcriptText,
+    "",
+    "拆解参考：",
+    annotationLines,
+    "",
+    "补充观点：",
+    viewpointLines,
+    "",
+    "现有草稿：",
+    params.currentDraft?.trim() ? params.currentDraft : "暂无",
+  ].join("\n");
+}
 
 class AiWorkspaceService {
   private async getAccessibleBenchmarkVideo(videoId: string, caller: SessionUser) {
@@ -142,6 +218,11 @@ class AiWorkspaceService {
     const video = await this.getAccessibleBenchmarkVideo(videoId, caller);
     const workspace = await this.ensureWorkspaceForVideo(video, caller);
     return this.getWorkspaceDtoOrThrow(workspace.id);
+  }
+
+  async getWorkspaceById(workspaceId: string, caller: SessionUser): Promise<AiWorkspaceDTO> {
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    return this.toDto(workspace);
   }
 
   async startTranscription(
@@ -280,6 +361,28 @@ class AiWorkspaceService {
     return this.getWorkspaceDtoOrThrow(workspaceId);
   }
 
+  async buildGeneratedAnnotationPrompt(
+    workspaceId: string,
+    caller: SessionUser,
+    input: GenerateAnnotationDraftInput,
+  ): Promise<string> {
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
+    this.assertTranscriptExists(workspace);
+
+    const transcriptText =
+      workspace.transcript?.currentText ??
+      workspace.transcript?.originalText ??
+      "";
+
+    return buildDecompositionPrompt({
+      transcriptText,
+      quotedText: input.quotedText,
+      startOffset: input.startOffset,
+      endOffset: input.endOffset,
+    });
+  }
+
   async updateAnnotation(
     workspaceId: string,
     annotationId: string,
@@ -367,6 +470,32 @@ class AiWorkspaceService {
     });
 
     return this.getWorkspaceDtoOrThrow(workspaceId);
+  }
+
+  async buildGeneratedRewritePrompt(
+    workspaceId: string,
+    caller: SessionUser,
+    input: GenerateRewriteDraftInput,
+  ): Promise<string> {
+    const workspace = await this.getWorkspaceRecordOrThrow(workspaceId, caller);
+    this.assertTranscriptConfirmed(workspace);
+    this.assertTranscriptExists(workspace);
+
+    const transcriptText =
+      workspace.transcript?.currentText ??
+      workspace.transcript?.originalText ??
+      "";
+
+    return buildRewritePrompt({
+      transcriptText,
+      annotations: workspace.annotations.map((annotation) => ({
+        quotedText: annotation.quotedText,
+        note: annotation.note,
+        function: annotation.function,
+      })),
+      selectedViewpoints: input.selectedViewpoints ?? [],
+      currentDraft: input.currentDraft,
+    });
   }
 
   private toDto(workspace: NonNullable<AiWorkspaceWithDetails>) {
