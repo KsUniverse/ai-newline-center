@@ -6,4 +6,4 @@ ALTER TABLE `benchmark_accounts`
   DROP COLUMN `isBanned`;
 
 -- CreateIndex
--- NOTE: benchmark_accounts_organizationId_bannedAt_idx already exists (added via db push), skip
+CREATE INDEX `benchmark_accounts_organizationId_bannedAt_idx` ON `benchmark_accounts`(`organizationId`, `bannedAt`);

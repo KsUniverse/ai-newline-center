@@ -54,6 +54,12 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     section: "workspace",
   },
   {
+    icon: Lightbulb,
+    label: "观点库",
+    href: "/viewpoints",
+    roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
+  },
+  {
     icon: Building2,
     label: "组织管理",
     href: "/organizations",
