@@ -1,48 +1,72 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Film, Heart, MessageCircle, Play } from "lucide-react";
+import { useRef, useState } from "react";
+import { Film, Heart, MessageCircle } from "lucide-react";
 
 import type { DouyinVideoWithAccountDTO } from "@/types/douyin-account";
 import { cn, proxyImageUrl, formatNumber, formatDateTime } from "@/lib/utils";
 
 interface VideoGridCardProps {
   video: DouyinVideoWithAccountDTO;
-  isPlaying: boolean;
-  onHoverStart: () => void;
-  onHoverEnd: () => void;
   onClick: () => void;
 }
 
-export function VideoGridCard({
-  video,
-  isPlaying,
-  onHoverStart,
-  onHoverEnd,
-  onClick,
-}: VideoGridCardProps) {
+export function VideoGridCard({ video, onClick }: VideoGridCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const [isHoverPlaying, setIsHoverPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
+  const handleMouseEnter = async () => {
+    const el = videoRef.current;
+    if (!el || !video.videoUrl) return;
+    el.currentTime = 0;
+    el.muted = true;
+    el.volume = 1;
+    try {
+      await el.play();
+      setIsHoverPlaying(true);
+      try {
+        el.muted = false;
+      } catch {
+        // stay muted if browser blocks audio
+      }
+    } catch {
+      setIsHoverPlaying(false);
+    }
+  };
+
+  const handleMouseLeave = () => {
     const el = videoRef.current;
     if (!el) return;
+    el.pause();
+    el.currentTime = 0;
+    setIsHoverPlaying(false);
+    setProgress(0);
+  };
 
-    if (isPlaying) {
-      el.play().catch(() => {
-        onHoverEnd();
-      });
-    } else {
-      el.pause();
-      el.currentTime = 0;
-    }
-  }, [isPlaying, onHoverEnd]);
+  const handleTimeUpdate = () => {
+    const el = videoRef.current;
+    if (!el || !el.duration) return;
+    setProgress(el.currentTime / el.duration);
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    const el = videoRef.current;
+    const bar = progressBarRef.current;
+    if (!el || !bar || !el.duration) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    el.currentTime = ratio * el.duration;
+  };
 
   return (
     <button
       type="button"
       className="group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
-      onMouseEnter={onHoverStart}
-      onMouseLeave={onHoverEnd}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={onClick}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.16),transparent_34%)]" />
@@ -54,7 +78,7 @@ export function VideoGridCard({
           alt={video.title}
           className={cn(
             "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
-            isPlaying && video.videoUrl ? "opacity-0" : "opacity-100",
+            isHoverPlaying && video.videoUrl ? "opacity-0" : "opacity-100",
           )}
         />
       ) : (
@@ -67,12 +91,12 @@ export function VideoGridCard({
         <video
           ref={videoRef}
           src={video.videoUrl}
-          muted
           loop
           playsInline
+          onTimeUpdate={handleTimeUpdate}
           className={cn(
             "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
-            isPlaying ? "opacity-100" : "opacity-0",
+            isHoverPlaying ? "opacity-100" : "opacity-0",
           )}
         />
       )}
@@ -99,14 +123,6 @@ export function VideoGridCard({
         </span>
       </div>
 
-      {video.videoUrl ? (
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100">
-          <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white shadow-lg backdrop-blur-sm">
-            <Play className="ml-0.5 h-4 w-4" />
-          </span>
-        </div>
-      ) : null}
-
       <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/90 via-black/45 to-transparent p-4 pt-10">
         <p className="line-clamp-2 text-sm font-medium text-white">{video.title}</p>
         <div className="mt-2 flex items-center justify-between gap-2 text-xs text-white/75">
@@ -123,6 +139,16 @@ export function VideoGridCard({
           </span>
         </div>
       </div>
+
+      {isHoverPlaying && (
+        <div
+          ref={progressBarRef}
+          className="absolute inset-x-0 bottom-0 z-20 h-1 cursor-pointer bg-white/25 transition-[height] hover:h-1.5"
+          onClick={handleSeek}
+        >
+          <div className="h-full bg-white" style={{ width: `${progress * 100}%` }} />
+        </div>
+      )}
     </button>
   );
 }

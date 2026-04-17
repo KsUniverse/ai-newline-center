@@ -104,7 +104,7 @@ function WorkspacePreview({
   );
 }
 
-function getTargetRect(anchor: HTMLButtonElement | null): AiWorkspaceTransitionOrigin | null {
+function getTargetRect(anchor: HTMLElement | null): AiWorkspaceTransitionOrigin | null {
   if (!anchor) {
     return null;
   }
@@ -181,7 +181,7 @@ export function AiWorkspaceShell({
   onSourceReveal,
 }: AiWorkspaceShellProps) {
   const controller = useAiWorkspaceController({ video });
-  const videoAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const videoAnchorRef = useRef<HTMLDivElement | null>(null);
   const requestCloseRef = useRef<() => void>(() => {});
   const timersRef = useRef<number[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -471,7 +471,6 @@ export function AiWorkspaceShell({
                         ref={videoAnchorRef}
                         video={video}
                         matchCardRatio
-                        onPreview={() => controller.setPreviewOpen(true)}
                       />
                     </div>
                   );
@@ -504,7 +503,6 @@ export function AiWorkspaceShell({
                           <AiWorkspaceVideoPane
                             video={video}
                             compact
-                            onPreview={() => controller.setPreviewOpen(true)}
                           />
                         }
                         onGenerate={controller.handleGenerateTranscript}

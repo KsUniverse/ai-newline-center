@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Film } from "lucide-react";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
@@ -34,7 +33,6 @@ export function BenchmarkVideoList({
   activeVideoId = null,
   onVideoClick,
 }: BenchmarkVideoListProps) {
-  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   if (loading) {
@@ -71,10 +69,7 @@ export function BenchmarkVideoList({
           <BenchmarkVideoGridCard
             key={video.id}
             video={video}
-            isPlaying={playingVideoId === video.id}
             hidden={activeVideoId === video.id}
-            onHoverStart={() => setPlayingVideoId(video.id)}
-            onHoverEnd={() => setPlayingVideoId(null)}
             onClick={(rect) => onVideoClick?.(video, buildAiWorkspaceTransitionOrigin(rect))}
           />
         ))}

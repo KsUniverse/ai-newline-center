@@ -14,6 +14,7 @@ interface DashboardVideoGridProps {
   onTagChange: (videoId: string, tag: BenchmarkVideoTag | null) => void;
   onBringOrderToggle: (videoId: string, current: boolean) => void;
   onOpenWorkspace: (videoId: string, originRect: AiWorkspaceTransitionOrigin) => void;
+  onOpenAccountDetail: (accountId: string) => void;
 }
 
 export function DashboardVideoGrid({
@@ -23,6 +24,7 @@ export function DashboardVideoGrid({
   onTagChange,
   onBringOrderToggle,
   onOpenWorkspace,
+  onOpenAccountDetail,
 }: DashboardVideoGridProps) {
   if (loading) {
     return (
@@ -61,6 +63,7 @@ export function DashboardVideoGrid({
           onTagChange={onTagChange}
           onBringOrderToggle={onBringOrderToggle}
           onOpenWorkspace={onOpenWorkspace}
+          onOpenAccountDetail={onOpenAccountDetail}
         />
       ))}
     </div>

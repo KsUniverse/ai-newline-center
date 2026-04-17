@@ -4,7 +4,11 @@ import type {
   BenchmarkVideoTag,
   DashboardVideoItem,
 } from "@/types/benchmark-video";
-import type { DouyinVideoDTO } from "@/types/douyin-account";
+import type {
+  BenchmarkAccountDetailDTO,
+  DouyinVideoDTO,
+} from "@/types/douyin-account";
+import type { PaginatedData } from "@/types/api";
 
 const BASE_URL = "/api";
 
@@ -228,6 +232,17 @@ export const dashboardApi = {
 
   getBenchmarkVideo(id: string): Promise<DouyinVideoDTO> {
     return apiClient.get(`/benchmark-videos/${id}`);
+  },
+
+  getBenchmarkAccountDetail(id: string): Promise<BenchmarkAccountDetailDTO> {
+    return apiClient.get(`/benchmarks/${id}`);
+  },
+
+  getBenchmarkAccountVideos(
+    id: string,
+    params: { page: number; limit: number },
+  ): Promise<PaginatedData<DouyinVideoDTO>> {
+    return apiClient.get(`/benchmarks/${id}/videos?page=${params.page}&limit=${params.limit}`);
   },
 
   updateVideoTag(id: string, customTag: BenchmarkVideoTag | null): Promise<{

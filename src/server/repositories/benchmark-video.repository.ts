@@ -251,8 +251,7 @@ class BenchmarkVideoRepository {
       id: string;
       videoId: string;
       title: string;
-      coverUrl: string | null;
-      likeCount: number;
+      coverUrl: string | null;      videoUrl: string | null;      likeCount: number;
       publishedAt: Date | null;
       customTag: BenchmarkVideoTag | null;
       isBringOrder: boolean;
@@ -308,6 +307,7 @@ class BenchmarkVideoRepository {
           videoId: true,
           title: true,
           coverUrl: true,
+          videoUrl: true,
           likeCount: true,
           publishedAt: true,
           customTag: true,

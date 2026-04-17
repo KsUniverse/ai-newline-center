@@ -22,6 +22,7 @@ import {
   getVideoFetchErrorMessage,
   getVideoLoadMoreErrorMessage,
 } from "./dashboard-copy";
+import { DashboardBenchmarkDetailDialog } from "./dashboard-benchmark-detail-dialog";
 import { DashboardVideoFilterBar } from "./dashboard-video-filter-bar";
 import { DashboardVideoGrid } from "./dashboard-video-grid";
 
@@ -49,6 +50,7 @@ export function DashboardVideoSection() {
   const [workspaceLauncher, setWorkspaceLauncher] = useState<WorkspaceLauncherState>(
     INITIAL_WORKSPACE_LAUNCHER_STATE,
   );
+  const [detailAccountId, setDetailAccountId] = useState<string | null>(null);
 
   const fetchVideos = useCallback(
     async (cursor?: string) => {
@@ -182,6 +184,7 @@ export function DashboardVideoSection() {
         onTagChange={handleTagChange}
         onBringOrderToggle={handleBringOrderToggle}
         onOpenWorkspace={handleOpenWorkspace}
+        onOpenAccountDetail={setDetailAccountId}
       />
 
       {nextCursor && !loading && (
@@ -203,6 +206,15 @@ export function DashboardVideoSection() {
         originRect={workspaceLauncher.originRect}
         onSourceReveal={handleRevealWorkspaceSource}
         onClose={handleCloseWorkspace}
+      />
+      <DashboardBenchmarkDetailDialog
+        accountId={detailAccountId}
+        open={detailAccountId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailAccountId(null);
+          }
+        }}
       />
     </SurfaceSection>
   );

@@ -18,6 +18,7 @@ export interface DashboardVideoItem {
   videoId: string;
   title: string;
   coverUrl: string | null;
+  videoUrl: string | null;
   likeCount: number;
   publishedAt: string | null;
   customTag: BenchmarkVideoTag | null;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Film } from "lucide-react";
 
 import type { DouyinVideoWithAccountDTO } from "@/types/douyin-account";
@@ -14,8 +13,6 @@ interface VideoGridProps {
 }
 
 export function VideoGrid({ videos, loading, onVideoClick }: VideoGridProps) {
-  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
-
   if (loading) {
     return (
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 2xl:grid-cols-4">
@@ -49,9 +46,6 @@ export function VideoGrid({ videos, loading, onVideoClick }: VideoGridProps) {
         <VideoGridCard
           key={video.id}
           video={video}
-          isPlaying={playingVideoId === video.id}
-          onHoverStart={() => setPlayingVideoId(video.id)}
-          onHoverEnd={() => setPlayingVideoId(null)}
           onClick={() => onVideoClick(video)}
         />
       ))}
