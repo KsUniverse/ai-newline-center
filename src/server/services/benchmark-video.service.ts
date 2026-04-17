@@ -1,4 +1,4 @@
-import { BenchmarkVideoTag } from "@prisma/client";
+import { BenchmarkVideoTag, UserRole } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
@@ -45,7 +45,8 @@ class BenchmarkVideoService {
     const dateRange = this.resolveDateRange(params.dateRange);
 
     const result = await benchmarkVideoRepository.findDashboardVideos({
-      organizationId: caller.organizationId,
+      organizationId:
+        caller.role === UserRole.SUPER_ADMIN ? undefined : caller.organizationId,
       publishedAtGte: dateRange.gte,
       publishedAtLt: dateRange.lt,
       customTag: params.customTag,
@@ -72,7 +73,7 @@ class BenchmarkVideoService {
     try {
       const updated = await benchmarkVideoRepository.updateCustomTag(
         videoId,
-        caller.organizationId,
+        this.resolveOrganizationScope(caller),
         customTag,
       );
       return { id: updated.id, customTag: updated.customTag };
@@ -89,7 +90,7 @@ class BenchmarkVideoService {
     try {
       const updated = await benchmarkVideoRepository.updateBringOrder(
         videoId,
-        caller.organizationId,
+        this.resolveOrganizationScope(caller),
         isBringOrder,
       );
       return { id: updated.id, isBringOrder: updated.isBringOrder };
@@ -121,6 +122,10 @@ class BenchmarkVideoService {
         return { gte: monday };
       }
     }
+  }
+
+  private resolveOrganizationScope(caller: SessionUser): string | undefined {
+    return caller.role === UserRole.SUPER_ADMIN ? undefined : caller.organizationId;
   }
 }
 

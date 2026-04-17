@@ -237,7 +237,7 @@ class BenchmarkVideoRepository {
 
   async findDashboardVideos(
     params: {
-      organizationId: string;
+      organizationId?: string;
       publishedAtGte?: Date;
       publishedAtLt?: Date;
       customTag?: BenchmarkVideoTag | null;
@@ -262,9 +262,9 @@ class BenchmarkVideoRepository {
     total: number;
   }> {
     const where: Prisma.BenchmarkVideoWhereInput = {
-      organizationId: params.organizationId,
       deletedAt: null,
       account: { deletedAt: null },
+      ...(params.organizationId ? { organizationId: params.organizationId } : {}),
       ...(params.publishedAtGte || params.publishedAtLt
         ? {
             publishedAt: {
@@ -334,24 +334,48 @@ class BenchmarkVideoRepository {
 
   async updateCustomTag(
     id: string,
-    organizationId: string,
+    organizationId: string | undefined,
     customTag: BenchmarkVideoTag | null,
     db: DatabaseClient = prisma,
   ): Promise<BenchmarkVideo> {
+    const video = await db.benchmarkVideo.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(organizationId ? { organizationId } : {}),
+      },
+    });
+
+    if (!video) {
+      throw new Error("VIDEO_NOT_FOUND");
+    }
+
     return db.benchmarkVideo.update({
-      where: { id, organizationId, deletedAt: null },
+      where: { id: video.id },
       data: { customTag },
     });
   }
 
   async updateBringOrder(
     id: string,
-    organizationId: string,
+    organizationId: string | undefined,
     isBringOrder: boolean,
     db: DatabaseClient = prisma,
   ): Promise<BenchmarkVideo> {
+    const video = await db.benchmarkVideo.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(organizationId ? { organizationId } : {}),
+      },
+    });
+
+    if (!video) {
+      throw new Error("VIDEO_NOT_FOUND");
+    }
+
     return db.benchmarkVideo.update({
-      where: { id, organizationId, deletedAt: null },
+      where: { id: video.id },
       data: { isBringOrder },
     });
   }

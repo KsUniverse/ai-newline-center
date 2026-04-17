@@ -1,0 +1,118 @@
+<h2>左侧导航层级优化</h2>
+<p class="subtitle">对比 3 种方向：保留二级、弱化二级、彻底去掉二级。重点看“系统设置”这一组是否还别扭。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">A. 保留二级，但去掉树状缩进</div>
+        <div class="mockup-body">
+          <div style="width:260px;padding:14px;border-radius:24px;background:#f7f8f8;border:1px solid rgba(15,23,42,0.08);box-shadow:0 8px 24px rgba(15,23,42,0.05);">
+            <div style="padding:12px 14px;border-radius:22px;background:white;border:1px solid rgba(15,23,42,0.08);margin-bottom:14px;">
+              <div style="font-size:12px;color:#0f766e;letter-spacing:.18em;text-transform:uppercase;">Navigation</div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:#ecfeff;border:1px solid rgba(13,148,136,0.18);">
+                  <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">仪</div>
+                  <div style="font-size:14px;font-weight:600;">仪表盘</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:white;border:1px solid rgba(15,23,42,0.08);">
+                  <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">内</div>
+                  <div style="font-size:14px;font-weight:600;">内容账号</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="padding:12px 14px;border-radius:22px;background:white;border:1px solid rgba(15,23,42,0.08);">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="font-size:12px;color:#64748b;letter-spacing:.18em;text-transform:uppercase;">系统设置</div>
+                <div style="font-size:12px;color:#64748b;">展开</div>
+              </div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:#f8fafc;border:1px solid rgba(15,23,42,0.08);">
+                  <div class="mock-button" style="min-width:36px;height:36px;border-radius:12px;">C</div>
+                  <div>
+                    <div style="font-size:13px;font-weight:600;">爬虫 Cookie</div>
+                    <div style="font-size:11px;color:#64748b;">系统设置 / 单条子项</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A</h3>
+      <p>保留二级结构，但不再用左缩进和竖线，而是把组头和子项放进同一个内嵌卡片里，层级更平。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">B. 二级项并入主导航列表</div>
+        <div class="mockup-body">
+          <div style="width:260px;padding:14px;border-radius:24px;background:#f7f8f8;border:1px solid rgba(15,23,42,0.08);box-shadow:0 8px 24px rgba(15,23,42,0.05);">
+            <div style="font-size:12px;color:#64748b;letter-spacing:.18em;text-transform:uppercase;padding:0 6px 10px;">Navigation</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:#ecfeff;border:1px solid rgba(13,148,136,0.18);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">仪</div>
+                <div style="font-size:14px;font-weight:600;">仪表盘</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:white;border:1px solid rgba(15,23,42,0.08);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">内</div>
+                <div style="font-size:14px;font-weight:600;">内容账号</div>
+              </div>
+              <div style="margin:6px 6px 0;font-size:11px;color:#64748b;letter-spacing:.16em;text-transform:uppercase;">系统设置</div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:white;border:1px solid rgba(15,23,42,0.08);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">C</div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;">爬虫 Cookie</div>
+                  <div style="font-size:11px;color:#64748b;">独立导航项</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B</h3>
+      <p>视觉上直接取消“下一级”的感觉，只保留一个小标题做分区。适合系统设置子项很少的场景。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">C. 彻底打平，不要二级菜单</div>
+        <div class="mockup-body">
+          <div style="width:260px;padding:14px;border-radius:24px;background:#f7f8f8;border:1px solid rgba(15,23,42,0.08);box-shadow:0 8px 24px rgba(15,23,42,0.05);">
+            <div style="font-size:12px;color:#64748b;letter-spacing:.18em;text-transform:uppercase;padding:0 6px 10px;">Navigation</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:#ecfeff;border:1px solid rgba(13,148,136,0.18);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">仪</div>
+                <div style="font-size:14px;font-weight:600;">仪表盘</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:white;border:1px solid rgba(15,23,42,0.08);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">内</div>
+                <div style="font-size:14px;font-weight:600;">内容账号</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:white;border:1px solid rgba(15,23,42,0.08);">
+                <div class="mock-button" style="min-width:40px;height:40px;border-radius:14px;">设</div>
+                <div>
+                  <div style="font-size:14px;font-weight:600;">爬虫 Cookie 管理</div>
+                  <div style="font-size:11px;color:#64748b;">直接作为一级工作区</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 C</h3>
+      <p>如果子项长期只有一个，直接打平成一级更干净，能彻底避免层级美感问题。</p>
+    </div>
+  </div>
+</div>

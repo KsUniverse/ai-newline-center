@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Menu, Moon, Sparkles, Sun } from "lucide-react";
+import { ArrowUpRight, BriefcaseBusiness, Menu, Moon, ShieldCheck, Sparkles, Sun } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useTheme } from "next-themes";
 
-import { getVisibleNavItems } from "@/components/shared/layout/app-navigation";
+import { getVisibleNavSections } from "@/components/shared/layout/app-navigation";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -27,7 +27,7 @@ export function AppHeader({ title }: AppHeaderProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const navItems = getVisibleNavItems(session?.user?.role);
+  const navSections = getVisibleNavSections(session?.user?.role);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -60,39 +60,55 @@ export function AppHeader({ title }: AppHeaderProps) {
                   <p className="mt-2 text-sm leading-6 text-muted-foreground/80">移动端导航与桌面侧栏保持同一套品牌语言、层级和模块状态。</p>
                 </div>
               </SheetHeader>
-              <nav className="relative flex-1 space-y-2 px-4 py-4">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              <nav className="relative flex-1 space-y-5 px-4 py-4">
+                {navSections.map((section) => {
+                  const SectionIcon = section.key === "system" ? ShieldCheck : BriefcaseBusiness;
 
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-all",
-                        isActive
-                          ? "border-primary/20 bg-primary/10 text-foreground shadow-sm shadow-primary/10"
-                          : "border-transparent bg-background/35 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
-                      )}
-                      onClick={() => setMobileNavOpen(false)}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                          isActive
-                            ? "border-primary/20 bg-background/90 text-primary"
-                            : "border-border/50 bg-background/80 text-muted-foreground group-hover:text-foreground",
-                        )}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium tracking-tight">{item.label}</p>
-                        <p className="text-2xs text-muted-foreground/75">{isActive ? "当前工作区" : "进入模块"}</p>
+                    <div key={section.key} className="space-y-2">
+                      <div className="flex items-center gap-2 px-1 text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                        <SectionIcon className="h-3.5 w-3.5" />
+                        {section.title}
                       </div>
-                      <ArrowUpRight className={cn("h-3.5 w-3.5 shrink-0 transition-opacity", isActive ? "text-primary opacity-100" : "opacity-0 group-hover:opacity-70")}/>
-                    </Link>
+                      <div className="space-y-2">
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={cn(
+                                "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-all",
+                                isActive
+                                  ? "border-primary/20 bg-primary/10 text-foreground shadow-sm shadow-primary/10"
+                                  : "border-transparent bg-background/35 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
+                              )}
+                              onClick={() => setMobileNavOpen(false)}
+                            >
+                              <span
+                                className={cn(
+                                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
+                                  isActive
+                                    ? "border-primary/20 bg-background/90 text-primary"
+                                    : "border-border/50 bg-background/80 text-muted-foreground group-hover:text-foreground",
+                                )}
+                              >
+                                <Icon className="h-4 w-4 shrink-0" />
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium tracking-tight">{item.label}</p>
+                                <p className="text-2xs text-muted-foreground/75">
+                                  {isActive ? "当前工作区" : section.key === "system" ? "系统管理" : "进入模块"}
+                                </p>
+                              </div>
+                              <ArrowUpRight className={cn("h-3.5 w-3.5 shrink-0 transition-opacity", isActive ? "text-primary opacity-100" : "opacity-0 group-hover:opacity-70")}/>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </nav>

@@ -9,12 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { cn, proxyImageUrl } from "@/lib/utils";
+import { cn, formatDateTime, proxyImageUrl } from "@/lib/utils";
 import {
   BENCHMARK_VIDEO_TAG_LABELS,
   BENCHMARK_VIDEO_TAG_VALUES,
   formatLikeCount,
-  formatRelativeTime,
   type BenchmarkVideoTag,
   type DashboardVideoItem,
 } from "@/types/benchmark-video";
@@ -119,7 +118,7 @@ export function DashboardVideoCard({
             <span className="truncate">{formatLikeCount(video.likeCount)}</span>
           </span>
           <span className="truncate text-right tabular-nums tracking-tight">
-            {formatRelativeTime(video.publishedAt)}
+            {formatDateTime(video.publishedAt)}
           </span>
         </div>
       </div>
