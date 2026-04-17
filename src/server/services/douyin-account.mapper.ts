@@ -6,9 +6,11 @@ import type {
   BenchmarkAccountDetailDTO,
   DouyinAccountDTO,
   DouyinAccountDetailDTO,
+  DouyinVideoWithAccountDTO,
 } from "@/types/douyin-account";
 import type { DouyinAccountWithUser } from "@/server/repositories/douyin-account.repository";
 import type { BenchmarkAccountWithCreator } from "@/server/repositories/benchmark-account.repository";
+import type { DouyinVideoWithAccount } from "@/server/repositories/douyin-video.repository";
 
 interface AccountProfilePreviewSource {
   secUserId: string;
@@ -141,5 +143,34 @@ export function mapBenchmarkAccountDetailToDto(
   return {
     ...mapBenchmarkAccountToDto(account),
     lastSyncedAt: account.lastSyncedAt?.toISOString() ?? null,
+  };
+}
+
+export function mapDouyinVideoWithAccountToDto(
+  item: DouyinVideoWithAccount,
+): DouyinVideoWithAccountDTO {
+  return {
+    id: item.id,
+    videoId: item.videoId,
+    title: item.title,
+    shareUrl: item.shareUrl,
+    coverUrl: item.coverUrl,
+    coverSourceUrl: item.coverSourceUrl,
+    coverStoragePath: item.coverStoragePath,
+    videoUrl: item.videoUrl,
+    videoSourceUrl: item.videoSourceUrl,
+    videoStoragePath: item.videoStoragePath,
+    publishedAt: item.publishedAt?.toISOString() ?? null,
+    playCount: item.playCount,
+    likeCount: item.likeCount,
+    commentCount: item.commentCount,
+    shareCount: item.shareCount,
+    collectCount: item.collectCount,
+    admireCount: item.admireCount,
+    recommendCount: item.recommendCount,
+    tags: Array.isArray(item.tags) ? (item.tags as string[]) : [],
+    createdAt: item.createdAt.toISOString(),
+    accountNickname: item.account.nickname,
+    accountAvatar: item.account.avatar,
   };
 }

@@ -133,6 +133,7 @@ interface AccountSyncAdapter {
 
 interface VideoSyncAdapter {
   label: string;
+  updateSecUserId: (id: string, secUserId: string) => Promise<unknown>;
   countByAccountId: (accountId: string) => Promise<number>;
   findExistingVideo: (accountId: string, videoId: string) => Promise<unknown | null>;
   updateExistingVideoStats: (
@@ -392,8 +393,7 @@ class SyncService {
             }
 
             if (!hasCollectionBaseline || pageHitExistingCollection || !result.hasMore) {
-              shouldContinuePaging = false;
-              continue;
+              break;
             }
 
             cursor = result.cursor;
@@ -450,6 +450,7 @@ class SyncService {
   private myVideoSyncAdapter(): VideoSyncAdapter {
     return {
       label: "MY_ACCOUNT",
+      updateSecUserId: (id, secUserId) => douyinAccountRepository.updateSecUserId(id, secUserId),
       countByAccountId: (accountId) => douyinVideoRepository.countByAccountId(accountId),
       findExistingVideo: (_accountId, videoId) => douyinVideoRepository.findByVideoId(videoId),
       updateExistingVideoStats: (_accountId, videoId, stats) =>
@@ -483,6 +484,7 @@ class SyncService {
   private benchmarkVideoSyncAdapter(): VideoSyncAdapter {
     return {
       label: "BENCHMARK_ACCOUNT",
+      updateSecUserId: (id, secUserId) => benchmarkAccountRepository.updateSecUserId(id, secUserId),
       countByAccountId: (accountId) => benchmarkVideoRepository.countByAccountId(accountId),
       findExistingVideo: (accountId, videoId) =>
         benchmarkVideoRepository.findByAccountAndVideoId(accountId, videoId),
@@ -573,9 +575,7 @@ class SyncService {
   ): Promise<void> {
     const secUserId = await this.ensureSecUserId(
       account,
-      adapter.label === "MY_ACCOUNT"
-        ? this.myAccountSyncAdapter().updateSecUserId
-        : this.benchmarkAccountSyncAdapter().updateSecUserId,
+      adapter.updateSecUserId,
       caches,
     );
     const existingVideoCount = await adapter.countByAccountId(account.id);

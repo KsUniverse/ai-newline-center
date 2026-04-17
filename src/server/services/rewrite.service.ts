@@ -66,16 +66,9 @@ class RewriteService {
         tx,
       );
 
-      const maxResult = await tx.rewriteVersion.aggregate({
-        where: { rewriteId: rewrite.id },
-        _max: { versionNumber: true },
-      });
-      const versionNumber = (maxResult._max.versionNumber ?? 0) + 1;
-
-      const version = await rewriteRepository.createVersion(
+      const version = await rewriteRepository.createNextVersion(
         {
           rewriteId: rewrite.id,
-          versionNumber,
           modelConfigId: input.modelConfigId,
           usedFragmentIds: input.usedFragmentIds,
           userInputContent: input.userInputContent,

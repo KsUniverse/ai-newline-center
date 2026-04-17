@@ -244,6 +244,26 @@ class BenchmarkAccountRepository {
     return record !== null;
   }
 
+  async findMemberBenchmarkAccountIds(
+    userId: string,
+    accountIds: string[],
+    db: DatabaseClient = prisma,
+  ): Promise<Set<string>> {
+    if (accountIds.length === 0) {
+      return new Set();
+    }
+
+    const records = await db.benchmarkAccountMember.findMany({
+      where: {
+        userId,
+        benchmarkAccountId: { in: accountIds },
+      },
+      select: { benchmarkAccountId: true },
+    });
+
+    return new Set(records.map((r) => r.benchmarkAccountId));
+  }
+
   async archive(id: string, db: DatabaseClient = prisma): Promise<BenchmarkAccount> {
     return db.benchmarkAccount.update({
       where: {
@@ -339,7 +359,7 @@ class BenchmarkAccountRepository {
       },
     });
 
-    return results.filter((r) => r.bannedAt !== null) as Array<{
+    return results as Array<{
       id: string;
       nickname: string;
       avatar: string;

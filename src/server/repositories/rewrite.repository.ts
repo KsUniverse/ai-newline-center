@@ -128,6 +128,18 @@ class RewriteRepository {
     });
   }
 
+  async createNextVersion(
+    data: Omit<CreateRewriteVersionData, "versionNumber">,
+    db: DatabaseClient = prisma,
+  ): Promise<RewriteVersion> {
+    const maxResult = await db.rewriteVersion.aggregate({
+      where: { rewriteId: data.rewriteId },
+      _max: { versionNumber: true },
+    });
+    const versionNumber = (maxResult._max.versionNumber ?? 0) + 1;
+    return this.createVersion({ ...data, versionNumber }, db);
+  }
+
   async findVersionById(
     versionId: string,
     db: DatabaseClient = prisma,

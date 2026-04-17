@@ -281,10 +281,6 @@ class DouyinAccountRepository {
     return accounts.map((account) => account.id);
   }
 
-  async findMyAccountIdsByUserId(userId: string, db: DatabaseClient = prisma): Promise<string[]> {
-    return this.findIdsByUserId(userId, db);
-  }
-
   async findIdsByOrganizationId(
     organizationId: string,
     db: DatabaseClient = prisma,

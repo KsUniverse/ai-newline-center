@@ -74,9 +74,10 @@ class UserRepository {
       organizationId: string;
     },
     db: DatabaseClient = prisma,
-  ): Promise<User> {
+  ): Promise<UserWithOrganization> {
     return db.user.create({
       data,
+      include: { organization: true },
     });
   }
 
@@ -84,10 +85,11 @@ class UserRepository {
     id: string,
     data: { name?: string; role?: Prisma.UserUpdateInput["role"] },
     db: DatabaseClient = prisma,
-  ): Promise<User> {
+  ): Promise<UserWithOrganization> {
     return db.user.update({
       where: { id },
       data,
+      include: { organization: true },
     });
   }
 
@@ -95,10 +97,11 @@ class UserRepository {
     id: string,
     status: UserStatus,
     db: DatabaseClient = prisma,
-  ): Promise<User> {
+  ): Promise<UserWithOrganization> {
     return db.user.update({
       where: { id },
       data: { status },
+      include: { organization: true },
     });
   }
 }

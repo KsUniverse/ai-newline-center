@@ -146,34 +146,27 @@ class DouyinAccountService {
     caller: SessionUser,
     params: ListParams,
   ): Promise<PaginatedData<DouyinAccountDTO>> {
-    const result = await ((): ReturnType<typeof douyinAccountRepository.findMany> => {
-      switch (caller.role) {
-        case UserRole.EMPLOYEE:
-          return douyinAccountRepository.findMany({
-            userId: caller.id,
-            page: params.page,
-            limit: params.limit,
-          });
-        case UserRole.BRANCH_MANAGER:
-          return douyinAccountRepository.findMany({
-            organizationId: caller.organizationId,
-            page: params.page,
-            limit: params.limit,
-          });
-        case UserRole.SUPER_ADMIN:
-          return douyinAccountRepository.findMany({
-            page: params.page,
-            limit: params.limit,
-          });
-        default:
-          throw new AppError("FORBIDDEN", "无操作权限", 403);
-      }
-    })();
-
+    const result = await this.resolveAccountsPage(caller, params);
     return {
       ...result,
       items: result.items.map((item) => mapDouyinAccountToDto(item)),
     };
+  }
+
+  private resolveAccountsPage(
+    caller: SessionUser,
+    params: ListParams,
+  ): ReturnType<typeof douyinAccountRepository.findMany> {
+    switch (caller.role) {
+      case UserRole.EMPLOYEE:
+        return douyinAccountRepository.findMany({ userId: caller.id, ...params });
+      case UserRole.BRANCH_MANAGER:
+        return douyinAccountRepository.findMany({ organizationId: caller.organizationId, ...params });
+      case UserRole.SUPER_ADMIN:
+        return douyinAccountRepository.findMany(params);
+      default:
+        throw new AppError("FORBIDDEN", "无操作权限", 403);
+    }
   }
 
   async getOwnAccountForRelogin(caller: SessionUser, id: string): Promise<DouyinAccount> {

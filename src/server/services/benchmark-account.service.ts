@@ -120,16 +120,17 @@ class BenchmarkAccountService {
       archiveFilter: params.archiveFilter ?? "active",
     });
 
-    const items = await Promise.all(
-      result.items.map(async (item) => ({
-        ...mapBenchmarkAccountToDto(item),
-        canArchive: await benchmarkAccountRepository.hasMember(item.id, caller.id),
-      })),
+    const memberIds = await benchmarkAccountRepository.findMemberBenchmarkAccountIds(
+      caller.id,
+      result.items.map((item) => item.id),
     );
 
     return {
       ...result,
-      items,
+      items: result.items.map((item) => ({
+        ...mapBenchmarkAccountToDto(item),
+        canArchive: memberIds.has(item.id),
+      })),
     };
   }
 

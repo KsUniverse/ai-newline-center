@@ -113,12 +113,7 @@ class UserService {
       organizationId: data.organizationId,
     });
 
-    const userWithOrganization = await userRepository.findById(createdUser.id);
-    if (!userWithOrganization) {
-      throw new AppError("NOT_FOUND", "用户不存在", 404);
-    }
-
-    return this.sanitizeUser(userWithOrganization);
+    return this.sanitizeUser(createdUser);
   }
 
   async updateUser(caller: SessionUser, id: string, data: UpdateUserData): Promise<SafeUser> {
@@ -136,12 +131,7 @@ class UserService {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    await userRepository.update(user.id, data);
-
-    const updatedUser = await userRepository.findById(user.id);
-    if (!updatedUser) {
-      throw new AppError("NOT_FOUND", "用户不存在", 404);
-    }
+    const updatedUser = await userRepository.update(user.id, data);
 
     return this.sanitizeUser(updatedUser);
   }
@@ -161,12 +151,7 @@ class UserService {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    await userRepository.setStatus(user.id, status);
-
-    const updatedUser = await userRepository.findById(user.id);
-    if (!updatedUser) {
-      throw new AppError("NOT_FOUND", "用户不存在", 404);
-    }
+    const updatedUser = await userRepository.setStatus(user.id, status);
 
     return this.sanitizeUser(updatedUser);
   }

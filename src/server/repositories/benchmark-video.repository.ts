@@ -385,11 +385,10 @@ class BenchmarkVideoRepository {
     return { items, nextCursor, total };
   }
 
-  async updateCustomTag(
+  private async findActiveForUpdate(
     id: string,
     organizationId: string | undefined,
-    customTag: BenchmarkVideoTag | null,
-    db: DatabaseClient = prisma,
+    db: DatabaseClient,
   ): Promise<BenchmarkVideo> {
     const video = await db.benchmarkVideo.findFirst({
       where: {
@@ -403,6 +402,16 @@ class BenchmarkVideoRepository {
       throw new Error("VIDEO_NOT_FOUND");
     }
 
+    return video;
+  }
+
+  async updateCustomTag(
+    id: string,
+    organizationId: string | undefined,
+    customTag: BenchmarkVideoTag | null,
+    db: DatabaseClient = prisma,
+  ): Promise<BenchmarkVideo> {
+    const video = await this.findActiveForUpdate(id, organizationId, db);
     return db.benchmarkVideo.update({
       where: { id: video.id },
       data: { customTag },
@@ -415,18 +424,7 @@ class BenchmarkVideoRepository {
     isBringOrder: boolean,
     db: DatabaseClient = prisma,
   ): Promise<BenchmarkVideo> {
-    const video = await db.benchmarkVideo.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        ...(organizationId ? { organizationId } : {}),
-      },
-    });
-
-    if (!video) {
-      throw new Error("VIDEO_NOT_FOUND");
-    }
-
+    const video = await this.findActiveForUpdate(id, organizationId, db);
     return db.benchmarkVideo.update({
       where: { id: video.id },
       data: { isBringOrder },
