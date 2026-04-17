@@ -4,6 +4,7 @@ import type {
   BenchmarkVideoTag,
   DashboardVideoItem,
 } from "@/types/benchmark-video";
+import type { DouyinVideoDTO } from "@/types/douyin-account";
 
 const BASE_URL = "/api";
 
@@ -223,6 +224,10 @@ export const dashboardApi = {
     items: BannedAccountItem[];
   }> {
     return apiClient.get(`/dashboard/banned-accounts?dateRange=${dateRange}`);
+  },
+
+  getBenchmarkVideo(id: string): Promise<DouyinVideoDTO> {
+    return apiClient.get(`/benchmark-videos/${id}`);
   },
 
   updateVideoTag(id: string, customTag: BenchmarkVideoTag | null): Promise<{

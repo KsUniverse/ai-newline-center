@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AiWorkspaceShell } from "@/components/features/benchmarks";
+import type { AiWorkspaceTransitionOrigin } from "@/components/features/benchmarks/ai-workspace-transition";
 import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { Button } from "@/components/ui/button";
 import { dashboardApi } from "@/lib/api-client";
+import type { DouyinVideoDTO } from "@/types/douyin-account";
 import {
   type BenchmarkVideoTag,
   type DateRangeToken,
@@ -22,6 +25,18 @@ import {
 import { DashboardVideoFilterBar } from "./dashboard-video-filter-bar";
 import { DashboardVideoGrid } from "./dashboard-video-grid";
 
+interface WorkspaceLauncherState {
+  video: DouyinVideoDTO | null;
+  originRect: AiWorkspaceTransitionOrigin | null;
+  hiddenVideoId: string | null;
+}
+
+const INITIAL_WORKSPACE_LAUNCHER_STATE: WorkspaceLauncherState = {
+  video: null,
+  originRect: null,
+  hiddenVideoId: null,
+};
+
 export function DashboardVideoSection() {
   const [dateRange, setDateRange] = useState<DateRangeToken>("today");
   const [customTag, setCustomTag] = useState<BenchmarkVideoTag | "ALL">("ALL");
@@ -31,6 +46,9 @@ export function DashboardVideoSection() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [workspaceLauncher, setWorkspaceLauncher] = useState<WorkspaceLauncherState>(
+    INITIAL_WORKSPACE_LAUNCHER_STATE,
+  );
 
   const fetchVideos = useCallback(
     async (cursor?: string) => {
@@ -111,6 +129,33 @@ export function DashboardVideoSection() {
     }
   };
 
+  const handleOpenWorkspace = async (
+    videoId: string,
+    originRect: AiWorkspaceTransitionOrigin,
+  ) => {
+    try {
+      const video = await dashboardApi.getBenchmarkVideo(videoId);
+      setWorkspaceLauncher({
+        video,
+        originRect,
+        hiddenVideoId: video.id,
+      });
+    } catch {
+      toast.error("打开仿写工作台失败，请稍后重试");
+    }
+  };
+
+  const handleRevealWorkspaceSource = () => {
+    setWorkspaceLauncher((current) => ({
+      ...current,
+      hiddenVideoId: null,
+    }));
+  };
+
+  const handleCloseWorkspace = () => {
+    setWorkspaceLauncher(INITIAL_WORKSPACE_LAUNCHER_STATE);
+  };
+
   const actions = (
     <DashboardVideoFilterBar
       dateRange={dateRange}
@@ -133,8 +178,10 @@ export function DashboardVideoSection() {
       <DashboardVideoGrid
         items={items}
         loading={loading}
+        activeVideoId={workspaceLauncher.hiddenVideoId}
         onTagChange={handleTagChange}
         onBringOrderToggle={handleBringOrderToggle}
+        onOpenWorkspace={handleOpenWorkspace}
       />
 
       {nextCursor && !loading && (
@@ -150,6 +197,13 @@ export function DashboardVideoSection() {
           </Button>
         </div>
       )}
+
+      <AiWorkspaceShell
+        video={workspaceLauncher.video}
+        originRect={workspaceLauncher.originRect}
+        onSourceReveal={handleRevealWorkspaceSource}
+        onClose={handleCloseWorkspace}
+      />
     </SurfaceSection>
   );
 }

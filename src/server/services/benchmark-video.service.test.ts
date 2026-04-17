@@ -1,7 +1,13 @@
 import { UserRole } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findDashboardVideosMock, updateBringOrderMock, updateCustomTagMock } = vi.hoisted(() => ({
+const {
+  findByIdWithAccountOrganizationMock,
+  findDashboardVideosMock,
+  updateBringOrderMock,
+  updateCustomTagMock,
+} = vi.hoisted(() => ({
+  findByIdWithAccountOrganizationMock: vi.fn(),
   findDashboardVideosMock: vi.fn(),
   updateBringOrderMock: vi.fn(),
   updateCustomTagMock: vi.fn(),
@@ -9,6 +15,7 @@ const { findDashboardVideosMock, updateBringOrderMock, updateCustomTagMock } = v
 
 vi.mock("@/server/repositories/benchmark-video.repository", () => ({
   benchmarkVideoRepository: {
+    findByIdWithAccountOrganization: findByIdWithAccountOrganizationMock,
     findDashboardVideos: findDashboardVideosMock,
     updateBringOrder: updateBringOrderMock,
     updateCustomTag: updateCustomTagMock,
@@ -17,6 +24,7 @@ vi.mock("@/server/repositories/benchmark-video.repository", () => ({
 
 describe("benchmarkVideoService", () => {
   beforeEach(() => {
+    findByIdWithAccountOrganizationMock.mockReset();
     findDashboardVideosMock.mockReset();
     updateBringOrderMock.mockReset();
     updateCustomTagMock.mockReset();
@@ -83,5 +91,52 @@ describe("benchmarkVideoService", () => {
     );
 
     expect(updateBringOrderMock).toHaveBeenCalledWith("video_1", undefined, true);
+  });
+
+  it("returns a full benchmark video dto for accessible videos", async () => {
+    findByIdWithAccountOrganizationMock.mockResolvedValue({
+      id: "video_1",
+      videoId: "aweme_1",
+      title: "测试视频",
+      shareUrl: "https://example.com/share",
+      coverUrl: "https://example.com/cover.jpg",
+      coverSourceUrl: "https://example.com/cover-source.jpg",
+      coverStoragePath: "/storage/covers/cover.jpg",
+      videoUrl: "https://example.com/video.mp4",
+      videoSourceUrl: "https://example.com/video-source.mp4",
+      videoStoragePath: "/storage/videos/video.mp4",
+      publishedAt: new Date("2026-04-17T02:33:41.000Z"),
+      playCount: 100,
+      likeCount: 10,
+      commentCount: 5,
+      shareCount: 1,
+      collectCount: 2,
+      admireCount: 3,
+      recommendCount: 4,
+      tags: ["题材梳理"],
+      createdAt: new Date("2026-04-17T02:44:10.105Z"),
+      account: {
+        organizationId: "org_1",
+      },
+    });
+
+    const { benchmarkVideoService } = await import("@/server/services/benchmark-video.service");
+    const result = await benchmarkVideoService.getVideoDetail(
+      {
+        id: "user_1",
+        account: "employee",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+      "video_1",
+    );
+
+    expect(result).toMatchObject({
+      id: "video_1",
+      videoId: "aweme_1",
+      title: "测试视频",
+      tags: ["题材梳理"],
+      createdAt: "2026-04-17T02:44:10.105Z",
+    });
   });
 });

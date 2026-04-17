@@ -2,6 +2,7 @@
 
 import { Film } from "lucide-react";
 
+import type { AiWorkspaceTransitionOrigin } from "@/components/features/benchmarks/ai-workspace-transition";
 import { type BenchmarkVideoTag, type DashboardVideoItem } from "@/types/benchmark-video";
 
 import { DashboardVideoCard } from "./dashboard-video-card";
@@ -9,15 +10,19 @@ import { DashboardVideoCard } from "./dashboard-video-card";
 interface DashboardVideoGridProps {
   items: DashboardVideoItem[];
   loading: boolean;
+  activeVideoId?: string | null;
   onTagChange: (videoId: string, tag: BenchmarkVideoTag | null) => void;
   onBringOrderToggle: (videoId: string, current: boolean) => void;
+  onOpenWorkspace: (videoId: string, originRect: AiWorkspaceTransitionOrigin) => void;
 }
 
 export function DashboardVideoGrid({
   items,
   loading,
+  activeVideoId = null,
   onTagChange,
   onBringOrderToggle,
+  onOpenWorkspace,
 }: DashboardVideoGridProps) {
   if (loading) {
     return (
@@ -52,8 +57,10 @@ export function DashboardVideoGrid({
         <DashboardVideoCard
           key={video.id}
           video={video}
+          hidden={activeVideoId === video.id}
           onTagChange={onTagChange}
           onBringOrderToggle={onBringOrderToggle}
+          onOpenWorkspace={onOpenWorkspace}
         />
       ))}
     </div>

@@ -2,6 +2,7 @@ import { BenchmarkVideoTag, UserRole } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
+import type { DouyinVideoDTO } from "@/types/douyin-account";
 import type { SessionUser } from "@/types/session";
 
 export type DateRangeToken = "today" | "yesterday" | "this_week";
@@ -31,6 +32,47 @@ export interface DashboardVideosResult {
 }
 
 class BenchmarkVideoService {
+  async getVideoDetail(
+    caller: SessionUser,
+    videoId: string,
+  ): Promise<DouyinVideoDTO> {
+    const video = await benchmarkVideoRepository.findByIdWithAccountOrganization(videoId);
+
+    if (!video) {
+      throw new AppError("NOT_FOUND", "视频不存在", 404);
+    }
+
+    if (
+      caller.role !== UserRole.SUPER_ADMIN &&
+      caller.organizationId !== video.account.organizationId
+    ) {
+      throw new AppError("FORBIDDEN", "无操作权限", 403);
+    }
+
+    return {
+      id: video.id,
+      videoId: video.videoId,
+      title: video.title,
+      shareUrl: video.shareUrl,
+      coverUrl: video.coverUrl,
+      coverSourceUrl: video.coverSourceUrl,
+      coverStoragePath: video.coverStoragePath,
+      videoUrl: video.videoUrl,
+      videoSourceUrl: video.videoSourceUrl,
+      videoStoragePath: video.videoStoragePath,
+      publishedAt: video.publishedAt?.toISOString() ?? null,
+      playCount: video.playCount,
+      likeCount: video.likeCount,
+      commentCount: video.commentCount,
+      shareCount: video.shareCount,
+      collectCount: video.collectCount,
+      admireCount: video.admireCount,
+      recommendCount: video.recommendCount,
+      tags: video.tags as string[],
+      createdAt: video.createdAt.toISOString(),
+    };
+  }
+
   async listDashboardVideos(
     caller: SessionUser,
     params: {

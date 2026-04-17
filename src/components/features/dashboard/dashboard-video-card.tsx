@@ -2,6 +2,7 @@
 
 import { Film, Heart } from "lucide-react";
 
+import type { AiWorkspaceTransitionOrigin } from "@/components/features/benchmarks/ai-workspace-transition";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +23,10 @@ import { getBringOrderTone, getVideoTagTone } from "./dashboard-copy";
 
 interface DashboardVideoCardProps {
   video: DashboardVideoItem;
+  hidden?: boolean;
   onTagChange: (videoId: string, tag: BenchmarkVideoTag | null) => void;
   onBringOrderToggle: (videoId: string, current: boolean) => void;
+  onOpenWorkspace: (videoId: string, originRect: AiWorkspaceTransitionOrigin) => void;
 }
 
 const TAG_TONE_CLASS = {
@@ -38,14 +41,36 @@ const BRING_ORDER_TONE_CLASS = {
 
 export function DashboardVideoCard({
   video,
+  hidden = false,
   onTagChange,
   onBringOrderToggle,
+  onOpenWorkspace,
 }: DashboardVideoCardProps) {
   const tagTone = getVideoTagTone(video.customTag);
   const bringOrderTone = getBringOrderTone(video.isBringOrder);
 
   return (
-    <article className="group relative aspect-3/4 overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10">
+    <article
+      className={cn(
+        "group relative aspect-3/4 overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        hidden && "pointer-events-none opacity-0",
+      )}
+    >
+      <button
+        type="button"
+        aria-label={`打开 ${video.title} 的仿写工作台`}
+        className="absolute inset-x-0 top-0 z-10 h-[72%]"
+        onClick={(event) =>
+          onOpenWorkspace(video.id, {
+            top: event.currentTarget.getBoundingClientRect().top,
+            left: event.currentTarget.getBoundingClientRect().left,
+            width: event.currentTarget.getBoundingClientRect().width,
+            height: event.currentTarget.getBoundingClientRect().height,
+            borderRadius: 24,
+          })
+        }
+      />
+
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.16),transparent_34%)]" />
 
       {video.coverUrl ? (
@@ -63,7 +88,7 @@ export function DashboardVideoCard({
 
       <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/45 to-transparent" />
 
-      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+      <div className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 p-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -103,7 +128,7 @@ export function DashboardVideoCard({
         </button>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 p-4 pt-12">
+      <div className="absolute inset-x-0 bottom-0 z-20 p-4 pt-12">
         <div className="mb-2 inline-flex max-w-full items-center rounded-full border border-white/15 bg-black/25 px-2.5 py-1 text-2xs text-white/80 backdrop-blur-sm">
           <span className="truncate">@{video.account.nickname}</span>
         </div>
