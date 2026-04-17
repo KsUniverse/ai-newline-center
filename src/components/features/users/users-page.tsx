@@ -11,6 +11,7 @@ import type { UserDTO } from "@/types/user-management";
 import { managementClient } from "@/lib/management-client";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
 import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { managementCompactActionClassName } from "@/components/shared/common/management-primitives";
 import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { Button } from "@/components/ui/button";
@@ -199,7 +200,7 @@ export function UsersPageView() {
       }
       maxWidth="wide"
       actions={
-        <Button onClick={handleCreate} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
+        <Button onClick={handleCreate} size="sm" className={managementCompactActionClassName}>
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           新建用户
         </Button>

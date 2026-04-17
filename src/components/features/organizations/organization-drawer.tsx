@@ -3,16 +3,19 @@
 import { useEffect, useState } from "react";
 import { Building2, Sparkles } from "lucide-react";
 
+import {
+  ManagementNote,
+  ManagementPanelHeading,
+  managementCompactActionClassName,
+} from "@/components/shared/common/management-primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
   SheetFooter,
+  SheetHeader,
 } from "@/components/ui/sheet";
 
 interface OrganizationDrawerProps {
@@ -40,21 +43,24 @@ export function OrganizationDrawer({
       setName(defaultValues?.name ?? "");
       setError("");
     }
-  }, [open, defaultValues]);
+  }, [defaultValues, open]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) {
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
       setError("公司名称不能为空");
       return;
     }
-    if (trimmed.length > 100) {
+
+    if (trimmedName.length > 100) {
       setError("公司名称最多 100 个字符");
       return;
     }
+
     setError("");
-    onSubmit({ name: trimmed });
+    onSubmit({ name: trimmedName });
   }
 
   return (
@@ -64,20 +70,15 @@ export function OrganizationDrawer({
         <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.06]" />
 
         <SheetHeader className="relative border-b border-border/60 px-6 py-6 text-left">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
-              <Building2 className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 space-y-1.5">
-              <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">Administration</p>
-              <SheetTitle>{mode === "create" ? "新建分公司" : "编辑分公司"}</SheetTitle>
-              <SheetDescription>
-                {mode === "create"
-                  ? "侧边入口与弹框表单保持同一套字段块和品牌化标题栏。"
-                  : "编辑名称不会影响现有组织归属与账号范围。"}
-              </SheetDescription>
-            </div>
-          </div>
+          <ManagementPanelHeading
+            icon={Building2}
+            title={mode === "create" ? "新建分公司" : "编辑分公司"}
+            description={
+              mode === "create"
+                ? "侧边入口与弹框表单保持同一套字段块和品牌化标题栏。"
+                : "编辑名称不会影响现有组织归属与账号范围。"
+            }
+          />
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="relative flex flex-col gap-5 px-6 py-6">
@@ -88,11 +89,13 @@ export function OrganizationDrawer({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Organization Identity</p>
-                <Label htmlFor="org-name" className="mt-2 block text-sm font-medium">公司名称 <span className="text-destructive">*</span></Label>
+                <Label htmlFor="organization-drawer-name" className="mt-2 block text-sm font-medium">
+                  公司名称 <span className="text-destructive">*</span>
+                </Label>
                 <Input
-                  id="org-name"
+                  id="organization-drawer-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(event) => setName(event.target.value)}
                   placeholder="请输入分公司名称"
                   maxLength={100}
                   disabled={loading}
@@ -106,28 +109,22 @@ export function OrganizationDrawer({
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border/60 bg-background/80 px-4 py-4 shadow-sm">
-            <div className="flex items-center gap-2 text-primary">
-              <Sparkles className="h-4 w-4" />
-              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Usage Note</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
-              抽屉入口主要用于长路径编辑，但仍沿用主管理面板的字段块和说明语气。
-            </p>
-          </div>
+          <ManagementNote icon={Sparkles} title="Usage Note">
+            抽屉入口主要用于长路径编辑，但仍沿用主管理面板的字段块和说明语气。
+          </ManagementNote>
 
           <SheetFooter className="gap-2 border-t border-border/60 pt-5">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 rounded-md px-3 text-sm"
+              className={managementCompactActionClassName}
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
               取消
             </Button>
-            <Button type="submit" size="sm" className="h-8 rounded-md px-3 text-sm" disabled={loading}>
+            <Button type="submit" size="sm" className={managementCompactActionClassName} disabled={loading}>
               {loading ? "提交中..." : mode === "create" ? "创建分公司" : "保存修改"}
             </Button>
           </SheetFooter>

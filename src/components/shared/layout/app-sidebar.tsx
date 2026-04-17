@@ -33,6 +33,11 @@ import {
   type AppNavItem,
   type AppNavSection,
 } from "@/components/shared/layout/app-navigation";
+import {
+  getBrandNavHint,
+  getBrandNavIconClassName,
+  getBrandNavItemClassName,
+} from "@/components/shared/common/brand";
 
 function isNavItemActive(pathname: string, item: AppNavItem): boolean {
   return pathname === item.href || pathname.startsWith(item.href + "/");
@@ -62,28 +67,14 @@ function ExpandedNavSection({
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "group flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm transition-all",
-                isActive
-                  ? "border-primary/20 bg-primary/10 text-foreground shadow-sm shadow-primary/10"
-                  : "border-transparent bg-background/35 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
-              )}
+              className={getBrandNavItemClassName(isActive)}
             >
-              <span
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors",
-                  isActive
-                    ? "border-primary/20 bg-background/90 text-primary"
-                    : "border-border/50 bg-background/80 text-muted-foreground group-hover:text-foreground",
-                )}
-              >
+              <span className={getBrandNavIconClassName(isActive)}>
                 <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium tracking-tight">{item.label}</p>
-                <p className="text-2xs text-muted-foreground/75">
-                  {isActive ? "当前工作区" : section.key === "system" ? "系统管理" : "进入模块"}
-                </p>
+                <p className="text-2xs text-muted-foreground/75">{getBrandNavHint(isActive, section.key)}</p>
               </div>
               <ArrowUpRight
                 className={cn(

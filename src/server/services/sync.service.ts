@@ -433,8 +433,9 @@ class SyncService {
       label: "MY_ACCOUNT",
       updateSecUserId: (id, secUserId) => douyinAccountRepository.updateSecUserId(id, secUserId),
       updateAccountInfo: (id, data) => {
-        const { bannedAt: _bannedAt, ...rest } = data;
-        return douyinAccountRepository.updateAccountInfo(id, rest);
+        const accountInfo = { ...data };
+        delete accountInfo.bannedAt;
+        return douyinAccountRepository.updateAccountInfo(id, accountInfo);
       },
     };
   }

@@ -4,6 +4,13 @@ import { Ban, MoreHorizontal, Pencil, RotateCcw, Sparkles, Users } from "lucide-
 
 import type { OrganizationDTO } from "@/types/organization";
 import type { UserDTO } from "@/types/user-management";
+import {
+  ManagementMetricCard,
+  ManagementSidecar,
+  StatusPill,
+  managementMobileCardClassName,
+  managementTableWrapperClassName,
+} from "@/components/shared/common/management-primitives";
 import { TaskEmptyState } from "@/components/shared/common/task-empty-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -108,30 +115,17 @@ export function UserList({
     <div className="space-y-5">
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">账号规模</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{users.length}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">当前筛选范围下可见的用户账号</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">正常状态</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{activeCount}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">仍可登录并继续使用的账号数量</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">禁用状态</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{disabledCount}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">需要人工恢复后才可继续登录的账号</p>
-          </div>
+          <ManagementMetricCard label="账号规模" value={users.length} description="当前筛选范围下可见的用户账号" />
+          <ManagementMetricCard label="正常状态" value={activeCount} description="仍可登录并继续使用的账号数量" />
+          <ManagementMetricCard label="禁用状态" value={disabledCount} description="需要人工恢复后才可继续登录的账号" />
         </div>
 
         {showOrgFilter && organizations ? (
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-primary">
-              <Sparkles className="h-4 w-4" />
-              <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Organization Filter</p>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground/80">切换范围后，列表会立即聚焦到对应分公司的用户队列与启停状态。</p>
+          <ManagementSidecar
+            icon={Sparkles}
+            title="Organization Filter"
+            description="切换范围后，列表会立即聚焦到对应分公司的用户队列与启停状态。"
+          >
             <Select
               value={selectedOrgId ?? "all"}
               onValueChange={(value) => onOrgFilterChange?.(value === "all" ? "" : value)}
@@ -148,7 +142,7 @@ export function UserList({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </ManagementSidecar>
         ) : null}
       </div>
 
@@ -167,7 +161,7 @@ export function UserList({
               const status = getStatusMeta(user.status);
 
               return (
-                <div key={user.id} className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
+                <div key={user.id} className={managementMobileCardClassName}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
@@ -220,13 +214,10 @@ export function UserList({
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">所属分公司</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{user.organization.name}</p>
                     </div>
-                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
-                      <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">状态</p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
-                        <span className="text-sm font-medium text-foreground/90">{status.label}</span>
+                      <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
+                        <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">状态</p>
+                        <StatusPill dotClassName={status.dotClassName} label={status.label} className="mt-1 border-0 bg-transparent px-0 py-0 shadow-none [&>span:last-child]:font-medium [&>span:last-child]:text-foreground/90" />
                       </div>
-                    </div>
                   </div>
 
                   <p className="mt-4 text-sm text-muted-foreground/80">创建于 {formatDate(user.createdAt)}</p>
@@ -235,7 +226,7 @@ export function UserList({
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-3xl border border-border/60 bg-background/80 md:block">
+          <div className={managementTableWrapperClassName}>
             <Table className="border-b-0 text-sm">
               <TableHeader className={cn("bg-background/85 backdrop-blur-sm")}>
                 <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
@@ -273,10 +264,7 @@ export function UserList({
                       </TableCell>
                       <TableCell className="text-muted-foreground">{user.organization.name}</TableCell>
                       <TableCell>
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-2.5 py-1 text-xs shadow-sm">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
-                          <span className="text-muted-foreground">{status.label}</span>
-                        </div>
+                        <StatusPill dotClassName={status.dotClassName} label={status.label} />
                       </TableCell>
                       <TableCell className="tabular-nums tracking-tight text-muted-foreground">{formatDate(user.createdAt)}</TableCell>
                       <TableCell className="pr-5 text-right">

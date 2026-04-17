@@ -252,6 +252,23 @@ Dashboard 首页默认采用**快捷入口模式**：
 - 摘要卡片允许搭配一张右侧或下方的 contextual sidecar 卡片，用于放筛选说明、启停提示或管理注意事项，但文案必须保持简短，不能膨胀成第二个 hero
 - 列表容器允许叠加轻量品牌气氛层（渐变 + dot-grid），但表格和卡片的可读性必须始终优先于装饰
 
+### 管理页表面模式
+
+后台管理型页面应优先共享以下稳定模式：
+
+- 标题区：`ManagementPanelHeading`
+- 表单分组：`ManagementFormSection`
+- 图标字段壳：`ManagementFieldShell`
+- 摘要卡：`ManagementMetricCard`
+- 侧边说明卡：`ManagementSidecar`
+- 状态胶囊：`StatusPill`
+
+约束：
+
+- 管理页不再自行复制 `rounded-3xl border border-border/60 bg-background/80 shadow-sm` 这类稳定表面组合
+- 复用时允许覆盖文案、图标和局部栅格，不允许重新发明另一套基础皮肤
+- 同一页面内的指标卡、提醒卡、字段块应保持一套圆角、边框和阴影节奏
+
 ### 表格模式
 
 - 桌面表格作为高密度浏览模式

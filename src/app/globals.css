@@ -64,9 +64,13 @@
   }
 
   body {
+    min-height: 100vh;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted) / 0.45);
     scrollbar-width: thin;
   }
@@ -136,6 +140,15 @@
       opacity: 1;
       transform: translateX(0) scale(1);
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

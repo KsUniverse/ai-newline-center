@@ -3,6 +3,13 @@
 import { Ban, Building2, MoreHorizontal, Pencil, RotateCcw, Sparkles } from "lucide-react";
 
 import type { OrganizationDTO } from "@/types/organization";
+import {
+  ManagementMetricCard,
+  ManagementSidecar,
+  StatusPill,
+  managementMobileCardClassName,
+  managementTableWrapperClassName,
+} from "@/components/shared/common/management-primitives";
 import { TaskEmptyState } from "@/components/shared/common/task-empty-state";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -78,32 +85,16 @@ export function OrganizationList({
     <div className="space-y-5">
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">分公司规模</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{organizations.length}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">当前纳入统一管理的组织数量</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">账号承载</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{totalUsers}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">分布在各分公司的累计用户账号</p>
-          </div>
-          <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">可用状态</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground/95">{activeCount}</p>
-            <p className="mt-1 text-sm text-muted-foreground/80">仍处于正常运行状态的分公司</p>
-          </div>
+          <ManagementMetricCard label="分公司规模" value={organizations.length} description="当前纳入统一管理的组织数量" />
+          <ManagementMetricCard label="账号承载" value={totalUsers} description="分布在各分公司的累计用户账号" />
+          <ManagementMetricCard label="可用状态" value={activeCount} description="仍处于正常运行状态的分公司" />
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-primary">
-            <Sparkles className="h-4 w-4" />
-            <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Admin Hint</p>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground/80">
-            禁用分公司会联动其下用户状态，启用分公司后仍需按需恢复具体账号。
-          </p>
-        </div>
+        <ManagementSidecar
+          icon={Sparkles}
+          title="Admin Hint"
+          description="禁用分公司会联动其下用户状态，启用分公司后仍需按需恢复具体账号。"
+        />
       </div>
 
       {organizations.length === 0 ? (
@@ -122,7 +113,7 @@ export function OrganizationList({
               const status = getStatusMeta(org.status);
 
               return (
-                <div key={org.id} className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
+                <div key={org.id} className={managementMobileCardClassName}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                       <div className="flex items-center gap-2">
@@ -131,10 +122,7 @@ export function OrganizationList({
                         </div>
                         <p className="text-base font-semibold tracking-tight text-foreground/95">{org.name}</p>
                       </div>
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
-                        <span className="text-muted-foreground">{status.label}</span>
-                      </div>
+                      <StatusPill dotClassName={status.dotClassName} label={status.label} className="border-0 bg-transparent px-0 py-0 shadow-none" />
                     </div>
 
                     <DropdownMenu>
@@ -184,7 +172,7 @@ export function OrganizationList({
             })}
           </div>
 
-          <div className="hidden overflow-hidden rounded-3xl border border-border/60 bg-background/80 md:block">
+          <div className={managementTableWrapperClassName}>
             <Table className="border-b-0 text-sm">
               <TableHeader className="bg-background/85 backdrop-blur-sm">
                 <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
@@ -214,10 +202,7 @@ export function OrganizationList({
                       </TableCell>
                       <TableCell className="text-right font-mono text-muted-foreground/80">{org._count?.users ?? 0}</TableCell>
                       <TableCell>
-                        <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/80 px-2.5 py-1 text-xs shadow-sm">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", status.dotClassName)} />
-                          <span className="text-muted-foreground">{status.label}</span>
-                        </div>
+                        <StatusPill dotClassName={status.dotClassName} label={status.label} />
                       </TableCell>
                       <TableCell className="tabular-nums tracking-tight text-muted-foreground">{formatDate(org.createdAt)}</TableCell>
                       <TableCell className="pr-5 text-right">

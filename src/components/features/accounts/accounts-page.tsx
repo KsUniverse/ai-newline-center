@@ -23,6 +23,7 @@ import { AccountEmptyState } from "./account-empty-state";
 import { VideoDetailDialog } from "./video-detail-dialog";
 import { VideoFilterBar } from "./video-filter-bar";
 import { VideoGrid } from "./video-grid";
+import { managementCompactActionClassName } from "@/components/shared/common/management-primitives";
 import {
   ACCOUNTS_ADD_ACTION_LABEL,
   ACCOUNTS_EYEBROW,
@@ -190,7 +191,7 @@ export function AccountsPageView() {
       maxWidth="wide"
       actions={
         isEmployee ? (
-          <Button onClick={() => setDrawerOpen(true)} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
+          <Button onClick={() => setDrawerOpen(true)} size="sm" className={managementCompactActionClassName}>
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {ACCOUNTS_ADD_ACTION_LABEL}
           </Button>
@@ -276,4 +277,3 @@ export function AccountsPageView() {
     </DashboardPageShell>
   );
 }
-

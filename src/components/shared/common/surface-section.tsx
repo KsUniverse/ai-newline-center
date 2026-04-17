@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { BRAND_SURFACE_CLASS_NAME } from "@/components/shared/common/brand";
 
 export interface SurfaceSectionProps {
   eyebrow?: string;
@@ -24,7 +25,7 @@ export function SurfaceSection({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-border/60 bg-card/90 shadow-sm",
+        BRAND_SURFACE_CLASS_NAME,
         className,
       )}
     >

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+import { MetaPillList } from "@/components/shared/common/meta-pill-list";
+import { SurfaceSection } from "@/components/shared/common/surface-section";
 import { Button } from "@/components/ui/button";
 import { DashboardPageShell } from "@/components/shared/layout/dashboard-page-shell";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
@@ -14,6 +16,7 @@ import { CrawlerCookieTable } from "@/components/features/settings/crawler-cooki
 import { AddCrawlerCookieDialog } from "@/components/features/settings/crawler-cookie-add-dialog";
 import { managementClient } from "@/lib/management-client";
 import type { CrawlerCookieDTO } from "@/types/crawler-cookie";
+import { managementCompactActionClassName, managementInsetSurfaceClassName } from "@/components/shared/common/management-primitives";
 
 type ConfirmState =
   | { type: "single"; id: string }
@@ -125,58 +128,71 @@ export function CrawlerCookiePage() {
         title="爬虫 Cookie 管理"
         description="管理用于爬虫接口调用的 Cookie 池，系统将自动轮询切换（每 5 次请求切换一次）。"
         actions={
-          <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
+          <Button onClick={() => setAddDialogOpen(true)} size="sm" className={managementCompactActionClassName}>
             <Plus className="h-4 w-4" />
             添加 Cookie
           </Button>
         }
       >
-        {/* Batch action bar */}
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/80 px-4 py-2.5">
-            <span className="text-sm text-muted-foreground">
-              已选择 <span className="font-medium text-foreground">{selectedIds.size}</span> 个
-            </span>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="gap-1.5"
-              onClick={handleDeleteBatch}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              批量删除（{selectedIds.size}）
-            </Button>
-          </div>
-        )}
-
-        {/* Content */}
-        {loading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground">
-            <span className="text-sm">加载中…</span>
-          </div>
-        ) : items.length === 0 ? (
-          <TaskEmptyState
-            icon={Cookie}
-            eyebrow="Cookie Pool"
-            title="暂无爬虫 Cookie"
-            description="添加 Cookie 后，系统将自动以轮询方式切换使用，提升爬虫链路稳定性。"
-            hint="建议至少添加 2 个 Cookie 以启用轮询。"
-            action={
-              <Button onClick={() => setAddDialogOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" />
-                添加 Cookie
+        <SurfaceSection
+          eyebrow="Cookie Pool"
+          title="轮询凭证与删除操作"
+          description="列表、批量删除和新增入口保持在同一工作面中，减少切换并统一系统设置页的品牌语言。"
+          bodyClassName="space-y-5"
+          actions={
+            <MetaPillList
+              items={[
+                { label: `共 ${items.length} 个 Cookie`, tone: "primary" },
+                { label: selectedIds.size > 0 ? `已选择 ${selectedIds.size} 个` : "等待选择" },
+              ]}
+            />
+          }
+        >
+          {selectedIds.size > 0 ? (
+            <div className={`flex items-center gap-3 px-4 py-2.5 ${managementInsetSurfaceClassName}`}>
+              <span className="text-sm text-muted-foreground">
+                已选择 <span className="font-medium text-foreground">{selectedIds.size}</span> 个
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleDeleteBatch}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                批量删除（{selectedIds.size}）
               </Button>
-            }
-          />
-        ) : (
-          <CrawlerCookieTable
-            items={items}
-            selectedIds={selectedIds}
-            onSelectChange={handleSelectChange}
-            onSelectAll={handleSelectAll}
-            onDelete={handleDeleteSingle}
-          />
-        )}
+            </div>
+          ) : null}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <span className="text-sm">加载中…</span>
+            </div>
+          ) : items.length === 0 ? (
+            <TaskEmptyState
+              icon={Cookie}
+              eyebrow="Cookie Pool"
+              title="暂无爬虫 Cookie"
+              description="添加 Cookie 后，系统将自动以轮询方式切换使用，提升爬虫链路稳定性。"
+              hint="建议至少添加 2 个 Cookie 以启用轮询。"
+              action={
+                <Button onClick={() => setAddDialogOpen(true)} size="sm" className={managementCompactActionClassName}>
+                  <Plus className="h-4 w-4" />
+                  添加 Cookie
+                </Button>
+              }
+            />
+          ) : (
+            <CrawlerCookieTable
+              items={items}
+              selectedIds={selectedIds}
+              onSelectChange={handleSelectChange}
+              onSelectAll={handleSelectAll}
+              onDelete={handleDeleteSingle}
+            />
+          )}
+        </SurfaceSection>
       </DashboardPageShell>
 
       <AddCrawlerCookieDialog

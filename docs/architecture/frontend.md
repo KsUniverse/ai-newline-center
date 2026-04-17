@@ -50,6 +50,7 @@
 - `common/confirm-dialog.tsx`
 - `common/surface-section.tsx`
 - `common/empty-state.tsx`
+- `common/management-primitives.tsx`
 
 ### L3: 功能组件层
 
@@ -162,6 +163,23 @@ Dashboard 首页作为任务分发入口，而不是说明页：
 ### 表单页内交互
 
 表单优先在 `Dialog` 或 `Sheet` 中完成，而不是新建独立路由页。对关键信息输入优先使用带 label / helper / icon shell 的字段块。
+
+### 管理页稳定模式
+
+用户管理、组织管理、系统设置等后台管理页面应优先复用共享管理表面模式，而不是在各 feature 内重复拼装相似卡片：
+
+- `ManagementPanelHeading`：弹框 / 抽屉标题区
+- `ManagementFormSection`：字段分组容器
+- `ManagementFieldShell`：图标 + 输入域外壳
+- `ManagementMetricCard`：列表摘要卡
+- `ManagementSidecar`：筛选说明 / 管理提醒侧卡
+- `StatusPill`：小圆点状态胶囊
+
+规则：
+
+- 管理页的“说明卡 + 指标卡 + 字段块”优先复用这组共享模式
+- 若只是文案或图标不同，不再复制一套新的圆角、边框、背景和阴影组合
+- 行为和数据流仍保留在 feature 层，shared 层只承载稳定视觉与结构
 
 ## 交互模式
 
