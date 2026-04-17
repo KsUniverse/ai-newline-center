@@ -356,6 +356,7 @@ describe("fragmentService", () => {
       q: "观点",
       cursor: "cursor-token",
       limit: 20,
+      scope: "today",
     });
     expect(result).toEqual({
       items: [
@@ -370,6 +371,63 @@ describe("fragmentService", () => {
       ],
       nextCursor: "next-cursor-token",
       hasMore: true,
+    });
+  });
+
+  it("defaults listFragments scope to today when not provided", async () => {
+    findManyMock.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    await fragmentService.listFragments(
+      {
+        id: "manager_1",
+        account: "manager",
+        name: "负责人",
+        role: UserRole.BRANCH_MANAGER,
+        organizationId: "org_1",
+      },
+      {},
+    );
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      organizationId: "org_1",
+      q: undefined,
+      cursor: undefined,
+      limit: 20,
+      scope: "today",
+    });
+  });
+
+  it("passes explicit history scope to the repository", async () => {
+    findManyMock.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    await fragmentService.listFragments(
+      {
+        id: "manager_1",
+        account: "manager",
+        name: "负责人",
+        role: UserRole.BRANCH_MANAGER,
+        organizationId: "org_1",
+      },
+      {
+        scope: "history",
+        limit: 10,
+      },
+    );
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      organizationId: "org_1",
+      q: undefined,
+      cursor: undefined,
+      limit: 10,
+      scope: "history",
     });
   });
 
@@ -395,6 +453,7 @@ describe("fragmentService", () => {
       q: undefined,
       cursor: "not-a-valid-cursor",
       limit: 20,
+      scope: "today",
     });
   });
 

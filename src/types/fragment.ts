@@ -14,10 +14,13 @@ export interface CreateFragmentsInput {
   contents: string[];
 }
 
+export type FragmentScope = "today" | "history";
+
 export interface ListFragmentsParams {
   q?: string;
   cursor?: string;
   limit?: number;
+  scope?: FragmentScope;
 }
 
 export interface CreateFragmentsResult {

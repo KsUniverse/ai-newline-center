@@ -66,6 +66,7 @@ describe("GET /api/viewpoints", () => {
         q: "ideas",
         cursor: "cursor_1",
         limit: 15,
+        scope: "today",
       },
     );
   });
@@ -101,6 +102,7 @@ describe("GET /api/viewpoints", () => {
         q: "ideas",
         cursor: "",
         limit: 15,
+        scope: "today",
       },
     );
 
@@ -110,6 +112,68 @@ describe("GET /api/viewpoints", () => {
     );
 
     expect(longQueryResponse.status).toBe(400);
+  });
+
+  it("defaults scope to today when omitted and accepts history scope", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        id: "user_1",
+        name: "Alice",
+        account: "alice",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+    });
+    listFragmentsMock.mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    const { GET } = await import("@/app/api/viewpoints/route");
+
+    await GET(new Request("http://localhost/api/viewpoints"));
+    expect(listFragmentsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "user_1",
+      }),
+      {
+        q: undefined,
+        cursor: undefined,
+        limit: 20,
+        scope: "today",
+      },
+    );
+
+    await GET(new Request("http://localhost/api/viewpoints?scope=history&limit=10"));
+    expect(listFragmentsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "user_1",
+      }),
+      {
+        q: undefined,
+        cursor: undefined,
+        limit: 10,
+        scope: "history",
+      },
+    );
+  });
+
+  it("rejects invalid scope values", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        id: "user_1",
+        name: "Alice",
+        account: "alice",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+    });
+
+    const { GET } = await import("@/app/api/viewpoints/route");
+    const response = await GET(new Request("http://localhost/api/viewpoints?scope=all"));
+
+    expect(response.status).toBe(400);
   });
 });
 

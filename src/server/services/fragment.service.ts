@@ -33,6 +33,7 @@ class FragmentService {
       q: params.q,
       cursor: params.cursor,
       limit: params.limit ?? 20,
+      scope: params.scope ?? "today",
     });
 
     return {

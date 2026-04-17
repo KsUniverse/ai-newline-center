@@ -1,5 +1,5 @@
-import { ViewpointsPageView } from "@/components/features/viewpoints";
+import { ViewpointsTodayPageView } from "@/components/features/viewpoints/viewpoints-today-page-view";
 
 export default function ViewpointsPage() {
-  return <ViewpointsPageView />;
+  return <ViewpointsTodayPageView />;
 }

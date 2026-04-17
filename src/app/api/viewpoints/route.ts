@@ -10,6 +10,7 @@ const listFragmentsSchema = z.object({
   q: z.string().max(200).optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  scope: z.enum(["today", "history"]).default("today"),
 });
 
 const createFragmentsSchema = z.object({

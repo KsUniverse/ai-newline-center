@@ -200,6 +200,7 @@ async function transcribeWithOssUrl(
     },
     body: JSON.stringify({
       model: config.modelName,
+      // stream: true,
       messages: [
         {
           role: "user",
@@ -256,6 +257,17 @@ async function streamTextWithConfig(
 }
 
 // ─── AiGatewayService ─────────────────────────────────────────────────────────
+
+interface GenerateRewriteParams {
+  modelConfig: AiModelConfig;
+  systemPrompt: string;
+  userPrompt: string;
+}
+
+interface GenerateRewriteResult {
+  text: string;
+  modelConfigId: string;
+}
 
 class AiGatewayService {
   async generateTranscriptionFromVideo(
@@ -322,6 +334,25 @@ class AiGatewayService {
       modelName: config.modelName,
       textStream,
     };
+  }
+
+  async generateRewrite(params: GenerateRewriteParams): Promise<GenerateRewriteResult> {
+    const { modelConfig, systemPrompt, userPrompt } = params;
+    const modelClient = createOpenAI({
+      apiKey: modelConfig.apiKey,
+      baseURL: modelConfig.baseUrl,
+    });
+    const result = await generateText({
+      model: modelClient(modelConfig.modelName),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      abortSignal: AbortSignal.timeout(120_000),
+    });
+    const text = result.text.trim();
+    if (!text) throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+    return { text, modelConfigId: modelConfig.id };
   }
 }
 

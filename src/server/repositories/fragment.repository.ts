@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
+import { resolveFragmentCreatedAtFilter } from "@/server/services/fragment-time-scope";
+import type { FragmentScope } from "@/types/fragment";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 
@@ -23,6 +25,7 @@ export interface FindManyFragmentsParams {
   q?: string;
   cursor?: string;
   limit: number;
+  scope: FragmentScope;
 }
 
 export interface CreateFragmentRecord {
@@ -68,10 +71,12 @@ class FragmentRepository {
     organizationId: string;
     q?: string;
     cursor?: string;
+    scope: FragmentScope;
   }): Prisma.FragmentWhereInput {
     const where: Prisma.FragmentWhereInput = {
       organizationId: params.organizationId,
       deletedAt: null,
+      createdAt: resolveFragmentCreatedAtFilter(params.scope),
       ...(params.q ? { content: { contains: params.q } } : {}),
     };
 
@@ -119,6 +124,7 @@ class FragmentRepository {
         organizationId: params.organizationId,
         q: params.q,
         cursor: params.cursor,
+        scope: params.scope,
       }),
       include: createdByUserInclude,
       orderBy: [

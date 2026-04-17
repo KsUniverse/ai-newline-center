@@ -37,7 +37,7 @@ import type { AiWorkspaceTransitionOrigin } from "./ai-workspace-transition";
 import { AiWorkspaceVideoPane } from "./ai-workspace-video-pane";
 import { AiWorkspaceTranscriptCanvas } from "./ai-workspace-transcript-canvas";
 import { AiWorkspaceDecompositionPanel } from "./ai-workspace-decomposition-panel";
-import { AiWorkspaceRewriteStage } from "./ai-workspace-rewrite-stage";
+import { AiWorkspaceRewriteStageV2 } from "./ai-workspace-rewrite-stage-v2";
 
 type TransitionPhase =
   | "idle"
@@ -490,7 +490,7 @@ export function AiWorkspaceShell({
                     >
                       <AiWorkspaceTranscriptCanvas
                         stage={visualStage}
-                        transcriptText={controller.displayedTranscriptText}
+                        transcriptText={controller.transcriptText}
                         transcribing={
                           controller.loadingWorkspace ||
                           controller.workspace?.status === "TRANSCRIBING"
@@ -555,20 +555,18 @@ export function AiWorkspaceShell({
                       opacity: scale,
                     }}
                   >
-                    <AiWorkspaceRewriteStage
-                      workspaceId={controller.workspace?.id ?? null}
+                    <AiWorkspaceRewriteStageV2
                       transcriptText={controller.transcriptText}
                       annotations={controller.annotations}
                       activeAnnotationId={controller.activeAnnotationId}
-                      draft={controller.displayedDraft}
-                      savingDraft={controller.savingDraft}
-                      generatingRewrite={controller.generatingRewrite}
-                      onDraftChange={controller.setDraft}
                       onAnnotationSelect={controller.handleToggleAnnotationFocus}
-                      onGenerateRewrite={controller.handleGenerateRewrite}
-                      selectedFragmentIds={controller.selectedFragmentIds}
-                      onFragmentToggle={controller.handleFragmentToggle}
-                      onFragmentsClear={controller.handleFragmentsClear}
+                      videoId={video.id}
+                      rewrite={controller.rewrite}
+                      activeVersionId={controller.activeVersionId}
+                      generatingRewrite={controller.generatingRewrite}
+                      onGenerateRewrite={controller.onGenerateRewrite}
+                      onSaveVersionEdit={controller.onSaveVersionEdit}
+                      onSetActiveVersionId={controller.onSetActiveVersionId}
                     />
                   </div>
                 );

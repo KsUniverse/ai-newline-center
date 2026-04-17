@@ -43,6 +43,27 @@ class AiSettingsService {
     return { bindings: bindingDTOs, modelConfigs };
   }
 
+  async getSettingsReadOnly(): Promise<AiSettingsDTO> {
+    const [bindings, modelConfigs] = await Promise.all([
+      aiStepBindingRepository.findAll(),
+      aiModelConfigRepository.findAll(),
+    ]);
+
+    const configMap = new Map(modelConfigs.map((c) => [c.id, c]));
+
+    const bindingDTOs: AiStepBindingDTO[] = AI_STEPS.map((step) => {
+      const binding = bindings.find((b) => b.step === step);
+      const modelConfigId = binding?.modelConfigId ?? null;
+      return {
+        step,
+        modelConfigId,
+        modelConfig: modelConfigId ? (configMap.get(modelConfigId) ?? null) : null,
+      };
+    });
+
+    return { bindings: bindingDTOs, modelConfigs };
+  }
+
   async updateSettings(
     caller: SessionUser,
     input: UpdateAiSettingsInput,
