@@ -21,4 +21,10 @@ describe("app navigation", () => {
     expect(items.map((item) => item.label)).toContain("爬虫 Cookie 管理");
     expect(items.map((item) => item.label)).not.toContain("系统设置");
   });
+
+  it("does not duplicate the viewpoints entry in the flattened list", () => {
+    const items = getVisibleNavItems("SUPER_ADMIN");
+
+    expect(items.filter((item) => item.href === "/viewpoints")).toHaveLength(1);
+  });
 });

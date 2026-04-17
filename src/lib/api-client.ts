@@ -1,5 +1,6 @@
 import type { ApiResponse } from "@/types/api";
 import type {
+  DashboardVideoSortBy,
   BannedAccountItem,
   BenchmarkVideoTag,
   DashboardVideoItem,
@@ -203,6 +204,7 @@ export interface DashboardVideoQueryParams {
   dateRange?: "today" | "yesterday" | "this_week";
   customTag?: BenchmarkVideoTag;
   isBringOrder?: boolean;
+  sortBy?: DashboardVideoSortBy;
   cursor?: string;
   limit?: number;
 }
@@ -218,6 +220,7 @@ export const dashboardApi = {
     if (params.customTag) query.set("customTag", params.customTag);
     if (params.isBringOrder !== undefined)
       query.set("isBringOrder", String(params.isBringOrder));
+    if (params.sortBy) query.set("sortBy", params.sortBy);
     if (params.cursor) query.set("cursor", params.cursor);
     if (params.limit) query.set("limit", String(params.limit));
     const qs = query.toString();

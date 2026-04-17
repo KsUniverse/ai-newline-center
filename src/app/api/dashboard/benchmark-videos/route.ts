@@ -8,6 +8,7 @@ import { benchmarkVideoService } from "@/server/services/benchmark-video.service
 
 const querySchema = z.object({
   dateRange: z.enum(["today", "yesterday", "this_week"]).default("today"),
+  sortBy: z.enum(["recommended", "likes", "time"]).default("recommended"),
   customTag: z.nativeEnum(BenchmarkVideoTag).optional(),
   isBringOrder: z
     .string()
@@ -28,6 +29,7 @@ export async function GET(request: Request) {
 
     const result = await benchmarkVideoService.listDashboardVideos(session.user, {
       dateRange: params.dateRange,
+      sortBy: params.sortBy,
       customTag: params.customTag,
       isBringOrder: params.isBringOrder,
       cursor: params.cursor,

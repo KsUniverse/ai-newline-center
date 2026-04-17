@@ -4,6 +4,7 @@ export type { BenchmarkVideoTag };
 
 export type DateRangeToken = "today" | "yesterday" | "this_week";
 export type BannedDateRangeToken = "today" | "yesterday" | "this_week" | "this_month";
+export type DashboardVideoSortBy = "recommended" | "likes" | "time";
 
 export const BENCHMARK_VIDEO_TAG_LABELS: Record<BenchmarkVideoTag, string> = {
   LIMIT_UP: "涨停榜",
@@ -29,6 +30,12 @@ export const BANNED_DATE_RANGE_LABELS: Record<BannedDateRangeToken, string> = {
   yesterday: "昨日",
   this_week: "本周",
   this_month: "本月",
+};
+
+export const DASHBOARD_VIDEO_SORT_LABELS: Record<DashboardVideoSortBy, string> = {
+  recommended: "推荐",
+  likes: "点赞",
+  time: "时间",
 };
 
 export interface DashboardVideoItem {

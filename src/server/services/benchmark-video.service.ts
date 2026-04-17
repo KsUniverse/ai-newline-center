@@ -2,6 +2,7 @@ import { BenchmarkVideoTag, UserRole } from "@prisma/client";
 
 import { AppError } from "@/lib/errors";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
+import type { DashboardVideoSortBy } from "@/types/benchmark-video";
 import type { DouyinVideoDTO } from "@/types/douyin-account";
 import type { SessionUser } from "@/types/session";
 
@@ -78,6 +79,7 @@ class BenchmarkVideoService {
     caller: SessionUser,
     params: {
       dateRange: DateRangeToken;
+      sortBy: DashboardVideoSortBy;
       customTag?: BenchmarkVideoTag;
       isBringOrder?: boolean;
       cursor?: string;
@@ -92,6 +94,7 @@ class BenchmarkVideoService {
         caller.role === UserRole.SUPER_ADMIN ? undefined : caller.organizationId,
       publishedAtGte: dateRange.gte,
       publishedAtLt: dateRange.lt,
+      sortBy: params.sortBy,
       customTag: params.customTag,
       isBringOrder: params.isBringOrder,
       cursor: params.cursor,

@@ -1,4 +1,7 @@
-import type { BenchmarkVideoTag, BannedDateRangeToken } from "@/types/benchmark-video";
+import type {
+  BenchmarkVideoTag,
+  BannedDateRangeToken,
+} from "@/types/benchmark-video";
 
 const BANNED_RANGE_PREFIX: Record<BannedDateRangeToken, string> = {
   today: "今日",
@@ -7,9 +10,21 @@ const BANNED_RANGE_PREFIX: Record<BannedDateRangeToken, string> = {
   this_month: "本月",
 };
 
-export function getDashboardVideoSectionDescription(loading: boolean, total: number): string {
+export function getDashboardVideoSectionDescription(
+  loading: boolean,
+  total: number,
+  sortBy: "recommended" | "likes" | "time",
+): string {
   if (loading) {
     return "加载中…";
+  }
+
+  if (sortBy === "recommended") {
+    return `共 ${total} 条，按推荐排序`;
+  }
+
+  if (sortBy === "time") {
+    return `共 ${total} 条，按时间倒序`;
   }
 
   return `共 ${total} 条，按点赞倒序`;

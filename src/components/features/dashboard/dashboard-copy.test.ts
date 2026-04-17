@@ -14,8 +14,10 @@ import {
 
 describe("dashboard copy helpers", () => {
   it("builds the video section description from loading and total state", () => {
-    expect(getDashboardVideoSectionDescription(true, 0)).toBe("加载中…");
-    expect(getDashboardVideoSectionDescription(false, 12)).toBe("共 12 条，按点赞倒序");
+    expect(getDashboardVideoSectionDescription(true, 0, "recommended")).toBe("加载中…");
+    expect(getDashboardVideoSectionDescription(false, 12, "recommended")).toBe("共 12 条，按推荐排序");
+    expect(getDashboardVideoSectionDescription(false, 12, "likes")).toBe("共 12 条，按点赞倒序");
+    expect(getDashboardVideoSectionDescription(false, 12, "time")).toBe("共 12 条，按时间倒序");
   });
 
   it("returns semantic tones for tag and bring-order state", () => {

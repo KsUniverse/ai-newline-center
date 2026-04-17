@@ -1,6 +1,7 @@
 import type { BenchmarkVideo, BenchmarkVideoTag, Prisma, PrismaClient } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { DashboardVideoSortBy } from "@/types/benchmark-video";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
 
@@ -26,6 +27,30 @@ export type BenchmarkVideoWithLatestSnapshot = Prisma.BenchmarkVideoGetPayload<{
 }>;
 
 class BenchmarkVideoRepository {
+  private encodeDashboardCursor(
+    sortBy: DashboardVideoSortBy,
+    item: {
+      id: string;
+      likeCount: number;
+      publishedAt: Date | null;
+    },
+  ): string | null {
+    if (sortBy === "time") {
+      if (!item.publishedAt) {
+        return null;
+      }
+
+      return Buffer.from(
+        JSON.stringify({
+          publishedAt: item.publishedAt.toISOString(),
+          id: item.id,
+        }),
+      ).toString("base64url");
+    }
+
+    return `${item.likeCount}_${item.id}`;
+  }
+
   async upsertByVideoId(
     data: {
       videoId: string;
@@ -240,6 +265,7 @@ class BenchmarkVideoRepository {
       organizationId?: string;
       publishedAtGte?: Date;
       publishedAtLt?: Date;
+      sortBy: DashboardVideoSortBy;
       customTag?: BenchmarkVideoTag | null;
       isBringOrder?: boolean;
       cursor?: string;
@@ -276,20 +302,42 @@ class BenchmarkVideoRepository {
       ...(params.isBringOrder !== undefined ? { isBringOrder: params.isBringOrder } : {}),
     };
 
-    // cursor decoding: "{likeCount}_{id}"
     let cursorWhere: Prisma.BenchmarkVideoWhereInput | undefined;
     if (params.cursor) {
-      const parts = params.cursor.split("_");
-      const firstPart = parts[0];
-      const cursorLikeCount = firstPart !== undefined ? parseInt(firstPart, 10) : NaN;
-      const cursorId = parts.slice(1).join("_");
-      if (!isNaN(cursorLikeCount) && cursorId) {
-        cursorWhere = {
-          OR: [
-            { likeCount: { lt: cursorLikeCount } },
-            { likeCount: cursorLikeCount, id: { gt: cursorId } },
-          ],
-        };
+      if (params.sortBy === "time") {
+        try {
+          const decoded = JSON.parse(
+            Buffer.from(params.cursor, "base64url").toString("utf8"),
+          ) as { publishedAt?: string; id?: string };
+          const cursorPublishedAt =
+            decoded.publishedAt ? new Date(decoded.publishedAt) : null;
+
+          if (
+            cursorPublishedAt &&
+            !Number.isNaN(cursorPublishedAt.getTime()) &&
+            decoded.id
+          ) {
+            cursorWhere = {
+              OR: [
+                { publishedAt: { lt: cursorPublishedAt } },
+                { publishedAt: cursorPublishedAt, id: { gt: decoded.id } },
+              ],
+            };
+          }
+        } catch {}
+      } else {
+        const parts = params.cursor.split("_");
+        const firstPart = parts[0];
+        const cursorLikeCount = firstPart !== undefined ? parseInt(firstPart, 10) : NaN;
+        const cursorId = parts.slice(1).join("_");
+        if (!isNaN(cursorLikeCount) && cursorId) {
+          cursorWhere = {
+            OR: [
+              { likeCount: { lt: cursorLikeCount } },
+              { likeCount: cursorLikeCount, id: { gt: cursorId } },
+            ],
+          };
+        }
       }
     }
 
@@ -297,10 +345,15 @@ class BenchmarkVideoRepository {
       ? { AND: [where, cursorWhere] }
       : where;
 
+    const orderBy: Prisma.BenchmarkVideoOrderByWithRelationInput[] =
+      params.sortBy === "time"
+        ? [{ publishedAt: "desc" }, { id: "asc" }]
+        : [{ likeCount: "desc" }, { id: "asc" }];
+
     const [items, total] = await Promise.all([
       db.benchmarkVideo.findMany({
         where: finalWhere,
-        orderBy: [{ likeCount: "desc" }, { id: "asc" }],
+        orderBy,
         take: params.limit + 1,
         select: {
           id: true,
@@ -325,7 +378,7 @@ class BenchmarkVideoRepository {
       items.pop();
       const last = items[items.length - 1];
       if (last) {
-        nextCursor = `${last.likeCount}_${last.id as string}`;
+        nextCursor = this.encodeDashboardCursor(params.sortBy, last);
       }
     }
 

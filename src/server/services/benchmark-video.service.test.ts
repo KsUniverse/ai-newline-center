@@ -49,12 +49,38 @@ describe("benchmarkVideoService", () => {
       },
       {
         dateRange: "today",
+        sortBy: "recommended",
       },
     );
 
     expect(findDashboardVideosMock).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: undefined,
+        sortBy: "recommended",
+      }),
+    );
+  });
+
+  it("passes time sorting through to the repository", async () => {
+    const { benchmarkVideoService } = await import("@/server/services/benchmark-video.service");
+
+    await benchmarkVideoService.listDashboardVideos(
+      {
+        id: "employee_1",
+        account: "employee",
+        role: UserRole.EMPLOYEE,
+        organizationId: "org_1",
+      },
+      {
+        dateRange: "today",
+        sortBy: "time",
+      },
+    );
+
+    expect(findDashboardVideosMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: "org_1",
+        sortBy: "time",
       }),
     );
   });

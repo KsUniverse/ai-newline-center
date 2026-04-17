@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { dashboardApi } from "@/lib/api-client";
 import type { DouyinVideoDTO } from "@/types/douyin-account";
 import {
+  type DashboardVideoSortBy,
   type BenchmarkVideoTag,
   type DateRangeToken,
   type DashboardVideoItem,
@@ -40,6 +41,7 @@ const INITIAL_WORKSPACE_LAUNCHER_STATE: WorkspaceLauncherState = {
 
 export function DashboardVideoSection() {
   const [dateRange, setDateRange] = useState<DateRangeToken>("today");
+  const [sortBy, setSortBy] = useState<DashboardVideoSortBy>("recommended");
   const [customTag, setCustomTag] = useState<BenchmarkVideoTag | "ALL">("ALL");
   const [isBringOrder, setIsBringOrder] = useState<"all" | "true" | "false">("all");
   const [items, setItems] = useState<DashboardVideoItem[]>([]);
@@ -56,6 +58,7 @@ export function DashboardVideoSection() {
     async (cursor?: string) => {
       const params = {
         dateRange,
+        sortBy,
         ...(customTag !== "ALL" ? { customTag: customTag as BenchmarkVideoTag } : {}),
         ...(isBringOrder !== "all" ? { isBringOrder: isBringOrder === "true" } : {}),
         ...(cursor ? { cursor } : {}),
@@ -64,7 +67,7 @@ export function DashboardVideoSection() {
       const result = await dashboardApi.getVideos(params);
       return result;
     },
-    [dateRange, customTag, isBringOrder],
+    [dateRange, sortBy, customTag, isBringOrder],
   );
 
   const loadInitial = useCallback(async () => {
@@ -161,9 +164,11 @@ export function DashboardVideoSection() {
   const actions = (
     <DashboardVideoFilterBar
       dateRange={dateRange}
+      sortBy={sortBy}
       customTag={customTag}
       isBringOrder={isBringOrder}
       onDateRangeChange={setDateRange}
+      onSortByChange={setSortBy}
       onCustomTagChange={setCustomTag}
       onBringOrderChange={setIsBringOrder}
     />
@@ -173,7 +178,7 @@ export function DashboardVideoSection() {
     <SurfaceSection
       eyebrow="Video Monitor"
       title="短视频列表"
-      description={getDashboardVideoSectionDescription(loading, total)}
+      description={getDashboardVideoSectionDescription(loading, total, sortBy)}
       actions={actions}
       bodyClassName="space-y-5"
     >
