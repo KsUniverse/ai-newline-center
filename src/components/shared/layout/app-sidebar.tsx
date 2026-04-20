@@ -114,24 +114,24 @@ export function AppSidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "relative hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border/60 bg-sidebar md:flex",
+          "relative hidden h-screen shrink-0 flex-col overflow-hidden border-r border-border/50 bg-sidebar md:flex",
           "transition-[width] duration-200",
           collapsed ? "w-16" : "w-60",
         )}
       >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_28%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--sidebar))_55%,hsl(var(--background))_100%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.14]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.22)_100%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.08]" />
 
         <div className="relative flex h-full flex-col">
           <div className="border-b border-border/40 p-3">
             <div
               className={cn(
-                "overflow-hidden rounded-3xl border border-border/60 bg-card/80 shadow-sm",
+                "overflow-hidden rounded-xl border border-border/60 bg-card",
                 collapsed ? "px-0 py-3" : "px-3 py-3",
               )}
             >
               <div className={cn("flex items-center gap-3", collapsed ? "justify-center" : "") }>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/14 bg-primary text-sm font-bold text-primary-foreground">
                   A
                 </div>
                 {!collapsed ? (
@@ -143,7 +143,7 @@ export function AppSidebar() {
               </div>
 
               {!collapsed ? (
-                <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-3">
+                <div className="mt-4 rounded-lg border border-border/55 bg-background p-3">
                   <div className="flex items-center gap-2 text-primary">
                     <Sparkles className="h-3.5 w-3.5" />
                     <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Workspace</p>
@@ -172,10 +172,10 @@ export function AppSidebar() {
                               <Link
                                 href={item.href}
                                 className={cn(
-                                  "relative mx-auto flex h-11 w-11 items-center justify-center rounded-2xl border transition-all",
+                                  "relative mx-auto flex h-11 w-11 items-center justify-center rounded-lg border transition-colors",
                                   isActive
-                                    ? "border-primary/25 bg-primary/12 text-primary shadow-lg shadow-primary/10"
-                                    : "border-transparent bg-background/60 text-muted-foreground hover:border-border/60 hover:bg-card/80 hover:text-foreground",
+                                    ? "border-border/60 bg-accent/65 text-primary"
+                                    : "border-transparent bg-transparent text-muted-foreground hover:border-border/50 hover:bg-accent/65 hover:text-foreground",
                                 )}
                               >
                                 <Icon className="h-4 w-4" />
@@ -200,13 +200,13 @@ export function AppSidebar() {
             </nav>
           </div>
 
-          <div className="border-t border-border/40 p-3">
-            <div className={cn("rounded-3xl border border-border/60 bg-card/80 p-2 shadow-sm", collapsed ? "px-1.5" : "px-2.5") }>
+          <div className="border-t border-border/28 p-3">
+            <div className={cn("rounded-xl border border-border/60 bg-card p-2", collapsed ? "px-1.5" : "px-2.5") }>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-sm transition-colors hover:bg-background/70",
+                      "flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-accent/55",
                       collapsed && "justify-center px-0",
                     )}
                   >
@@ -226,7 +226,7 @@ export function AppSidebar() {
                   align={collapsed ? "center" : "start"}
                   sideOffset={10}
                   className={cn(
-                    "border-border/60 bg-popover/95",
+                    "border-border/60 bg-popover",
                     collapsed ? "w-56" : "w-[var(--radix-dropdown-menu-trigger-width)] min-w-0",
                   )}
                 >
@@ -251,7 +251,7 @@ export function AppSidebar() {
                 size="icon"
                 onClick={toggle}
                 className={cn(
-                  "mt-2 h-10 w-full rounded-2xl border border-transparent bg-background/50 text-muted-foreground hover:border-border/60 hover:bg-background/80 hover:text-foreground",
+                  "mt-2 h-10 w-full rounded-lg border border-transparent bg-transparent text-muted-foreground hover:border-border/50 hover:bg-accent/65 hover:text-foreground",
                   collapsed ? "mx-auto w-10 justify-center px-0" : "justify-start gap-3 px-3",
                 )}
               >

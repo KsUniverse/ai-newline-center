@@ -58,7 +58,7 @@ export function LoginForm() {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-xl">
+    <div className="overflow-hidden rounded-xl border border-border/55 bg-card shadow-xl">
       {/* Brand accent top bar */}
       <div className="h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
       <div className="p-8">

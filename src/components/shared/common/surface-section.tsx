@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { BRAND_SURFACE_CLASS_NAME } from "@/components/shared/common/brand";
+import {
+  BRAND_DIVIDER_CLASS_NAME,
+  BRAND_SURFACE_CLASS_NAME,
+} from "@/components/shared/common/brand";
 
 export interface SurfaceSectionProps {
   eyebrow?: string;
@@ -29,10 +32,9 @@ export function SurfaceSection({
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.12),transparent_42%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.12]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-border/18" />
 
-      <div className="relative border-b border-border/60 px-5 py-5 sm:px-6">
+      <div className={cn("relative border-b px-5 py-5 sm:px-6", BRAND_DIVIDER_CLASS_NAME)}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1.5">
             {eyebrow ? (

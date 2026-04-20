@@ -62,9 +62,9 @@ export function OrganizationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg border-border/60 bg-card/95 p-0 shadow-2xl shadow-black/15">
+      <DialogContent className="max-w-lg border-border/55 bg-card/95 p-0">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_34%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.06),transparent_28%)]" />
-        <DialogHeader className="border-b border-border/60 px-6 py-6 text-left">
+        <DialogHeader className="border-b border-border/35 px-6 py-6 text-left">
           <ManagementPanelHeading
             icon={Building2}
             title={mode === "create" ? "新建分公司" : "编辑分公司"}
@@ -77,9 +77,9 @@ export function OrganizationDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="relative flex flex-col gap-5 px-6 py-6">
-          <div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm sm:p-5">
+          <div className="rounded-xl border border-border/55 bg-background/80 p-4 sm:p-5">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
                 <Building2 className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ export function OrganizationDialog({
                   maxLength={100}
                   disabled={loading}
                   autoFocus
-                  className="mt-2 rounded-2xl border-border/60 bg-card px-3.5 py-2.5"
+                  className="mt-2 rounded-lg border-border/55 bg-card px-3.5 py-2.5"
                 />
                 <div className="mt-2 flex items-center justify-between gap-3 text-xs">
                   {error ? <p className="text-destructive">{error}</p> : <span className="text-muted-foreground">建议使用稳定、易识别的正式组织名称。</span>}
@@ -109,7 +109,7 @@ export function OrganizationDialog({
             组织名称将用于用户归属、组织管理和权限范围展示，建议保持简洁且稳定。
           </ManagementNote>
 
-          <DialogFooter className="gap-2 border-t border-border/60 pt-5">
+          <DialogFooter className="gap-2 border-t border-border/35 pt-5">
             <Button
               type="button"
               variant="outline"

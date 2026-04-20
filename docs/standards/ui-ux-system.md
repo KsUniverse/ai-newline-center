@@ -1,6 +1,6 @@
 # UI/UX 设计系统
 
-> 摘要：亮色优先、暗色兼容的品牌化运营界面。以卡片化内容表面、气氛层背景、统一页面壳、共享弹层原语为核心。基于 Tailwind CSS 4 + shadcn/ui，所有稳定样式模式必须回写到本文档和前端架构文档。
+> 摘要：亮色优先、暗色兼容的品牌化运营界面。当前基线为更扁平、偏硬朗的品牌编辑台风格：用清晰描边、规整块面、克制的氛围层和统一页面壳表达层级，而不是依赖厚圆角、玻璃感和漂浮阴影。基于 Tailwind CSS 4 + shadcn/ui，所有稳定样式模式必须回写到本文档和前端架构文档。
 
 ## 规范来源
 
@@ -16,7 +16,7 @@
 
 ## 设计原则
 
-1. **品牌化但克制**：避免模板化 SaaS 外观，用气氛层、卡片和字距建立识别度，但不过度装饰。
+1. **品牌化但克制**：避免模板化 SaaS 外观，保留品牌感，但用更硬朗的面板、排版和边界而不是柔和玻璃效果建立识别度。
 2. **表面层级清晰**：页面背景、区块表面、浮层、危险反馈必须有明确层次，而不是只靠单一灰度区分。
 3. **上下文优先**：创建、编辑、确认、查看优先在当前页面完成，减少页面跳转。
 4. **共享原语先行**：菜单、弹框、抽屉、页面壳统一从全局原语收敛，不允许每个功能各做一套。
@@ -91,16 +91,16 @@
 
 ### 圆角
 
-- 基准圆角：`--radius: 0.4rem`
+- 基准圆角：`--radius: 0.3rem`
 - 输入 / 按钮：`rounded-md`
-- 图标壳 / 内嵌小卡：`rounded-xl` ~ `rounded-2xl`
-- 区块表面 / 浮层：`rounded-2xl` ~ `rounded-3xl`
+- 图标壳 / 内嵌小卡：`rounded-md` ~ `rounded-lg`
+- 区块表面 / 浮层：`rounded-lg` ~ `rounded-xl`
 
 ### 阴影
 
-- 普通表面：`shadow-sm`
-- 浮层：`shadow-xl shadow-black/10`
-- 主 Dialog / Sheet：`shadow-2xl shadow-black/15`
+- 普通表面：默认无阴影或近乎不可见的浅阴影
+- 浮层：轻量紧凑阴影，只提示层级
+- 主 Dialog / Sheet：以实底面板 + 清晰边框为主，阴影仅作补充
 
 本项目用法上**边框优先于重阴影**，阴影只用于提示悬浮层级，不用于制造厚重拟物感。
 
@@ -114,15 +114,15 @@
 
 ### 玻璃感与透出
 
-固定头部、悬浮区块、抽屉和菜单允许使用半透明背景 + blur：
+固定头部、悬浮区块、抽屉和菜单默认采用更实的底色和更清楚的边框；若确实需要透出，只允许极轻量 blur：
 
 ```tsx
-bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60
+bg-background
 ```
 
 约束：
 
-- 必须写 `supports-backdrop-filter:*` 渐进增强
+- blur 只作为少量增强，不再构成主视觉语言
 - 不能只写 blur 而没有实底色回退
 
 ### 滚动条
@@ -192,8 +192,8 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 页面中的业务表面统一使用如下层级：
 
-- 主区块：`rounded-3xl border border-border/60 bg-card/80 p-* shadow-sm`
-- 内嵌表面：`rounded-2xl border border-border/60 bg-background/80`
+- 主区块：`rounded-xl border border-border/55 bg-card p-*`
+- 内嵌表面：`rounded-lg border border-border/45 bg-background`
 - 危险或错误提示：语义色边框 + 极浅危险背景
 
 ## 共享交互原语
@@ -206,10 +206,10 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 | 原语 | 用途 | 当前视觉契约 |
 |------|------|--------------|
-| `DropdownMenu` | 用户菜单、表格行操作、轻量上下文动作 | `rounded-2xl`、`border-border/60`、`bg-popover/95`、`backdrop-blur-xl` |
-| `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-3xl`、`bg-card/95`、关闭按钮使用小型图标壳 |
+| `DropdownMenu` | 用户菜单、表格行操作、轻量上下文动作 | `rounded-xl`、`border-border/55`、`bg-popover` |
+| `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-xl`、`border-border/55`、`bg-card`、关闭按钮使用紧凑图标壳 |
 | `AlertDialog` | 删除、确认、危险动作 | Header/Footer 分区明确，按钮规格统一 `h-8 rounded-md px-3` |
-| `Sheet` | 长表单、复杂流程、移动端导航 | 半透明浮层表面、右侧/左侧滑出、统一关闭按钮 |
+| `Sheet` | 长表单、复杂流程、移动端导航 | 实底侧滑面板、右侧/左侧滑出、统一关闭按钮 |
 | `Fullscreen Workspace Overlay` | 沉浸式三栏工作流、共享元素展开 | 全屏卡片化壳、来源卡片共享展开、关闭时反向回收 |
 
 ### 交互选择顺序
@@ -226,7 +226,7 @@ Dashboard 首页默认采用**快捷入口模式**：
 视觉与交互约束：
 
 - 来源通常是一张列表卡片，打开时应保持“卡片被放大并进入工作台”的连续感。
-- 工作台本体继续使用项目现有 `rounded-[28px] border border-border/60 bg-card/95 shadow-2xl` 表面体系，不另起一套皮肤。
+- 工作台本体继续使用项目现有卡片化壳层，但优先向 `rounded-xl border border-border/55 bg-card` 的共享体系收拢，不另起一套柔和皮肤。
 - 背景遮罩、壳层 chrome、正文区和侧栏区允许分阶段淡入，但动效必须服从内容，不可喧宾夺主。
 - 关闭时优先反向回收至来源卡片；若无来源锚点，才退化为普通淡出关闭。
 - 同一模式下必须支持 `Escape`、点击 backdrop 关闭、body scroll lock，以及来源卡片在工作台打开期间隐藏、关闭时再显现。
@@ -265,7 +265,7 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 约束：
 
-- 管理页不再自行复制 `rounded-3xl border border-border/60 bg-background/80 shadow-sm` 这类稳定表面组合
+- 管理页不再自行复制 `rounded-xl border border-border/55 bg-background` 或 `rounded-lg border border-border/45 bg-background` 这类稳定表面组合
 - 复用时允许覆盖文案、图标和局部栅格，不允许重新发明另一套基础皮肤
 - 同一页面内的指标卡、提醒卡、字段块应保持一套圆角、边框和阴影节奏
 
@@ -280,7 +280,7 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 列表页和详情页标题区内的 summary chips 使用统一的 compact pill 模式：
 
-- 结构：圆角胶囊 + 可选图标 + 单行状态文案
+- 结构：紧凑圆角面板 + 可选图标 + 单行状态文案
 - 用途：数量、同步节奏、筛选摘要、系统状态
 - 禁止：在 chips 中塞入长段解释文案，或为每个页面重写一套 pill 样式
 - 详情页首屏的弱信息优先并入 chips；关键动作直接放入标题区或摘要区，避免再并排堆叠一整组说明卡
@@ -297,15 +297,15 @@ Dashboard 首页默认采用**快捷入口模式**：
 示例：
 
 ```tsx
-<div className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-sm">
+<div className="rounded-xl border border-border/75 bg-background p-4">
   <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">
     Profile URL
   </p>
   <Label htmlFor="profile-url" className="text-sm font-medium text-foreground/90">
     抖音主页链接
   </Label>
-  <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/90 px-3 py-3">
-    <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-background/90 text-primary">
+  <div className="flex items-center gap-3 rounded-lg border border-border/75 bg-card px-3 py-3">
+    <span className="flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background text-primary">
       <Link2 className="h-4 w-4" />
     </span>
     <Input className="h-auto border-0 bg-transparent px-0 py-0 shadow-none" />

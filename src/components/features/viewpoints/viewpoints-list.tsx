@@ -39,7 +39,7 @@ function ViewpointSkeleton() {
       {Array.from({ length: 3 }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-2xl border border-border/60 bg-card/82 p-4 shadow-sm"
+          className="animate-pulse rounded-lg border border-border/55 bg-card/82 p-4"
         >
           <div className="mb-3 h-4 w-3/4 rounded-full bg-muted/60" />
           <div className="mb-2 h-4 w-full rounded-full bg-muted/60" />
@@ -170,7 +170,7 @@ export function ViewpointsList({
         type="search"
         placeholder="搜索观点内容..."
         onChange={(e) => handleQueryChange(e.target.value)}
-        className="max-w-sm rounded-2xl border-border/60 bg-background/80"
+        className="max-w-sm rounded-lg border-border/55 bg-background/80"
       />
 
       {!initialLoaded ? (
@@ -191,7 +191,7 @@ export function ViewpointsList({
             return (
               <div
                 key={item.id}
-                className="group relative rounded-2xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm transition-colors hover:border-border/80"
+                className="group relative rounded-lg border border-border/55 bg-card/82 px-4 py-4 transition-colors hover:border-border/60"
               >
                 <p className="line-clamp-3 text-sm leading-7 text-foreground/90">{item.content}</p>
                 <div className="mt-2 flex items-center justify-between gap-3">

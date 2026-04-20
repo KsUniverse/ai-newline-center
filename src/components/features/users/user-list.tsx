@@ -45,7 +45,7 @@ const ROLE_LABELS: Record<UserDTO["role"], string> = {
 const ROLE_STYLES: Record<UserDTO["role"], string> = {
   SUPER_ADMIN: "border-primary/20 bg-primary/10 text-primary",
   BRANCH_MANAGER: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  EMPLOYEE: "border-border/60 bg-background/80 text-muted-foreground",
+  EMPLOYEE: "border-border/55 bg-background/80 text-muted-foreground",
 };
 
 interface UserListProps {
@@ -99,12 +99,12 @@ export function UserList({
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+            <div key={index} className="h-24 animate-pulse rounded-lg border border-border/55 bg-background/80" />
           ))}
         </div>
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-20 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+            <div key={index} className="h-20 animate-pulse rounded-lg border border-border/55 bg-background/80" />
           ))}
         </div>
       </div>
@@ -130,7 +130,7 @@ export function UserList({
               value={selectedOrgId ?? "all"}
               onValueChange={(value) => onOrgFilterChange?.(value === "all" ? "" : value)}
             >
-              <SelectTrigger className="mt-4 h-10 w-full rounded-2xl border-border/60 bg-card/90 text-sm shadow-sm">
+              <SelectTrigger className="mt-4 h-10 w-full rounded-lg border-border/55 bg-card/90 text-sm">
                 <SelectValue placeholder="全部分公司" />
               </SelectTrigger>
               <SelectContent>
@@ -166,7 +166,7 @@ export function UserList({
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-base font-semibold tracking-tight text-foreground/95">{user.name}</p>
-                        <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-2xs font-medium", ROLE_STYLES[user.role])}>
+                        <span className={cn("inline-flex items-center rounded-md border px-2.5 py-1 text-2xs font-medium", ROLE_STYLES[user.role])}>
                           {ROLE_LABELS[user.role]}
                         </span>
                       </div>
@@ -210,11 +210,11 @@ export function UserList({
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
+                    <div className="rounded-lg border border-border/55 bg-card/75 p-3">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">所属分公司</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{user.organization.name}</p>
                     </div>
-                      <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
+                      <div className="rounded-lg border border-border/55 bg-card/75 p-3">
                         <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">状态</p>
                         <StatusPill dotClassName={status.dotClassName} label={status.label} className="mt-1 border-0 bg-transparent px-0 py-0 shadow-none [&>span:last-child]:font-medium [&>span:last-child]:text-foreground/90" />
                       </div>
@@ -229,7 +229,7 @@ export function UserList({
           <div className={managementTableWrapperClassName}>
             <Table className="border-b-0 text-sm">
               <TableHeader className={cn("bg-background/85 backdrop-blur-sm")}>
-                <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
+                <TableRow className="hover:bg-transparent border-border/55 *:h-11 *:align-middle">
                   <TableHead className="pl-5 font-semibold text-foreground/70">姓名</TableHead>
                   <TableHead className="font-semibold text-foreground/70">账号</TableHead>
                   <TableHead className="w-36 font-semibold text-foreground/70">角色</TableHead>
@@ -244,10 +244,10 @@ export function UserList({
                   const status = getStatusMeta(user.status);
 
                   return (
-                    <TableRow key={user.id} className="group border-border/60 transition-colors hover:bg-primary/5">
+                    <TableRow key={user.id} className="group border-border/55 transition-colors hover:bg-primary/5">
                       <TableCell className="pl-5">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
                             <Users className="h-4 w-4" />
                           </div>
                           <div>
@@ -258,7 +258,7 @@ export function UserList({
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground/80">{user.account}</TableCell>
                       <TableCell>
-                        <div className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-2xs font-medium", ROLE_STYLES[user.role])}>
+                        <div className={cn("inline-flex items-center rounded-md border px-2.5 py-1 text-2xs font-medium", ROLE_STYLES[user.role])}>
                           {ROLE_LABELS[user.role]}
                         </div>
                       </TableCell>

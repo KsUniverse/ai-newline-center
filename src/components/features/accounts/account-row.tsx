@@ -21,7 +21,7 @@ export function AccountRow({ accounts, showAddButton, onAddClick }: AccountRowPr
         <button
           type="button"
           onClick={onAddClick}
-          className="flex min-w-50 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+          className="flex min-w-50 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border/55 px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
         >
           <Plus className="h-4 w-4" />
           添加账号

@@ -6,6 +6,16 @@ export interface AiWorkspaceTransitionOrigin {
   borderRadius: number;
 }
 
+export function parseBorderRadiusPx(value: string | null | undefined): number {
+  const parsedValue = Number.parseFloat(value ?? "");
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return parsedValue;
+}
+
 export function buildAiWorkspaceTransitionOrigin(
   rect: Pick<DOMRect, "top" | "left" | "width" | "height">,
   borderRadius: number = 16,

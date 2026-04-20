@@ -216,7 +216,7 @@ export function BenchmarkDetailPageView() {
     >
       <div className="animate-in-up-d1">
         {loading || !account ? (
-          <div className="h-105 animate-pulse rounded-3xl border border-border/60 bg-card" />
+          <div className="h-105 animate-pulse rounded-xl border border-border/55 bg-card" />
         ) : (
           <BenchmarkDetailHeader
             account={account}

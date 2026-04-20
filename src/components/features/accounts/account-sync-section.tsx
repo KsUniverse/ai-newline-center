@@ -44,7 +44,7 @@ export function AccountSyncSection({
   }
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm">
+    <div className="rounded-lg border border-border/55 bg-background/80 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">Sync Control</p>

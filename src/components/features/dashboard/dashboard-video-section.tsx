@@ -193,7 +193,7 @@ export function DashboardVideoSection() {
       />
 
       {nextCursor && !loading && (
-        <div className="border-t border-border/40 pt-5">
+        <div className="border-t border-border/28 pt-5">
           <Button
             variant="outline"
             size="sm"

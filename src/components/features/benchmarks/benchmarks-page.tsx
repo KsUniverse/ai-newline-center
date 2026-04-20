@@ -128,7 +128,7 @@ export function BenchmarksPageView() {
           <Button
             onClick={() => setDrawerOpen(true)}
             size="sm"
-            className="h-8 rounded-md px-3 text-sm shadow-sm"
+            className="h-8 rounded-md px-3 text-sm"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {BENCHMARK_ADD_ACTION_LABEL}
@@ -156,7 +156,7 @@ export function BenchmarksPageView() {
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-72 animate-pulse rounded-3xl border border-border/60 bg-card"
+                  className="h-72 animate-pulse rounded-xl border border-border/55 bg-card"
                 />
               ))}
             </div>

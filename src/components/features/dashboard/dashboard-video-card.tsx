@@ -3,7 +3,11 @@
 import { useRef, useState } from "react";
 import { Film, Heart } from "lucide-react";
 
-import type { AiWorkspaceTransitionOrigin } from "@/components/features/benchmarks/ai-workspace-transition";
+import {
+  buildAiWorkspaceTransitionOrigin,
+  parseBorderRadiusPx,
+  type AiWorkspaceTransitionOrigin,
+} from "@/components/features/benchmarks/ai-workspace-transition";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +107,7 @@ export function DashboardVideoCard({
   return (
     <article
       className={cn(
-        "group relative aspect-3/4 overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        "group relative aspect-3/4 overflow-hidden rounded-lg border border-border/55 bg-card/90 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card",
         hidden && "pointer-events-none opacity-0",
       )}
       onMouseEnter={handleMouseEnter}
@@ -112,16 +116,16 @@ export function DashboardVideoCard({
       <button
         type="button"
         aria-label={`打开 ${video.title} 的仿写工作台`}
-        className="absolute inset-0 z-10"
+        className="absolute inset-0 z-10 rounded-lg"
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
-          onOpenWorkspace(video.id, {
-            top: rect.top,
-            left: rect.left,
-            width: rect.width,
-            height: rect.height,
-            borderRadius: 24,
-          });
+          const borderRadius = parseBorderRadiusPx(
+            window.getComputedStyle(event.currentTarget).borderTopLeftRadius,
+          );
+          onOpenWorkspace(
+            video.id,
+            buildAiWorkspaceTransitionOrigin(rect, borderRadius),
+          );
         }}
       />
 
@@ -203,7 +207,7 @@ export function DashboardVideoCard({
         <button
           type="button"
           onClick={() => onOpenAccountDetail(video.account.id)}
-          className="pointer-events-auto mb-2 inline-flex max-w-full items-center rounded-full border border-white/15 bg-black/25 px-2.5 py-1 text-2xs text-white/80 backdrop-blur-sm transition-colors hover:border-white/30 hover:bg-black/35"
+          className="pointer-events-auto mb-2 inline-flex max-w-full items-center rounded-md border border-white/15 bg-black/25 px-2.5 py-1 text-2xs text-white/80 backdrop-blur-sm transition-colors hover:border-white/30 hover:bg-black/35"
         >
           <span className="truncate">@{video.account.nickname}</span>
         </button>

@@ -111,9 +111,9 @@ export const ViewpointPicker = memo(function ViewpointPicker({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl overflow-hidden rounded-3xl border-border/60 bg-card/95 p-0">
+      <DialogContent className="max-w-xl overflow-hidden rounded-xl border-border/55 bg-card/95 p-0">
         <div className="flex flex-col">
-          <DialogHeader className="border-b border-border/60 px-5 py-4 text-left">
+          <DialogHeader className="border-b border-border/35 px-5 py-4 text-left">
             <DialogTitle className="text-base font-semibold tracking-tight text-foreground/95">
               选择今日观点
             </DialogTitle>
@@ -122,14 +122,14 @@ export const ViewpointPicker = memo(function ViewpointPicker({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border-b border-border/60 px-5 py-3">
+          <div className="border-b border-border/35 px-5 py-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="搜索观点内容..."
-                className="h-9 rounded-xl border-border/60 bg-background/80 pl-9 text-sm"
+                className="h-9 rounded-xl border-border/55 bg-background/80 pl-9 text-sm"
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ export const ViewpointPicker = memo(function ViewpointPicker({
                 return (
                   <label
                     key={item.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border/60 bg-background/60 px-4 py-3 transition-colors hover:bg-background/90"
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/55 bg-background/60 px-4 py-3 transition-colors hover:bg-background/90"
                   >
                     <Checkbox
                       checked={checked}
@@ -172,12 +172,12 @@ export const ViewpointPicker = memo(function ViewpointPicker({
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-border/60 px-5 py-4">
+          <div className="flex items-center justify-between border-t border-border/35 px-5 py-4">
             <span className="text-sm text-muted-foreground/80">
               已选{" "}
               <Badge
                 variant="secondary"
-                className="rounded-full border border-border/60 bg-background/80 px-2 py-0.5 text-xs"
+                className="rounded-md border border-border/45 bg-background/80 px-2 py-0.5 text-xs"
               >
                 {localSelectedIds.length}
               </Badge>{" "}

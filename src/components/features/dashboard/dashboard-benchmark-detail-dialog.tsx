@@ -168,7 +168,7 @@ export function DashboardBenchmarkDetailDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[90vh] max-w-6xl gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b border-border/60 px-6 py-5">
+          <DialogHeader className="border-b border-border/35 px-6 py-5">
             <DialogTitle>博主详情</DialogTitle>
             <DialogDescription>
               在仪表盘内快速查看研究对象资料与作品样本，不离开当前工作区。
@@ -177,7 +177,7 @@ export function DashboardBenchmarkDetailDialog({
 
           <div className="max-h-[calc(90vh-88px)] space-y-6 overflow-y-auto px-6 py-6">
             {loading || !account ? (
-              <div className="h-80 animate-pulse rounded-3xl border border-border/60 bg-card" />
+              <div className="h-80 animate-pulse rounded-xl border border-border/55 bg-card" />
             ) : (
               <BenchmarkDetailHeader account={account} />
             )}

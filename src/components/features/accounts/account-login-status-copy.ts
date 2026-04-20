@@ -273,7 +273,7 @@ export function getAccountLoginStatusMeta(
       return {
         label: "未登录",
         description: "当前账号尚未绑定独立登录态，涉及登录态的同步能力暂不可用。",
-        className: "border-border/70 bg-muted/50 text-muted-foreground",
+        className: "border-border/50 bg-muted/50 text-muted-foreground",
         dotClassName: "bg-muted-foreground/70",
       };
   }

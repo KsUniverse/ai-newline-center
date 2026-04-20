@@ -69,12 +69,12 @@ export function OrganizationList({
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+            <div key={index} className="h-24 animate-pulse rounded-lg border border-border/55 bg-background/80" />
           ))}
         </div>
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-20 animate-pulse rounded-2xl border border-border/60 bg-background/80" />
+            <div key={index} className="h-20 animate-pulse rounded-lg border border-border/55 bg-background/80" />
           ))}
         </div>
       </div>
@@ -117,7 +117,7 @@ export function OrganizationList({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
                           <Building2 className="h-4 w-4" />
                         </div>
                         <p className="text-base font-semibold tracking-tight text-foreground/95">{org.name}</p>
@@ -158,11 +158,11 @@ export function OrganizationList({
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
+                    <div className="rounded-lg border border-border/55 bg-card/75 p-3">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">用户数</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{org._count?.users ?? 0} 个</p>
                     </div>
-                    <div className="rounded-2xl border border-border/60 bg-card/75 p-3 shadow-sm">
+                    <div className="rounded-lg border border-border/55 bg-card/75 p-3">
                       <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">创建时间</p>
                       <p className="mt-1 text-sm font-medium text-foreground/90">{formatDate(org.createdAt)}</p>
                     </div>
@@ -175,7 +175,7 @@ export function OrganizationList({
           <div className={managementTableWrapperClassName}>
             <Table className="border-b-0 text-sm">
               <TableHeader className="bg-background/85 backdrop-blur-sm">
-                <TableRow className="hover:bg-transparent border-border/60 *:h-11 *:align-middle">
+                <TableRow className="hover:bg-transparent border-border/55 *:h-11 *:align-middle">
                   <TableHead className="pl-5 font-semibold text-foreground/70">公司名称</TableHead>
                   <TableHead className="w-24 text-right font-semibold text-foreground/70">用户数</TableHead>
                   <TableHead className="w-28 font-semibold text-foreground/70">状态</TableHead>
@@ -188,10 +188,10 @@ export function OrganizationList({
                   const status = getStatusMeta(org.status);
 
                   return (
-                    <TableRow key={org.id} className="group border-border/60 transition-colors hover:bg-primary/5">
+                    <TableRow key={org.id} className="group border-border/55 transition-colors hover:bg-primary/5">
                       <TableCell className="pl-5">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary">
                             <Building2 className="h-4 w-4" />
                           </div>
                           <div>

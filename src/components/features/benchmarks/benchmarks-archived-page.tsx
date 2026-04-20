@@ -99,7 +99,7 @@ export function BenchmarksArchivedPageView() {
               {Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-72 animate-pulse rounded-3xl border border-border/60 bg-card"
+                  className="h-72 animate-pulse rounded-xl border border-border/55 bg-card"
                 />
               ))}
             </div>

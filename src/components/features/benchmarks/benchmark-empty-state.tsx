@@ -31,7 +31,7 @@ export function BenchmarkEmptyState({ archived = false, onAdd }: BenchmarkEmptyS
       tone={archived ? "muted" : "default"}
       action={
         !archived && onAdd ? (
-          <Button onClick={onAdd} size="sm" className="h-8 rounded-md px-3 text-sm shadow-sm">
+          <Button onClick={onAdd} size="sm" className="h-8 rounded-md px-3 text-sm">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             {BENCHMARK_ADD_ACTION_LABEL}
           </Button>

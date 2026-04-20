@@ -5,13 +5,14 @@ import { Film, Heart, MessageCircle } from "lucide-react";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
 import { cn, proxyImageUrl, formatNumber, formatDateTime } from "@/lib/utils";
+import { parseBorderRadiusPx } from "./ai-workspace-transition";
 
 import { getBenchmarkVideoStatusLabel } from "./benchmark-copy";
 
 interface BenchmarkVideoGridCardProps {
   video: DouyinVideoDTO;
   hidden?: boolean;
-  onClick: (rect: DOMRect) => void;
+  onClick: (rect: DOMRect, borderRadius: number) => void;
 }
 
 export function BenchmarkVideoGridCard({
@@ -73,12 +74,19 @@ export function BenchmarkVideoGridCard({
     <button
       type="button"
       className={cn(
-        "group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        "group relative aspect-3/4 w-full overflow-hidden rounded-lg border border-border/55 bg-card/90 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card",
         hidden && "opacity-0 pointer-events-none",
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={(event) => onClick(event.currentTarget.getBoundingClientRect())}
+      onClick={(event) =>
+        onClick(
+          event.currentTarget.getBoundingClientRect(),
+          parseBorderRadiusPx(
+            window.getComputedStyle(event.currentTarget).borderTopLeftRadius,
+          ),
+        )
+      }
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.16),transparent_34%)]" />
 
@@ -116,19 +124,19 @@ export function BenchmarkVideoGridCard({
 
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
         <div className="flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+          <span className="inline-flex items-center rounded-md border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
             研究样本
           </span>
           {video.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-2xs font-medium text-white/75 backdrop-blur-sm"
+              className="inline-flex items-center rounded-md border border-white/15 bg-black/30 px-2 py-0.5 text-2xs font-medium text-white/75 backdrop-blur-sm"
             >
               {tag}
             </span>
           ))}
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+        <span className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
           <span
             className={cn(
               "h-1.5 w-1.5 rounded-full",

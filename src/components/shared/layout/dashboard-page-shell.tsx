@@ -52,9 +52,9 @@ export function DashboardPageShell({
           {backHref && (
             <Link
               href={backHref}
-              className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-sm font-medium text-muted-foreground shadow-sm transition-all hover:border-primary/20 hover:bg-card hover:text-foreground"
+              className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border/55 bg-background px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-accent/65 hover:text-foreground"
             >
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-background/90 text-muted-foreground">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md border border-border/50 bg-background text-muted-foreground">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </span>
               {backLabel ?? "返回"}

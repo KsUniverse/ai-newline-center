@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useTheme } from "next-themes";
 
 import {
+  BRAND_DIVIDER_CLASS_NAME,
   getBrandNavHint,
   getBrandNavIconClassName,
   getBrandNavItemClassName,
@@ -35,7 +36,7 @@ export function AppHeader({ title }: AppHeaderProps) {
   const navSections = getVisibleNavSections(session?.user?.role);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/40 bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/35 bg-background px-6">
       <div className="flex items-center gap-3">
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetTrigger asChild>
@@ -43,13 +44,13 @@ export function AppHeader({ title }: AppHeaderProps) {
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-full border-r border-border/60 bg-card/95 p-0 sm:max-w-sm">
+          <SheetContent side="left" className="w-full border-r border-border/55 bg-card p-0 sm:max-w-sm">
             <div className="relative flex h-full flex-col overflow-hidden">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_30%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--card))_100%)]" />
-              <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.14]" />
-              <SheetHeader className="relative border-b border-border/60 px-5 py-5 text-left">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.22)_100%)]" />
+              <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.08]" />
+              <SheetHeader className={cn("relative border-b px-5 py-5 text-left", BRAND_DIVIDER_CLASS_NAME)}>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-primary/14 bg-primary text-sm font-bold text-primary-foreground">
                     A
                   </div>
                   <div className="min-w-0">
@@ -57,7 +58,7 @@ export function AppHeader({ title }: AppHeaderProps) {
                     <SheetTitle className="text-lg font-semibold tracking-tight text-foreground/95">工作区导航</SheetTitle>
                   </div>
                 </div>
-                <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+                <div className="mt-4 rounded-lg border border-border/55 bg-background p-3">
                   <div className="flex items-center gap-2 text-primary">
                     <Sparkles className="h-3.5 w-3.5" />
                     <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Control Surface</p>

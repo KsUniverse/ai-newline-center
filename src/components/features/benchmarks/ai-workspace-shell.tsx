@@ -5,9 +5,13 @@ import { createPortal } from "react-dom";
 import { Sparkles } from "lucide-react";
 
 import type { DouyinVideoDTO } from "@/types/douyin-account";
-import { proxyImageUrl } from "@/lib/utils";
+import { cn, proxyImageUrl } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  BRAND_DIVIDER_CLASS_NAME,
+  BRAND_WORKSPACE_PANEL_CLASS_NAME,
+} from "@/components/shared/common/brand";
 import {
   WORKSPACE_BACKDROP_LAYER_CLASS,
   WORKSPACE_GHOST_LAYER_CLASS,
@@ -33,7 +37,10 @@ import {
 
 import type { AiWorkspaceStage } from "./ai-workspace-controller";
 import { useAiWorkspaceController } from "./ai-workspace-controller";
-import type { AiWorkspaceTransitionOrigin } from "./ai-workspace-transition";
+import {
+  parseBorderRadiusPx,
+  type AiWorkspaceTransitionOrigin,
+} from "./ai-workspace-transition";
 import { AiWorkspaceVideoPane } from "./ai-workspace-video-pane";
 import { AiWorkspaceTranscriptCanvas } from "./ai-workspace-transcript-canvas";
 import { AiWorkspaceDecompositionPanel } from "./ai-workspace-decomposition-panel";
@@ -76,7 +83,12 @@ function WorkspacePreview({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1rem)] max-w-4xl overflow-hidden rounded-[28px] border-border/60 bg-card/95 p-0">
+      <DialogContent
+        className={cn(
+          "w-[calc(100vw-1rem)] max-w-4xl overflow-hidden p-0",
+          BRAND_WORKSPACE_PANEL_CLASS_NAME,
+        )}
+      >
         <div className="flex flex-col gap-4 p-5">
           <DialogHeader className="text-left">
             <DialogTitle className="text-lg font-semibold tracking-tight text-foreground/95">
@@ -91,10 +103,10 @@ function WorkspacePreview({
               controls
               autoPlay
               src={video.videoUrl}
-              className="aspect-video w-full rounded-3xl border border-border/60 bg-black"
+              className="aspect-video w-full rounded-xl border border-border/55 bg-black"
             />
           ) : (
-            <div className="flex aspect-video w-full items-center justify-center rounded-3xl border border-border/60 bg-muted text-muted-foreground">
+            <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-border/55 bg-muted text-muted-foreground">
               当前视频没有可播放地址
             </div>
           )}
@@ -115,7 +127,7 @@ function getTargetRect(anchor: HTMLElement | null): AiWorkspaceTransitionOrigin 
     left: rect.left,
     width: rect.width,
     height: rect.height,
-    borderRadius: 24,
+    borderRadius: parseBorderRadiusPx(window.getComputedStyle(anchor).borderTopLeftRadius),
   };
 }
 
@@ -357,7 +369,7 @@ export function AiWorkspaceShell({
     <>
       {ghostVisible && ghostRect ? (
         <div
-          className={`pointer-events-none fixed ${WORKSPACE_GHOST_LAYER_CLASS} overflow-hidden border border-border/60 bg-card/95 shadow-2xl shadow-black/25 transition-[top,left,width,height,border-radius,opacity] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+          className={`pointer-events-none fixed ${WORKSPACE_GHOST_LAYER_CLASS} overflow-hidden border border-border/55 bg-card/95 shadow-2xl shadow-black/25 transition-[top,left,width,height,border-radius,opacity] duration-420 ease-[cubic-bezier(0.22,1,0.36,1)]`}
           style={{
             top: ghostRect.top,
             left: ghostRect.left,
@@ -387,7 +399,10 @@ export function AiWorkspaceShell({
 
       <div className={`fixed inset-2 ${WORKSPACE_SHELL_LAYER_CLASS} flex items-center justify-center`}>
         <div
-          className="relative flex h-full w-full max-w-400 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-card/95 shadow-2xl shadow-black/20 transition-opacity duration-300"
+          className={cn(
+            "relative flex h-full w-full max-w-400 flex-col overflow-hidden shadow-2xl shadow-black/20 transition-opacity duration-300",
+            BRAND_WORKSPACE_PANEL_CLASS_NAME,
+          )}
           style={{ opacity: motionState.frameOpacity }}
           onClick={(event) => event.stopPropagation()}
         >
@@ -395,7 +410,10 @@ export function AiWorkspaceShell({
           <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.08]" />
 
           <div
-            className="relative border-b border-border/60 px-5 py-4 text-left transition-opacity duration-300 sm:px-6"
+            className={cn(
+              "relative border-b px-5 py-4 text-left transition-opacity duration-300 sm:px-6",
+              BRAND_DIVIDER_CLASS_NAME,
+            )}
             style={{ opacity: motionState.shellChromeOpacity }}
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -410,13 +428,13 @@ export function AiWorkspaceShell({
                   三段式 AI 工作台。先完成转录，再进入拆解，最后进入不可回退的仿写阶段。
                 </p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
+                  <Badge variant="secondary" className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-2xs font-medium">
                     {visualStage === "rewrite" ? "仿写阶段" : visualStage === "decompose" ? "拆解阶段" : "转录阶段"}
                   </Badge>
-                  <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
+                  <Badge variant="secondary" className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-2xs font-medium">
                     {visualStage === "rewrite" ? "仿写已锁定" : controller.locked ? "主文档已锁定" : "主文档可编辑"}
                   </Badge>
-                  <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs font-medium shadow-sm">
+                  <Badge variant="secondary" className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-2xs font-medium">
                     {controller.annotations.length} 条拆解锚点
                   </Badge>
                 </div>
@@ -465,7 +483,7 @@ export function AiWorkspaceShell({
                   return (
                     <div
                       key="video"
-                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/60`}
+                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/55`}
                     >
                       <AiWorkspaceVideoPane
                         ref={videoAnchorRef}
@@ -480,7 +498,7 @@ export function AiWorkspaceShell({
                   return (
                     <div
                       key="transcript"
-                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/60 transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/55 transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]`}
                       style={{
                         transform: motionState.secondTransform,
                         transformOrigin: "left center",
@@ -519,7 +537,7 @@ export function AiWorkspaceShell({
                   return (
                     <div
                       key="decomposition"
-                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/60 transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+                      className={`min-w-0 ${widthClass} overflow-hidden border-r border-border/55 transition-[transform,opacity] duration-280 ease-[cubic-bezier(0.22,1,0.36,1)]`}
                       style={{
                         transform:
                           index === 1

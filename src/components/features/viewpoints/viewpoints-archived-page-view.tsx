@@ -31,7 +31,7 @@ function ArchivedViewpointSkeleton() {
       {Array.from({ length: 3 }).map((_, index) => (
         <div
           key={index}
-          className="h-44 animate-pulse rounded-3xl border border-border/60 bg-card/82 shadow-sm"
+          className="h-44 animate-pulse rounded-xl border border-border/55 bg-card/82"
         />
       ))}
     </div>
@@ -158,7 +158,7 @@ export function ViewpointsArchivedPageView() {
           type="search"
           placeholder="搜索历史观点..."
           onChange={(event) => handleQueryChange(event.target.value)}
-          className="max-w-sm rounded-2xl border-border/60 bg-background/80"
+          className="max-w-sm rounded-lg border-border/55 bg-background/80"
         />
 
         {!initialLoaded ? (
@@ -182,7 +182,7 @@ export function ViewpointsArchivedPageView() {
                   {group.items.map((item) => (
                     <article
                       key={item.id}
-                      className="rounded-2xl border border-border/60 bg-background/80 px-4 py-4 shadow-sm"
+                      className="rounded-lg border border-border/55 bg-background/80 px-4 py-4"
                     >
                       <p className="text-sm leading-7 text-foreground/90">{item.content}</p>
                       <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground/70">

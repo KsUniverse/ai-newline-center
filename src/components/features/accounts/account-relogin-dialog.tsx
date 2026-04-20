@@ -50,8 +50,8 @@ export function AccountReloginDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-xl border-border/60 bg-card/95 p-0 shadow-2xl shadow-black/15">
-        <div className="border-b border-border/60 px-6 py-6">
+      <DialogContent className="max-w-xl border-border/55 bg-card/95 p-0">
+        <div className="border-b border-border/35 px-6 py-6">
           <DialogHeader>
             <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
               Login Session

@@ -105,12 +105,12 @@ const AiWorkspaceVideoPaneInner = forwardRef<HTMLDivElement, AiWorkspaceVideoPan
         <div
           ref={previewRef}
           className={cn(
-            "group relative overflow-hidden border border-border/60 bg-muted shadow-sm transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            "group relative overflow-hidden border border-border/55 bg-muted transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
             compact
-              ? "aspect-9/16 w-24 shrink-0 rounded-2xl"
+              ? "aspect-9/16 w-24 shrink-0 rounded-lg"
               : matchCardRatio
-                ? "aspect-9/16 w-full max-w-72 self-start rounded-[26px] hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/10"
-                : "aspect-video w-full rounded-3xl hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lg hover:shadow-primary/10",
+                ? "aspect-9/16 w-full max-w-72 self-start rounded-lg hover:-translate-y-0.5 hover:border-primary/14 hover:bg-card"
+                : "aspect-video w-full rounded-xl hover:-translate-y-0.5 hover:border-primary/14 hover:bg-card",
           )}
           onMouseEnter={() => void handleMouseEnter()}
           onMouseLeave={handleMouseLeave}
@@ -205,10 +205,10 @@ const AiWorkspaceVideoPaneInner = forwardRef<HTMLDivElement, AiWorkspaceVideoPan
 
         <div className="relative min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-2xs shadow-sm">
+            <Badge variant="secondary" className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-2xs">
               {video.videoStoragePath ? "可转录" : "待同步"}
             </Badge>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground shadow-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs text-muted-foreground">
               <Clock3 className="h-3.5 w-3.5" />
               {formatDateTime(video.publishedAt)}
             </span>
@@ -227,7 +227,7 @@ const AiWorkspaceVideoPaneInner = forwardRef<HTMLDivElement, AiWorkspaceVideoPan
 
           {!compact ? (
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-border/60 bg-card/82 px-3 py-3 shadow-sm">
+              <div className="rounded-lg border border-border/55 bg-card/82 px-3 py-3">
                 <span className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">
                   播放
                 </span>
@@ -235,7 +235,7 @@ const AiWorkspaceVideoPaneInner = forwardRef<HTMLDivElement, AiWorkspaceVideoPan
                   {formatNumber(video.playCount)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-border/60 bg-card/82 px-3 py-3 shadow-sm">
+              <div className="rounded-lg border border-border/55 bg-card/82 px-3 py-3">
                 <span className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">
                   点赞
                 </span>

@@ -96,7 +96,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
   return (
     <section className="relative flex h-full min-h-0 flex-1 flex-col">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_32%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.05),transparent_36%)]" />
-      <div className="border-b border-border/60 px-4 py-4 sm:px-5">
+      <div className="border-b border-border/35 px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
@@ -106,7 +106,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
               转录主文档
             </h3>
           </div>
-          <Badge variant="secondary" className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm">
+          <Badge variant="secondary" className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs">
             {stage === "rewrite" ? "仿写参考" : stage === "decompose" ? "拆解中轴" : "转录编辑"}
           </Badge>
         </div>
@@ -117,7 +117,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 sm:px-5">
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/80 px-3.5 py-3 text-xs text-muted-foreground/75 shadow-sm">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-background/80 px-3.5 py-3 text-xs text-muted-foreground/75">
           <p className="min-w-0 truncate leading-5">
             {stage === "rewrite"
               ? "已进入仿写阶段，当前正文只作为锁定参考，不再允许重回转录和拆解。"
@@ -131,7 +131,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
             className={cn(
               "inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               locked
-                ? "border-border/60 bg-card/90 text-foreground"
+                ? "border-border/55 bg-card/90 text-foreground"
                 : "border-primary/20 bg-primary/10 text-primary",
             )}
           >
@@ -146,7 +146,7 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
           <div
             ref={documentRef}
             onMouseUp={handleMouseUp}
-            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-3xl border border-border/60 bg-card/82 px-4 py-4 text-sm leading-7 text-foreground shadow-sm"
+            className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-xl border border-border/55 bg-card/82 px-4 py-4 text-sm leading-7 text-foreground"
           >
             <div className="whitespace-pre-wrap wrap-anywhere">
               {highlightChunks.map((chunk) => {
@@ -171,16 +171,16 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
                       !selectedRange &&
                         !activeAnnotationId &&
                         chunk.overlapCount > 1 &&
-                        "bg-primary/18 ring-1 ring-primary/28 shadow-sm shadow-primary/10",
+                        "bg-primary/18 ring-1 ring-primary/28 shadow-primary/10",
                       activeAnnotationId &&
                         chunk.annotationIds.includes(activeAnnotationId) &&
-                        "bg-primary/18 ring-2 ring-primary/36 shadow-sm shadow-primary/12",
+                        "bg-primary/18 ring-2 ring-primary/36 shadow-primary/12",
                       selectedRange && chunk.selected && "bg-primary/20 ring-2 ring-primary/34",
                     )}
                   >
                     {chunk.text}
                     {chunk.showOverlapBadge ? (
-                      <sup className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm">
+                      <sup className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                         {chunk.overlapCount}
                       </sup>
                     ) : null}
@@ -196,14 +196,14 @@ export const AiWorkspaceTranscriptCanvas = memo(function AiWorkspaceTranscriptCa
             readOnly={transcribing}
             rows={16}
             className={cn(
-              "min-h-0 flex-1 resize-none overflow-y-auto overflow-x-hidden rounded-3xl border border-border/60 bg-card/82 px-4 py-4 text-sm leading-7 text-foreground shadow-sm wrap-anywhere outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10",
+              "min-h-0 flex-1 resize-none overflow-y-auto overflow-x-hidden rounded-xl border border-border/55 bg-card/82 px-4 py-4 text-sm leading-7 text-foreground wrap-anywhere outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10",
               transcribing && "cursor-not-allowed opacity-80",
             )}
             placeholder="点击 AI 转录生成主文档，随后修正文案用词和段落。"
           />
         )}
 
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/80 px-3.5 py-3 shadow-sm">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/55 bg-background/80 px-3.5 py-3">
           <Button
             size="sm"
             className="h-8 rounded-md px-3 text-sm"

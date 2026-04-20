@@ -53,7 +53,7 @@ export function BenchmarkDetailHeader({
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+    <section className="relative overflow-hidden rounded-xl border border-border/55 bg-card/90 p-5 sm:p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.18),transparent_36%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.08),transparent_28%)]" />
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.16]" />
 
@@ -63,7 +63,7 @@ export function BenchmarkDetailHeader({
           <img
             src={proxyImageUrl(account.avatar)}
             alt={account.nickname}
-            className="h-20 w-20 shrink-0 rounded-full border border-border/60 bg-muted object-cover sm:h-24 sm:w-24"
+            className="h-20 w-20 shrink-0 rounded-full border border-border/45 bg-muted object-cover sm:h-24 sm:w-24"
           />
 
           <div className="min-w-0 flex-1 space-y-4">
@@ -74,7 +74,7 @@ export function BenchmarkDetailHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 shrink-0 rounded-full px-4 text-sm shadow-sm"
+                  className="h-9 shrink-0 rounded-full px-4 text-sm"
                   onClick={onArchive}
                 >
                   <Archive className="mr-2 h-4 w-4" />
@@ -89,7 +89,7 @@ export function BenchmarkDetailHeader({
                   {account.nickname}
                 </h2>
                 {showVerification ? (
-                  <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-2xs text-primary">
+                  <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/14 bg-primary/8 px-2.5 py-1 text-2xs text-primary">
                     {account.verificationIconUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -127,7 +127,7 @@ export function BenchmarkDetailHeader({
           {statCards.map((card) => (
             <div
               key={card.label}
-              className="rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm"
+              className="rounded-lg border border-border/55 bg-background/80 p-4"
             >
               <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
                 {card.label}

@@ -45,7 +45,7 @@ export function BenchmarkLibraryOverview({
   ];
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm sm:p-6">
+    <section className="relative overflow-hidden rounded-xl border border-border/55 bg-card/90 p-5 sm:p-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.18),transparent_36%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.08),transparent_30%)]" />
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.14]" />
 
@@ -72,7 +72,7 @@ export function BenchmarkLibraryOverview({
               <div
                 key={card.label}
                 className={cn(
-                  "rounded-2xl border border-border/60 bg-background/80 p-4 shadow-sm",
+                  "rounded-lg border border-border/55 bg-background/80 p-4",
                   "bg-background/80",
                 )}
               >

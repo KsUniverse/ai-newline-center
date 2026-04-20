@@ -216,7 +216,7 @@ export function AccountsPageView() {
           {accountsLoading ? (
             <div className="grid grid-cols-1 gap-5 xl:grid-cols-2 2xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-72 animate-pulse rounded-3xl border border-border/60 bg-card" />
+                <div key={index} className="h-72 animate-pulse rounded-xl border border-border/55 bg-card" />
               ))}
             </div>
           ) : accounts.length === 0 ? (

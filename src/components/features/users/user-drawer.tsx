@@ -150,7 +150,7 @@ export function UserDrawer({
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_34%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.06),transparent_28%)]" />
         <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-[0.06]" />
 
-        <SheetHeader className="relative border-b border-border/60 px-6 py-6 text-left">
+        <SheetHeader className="relative border-b border-border/35 px-6 py-6 text-left">
           <ManagementPanelHeading
             icon={UserRound}
             title={mode === "create" ? "新建用户" : "编辑用户"}
@@ -230,7 +230,7 @@ export function UserDrawer({
             <div className="flex flex-col gap-1.5">
               <Label>角色 *</Label>
               <Select value={role} onValueChange={(value) => setRole(value as UserDTO["role"])} disabled={loading}>
-                <SelectTrigger className="rounded-2xl border-border/60 bg-card shadow-sm">
+                <SelectTrigger className="rounded-lg border-border/55 bg-card">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -247,7 +247,7 @@ export function UserDrawer({
               <Label>所属分公司 *</Label>
               {mode === "create" ? (
                 <Select value={organizationId} onValueChange={setOrganizationId} disabled={loading}>
-                  <SelectTrigger className="rounded-2xl border-border/60 bg-card shadow-sm">
+                  <SelectTrigger className="rounded-lg border-border/55 bg-card">
                     <SelectValue placeholder="请选择分公司" />
                   </SelectTrigger>
                   <SelectContent>
@@ -267,7 +267,7 @@ export function UserDrawer({
                   }
                   readOnly
                   disabled={loading}
-                  className="cursor-not-allowed rounded-2xl border-border/60 bg-muted text-muted-foreground"
+                  className="cursor-not-allowed rounded-lg border-border/55 bg-muted text-muted-foreground"
                 />
               )}
               {errors.organizationId ? <p className="text-xs text-destructive">{errors.organizationId}</p> : null}
@@ -279,7 +279,7 @@ export function UserDrawer({
             角色决定可见范围，组织归属决定数据隔离链路；侧边入口与主弹框保持同一套说明结构。
           </ManagementNote>
 
-          <SheetFooter className="gap-2 border-t border-border/60 pt-5">
+          <SheetFooter className="gap-2 border-t border-border/35 pt-5">
             <Button
               type="button"
               variant="outline"

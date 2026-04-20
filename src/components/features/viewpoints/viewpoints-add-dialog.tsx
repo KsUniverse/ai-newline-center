@@ -72,7 +72,7 @@ export function ViewpointsAddDialog({ open, onOpenChange, onCreated }: Viewpoint
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg rounded-[24px] border-border/60 bg-card/95">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg bg-card/95">
         <DialogHeader>
           <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/80">
             Viewpoints
@@ -88,7 +88,7 @@ export function ViewpointsAddDialog({ open, onOpenChange, onCreated }: Viewpoint
           onChange={(e) => setText(e.target.value)}
           rows={8}
           placeholder="输入观点内容，一行一条，支持批量录入"
-          className="resize-none rounded-2xl border-border/60 bg-background/80 text-sm leading-7 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
+          className="resize-none rounded-lg border-border/55 bg-background/80 text-sm leading-7 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
           disabled={submitting}
         />
 

@@ -1,6 +1,6 @@
 # 前端架构规范
 
-> 摘要：品牌化运营工作台架构。亮色优先、暗色兼容；统一页面壳、导航壳与共享弹层原语；业务页面采用“页面壳 → 区块表面 → 共享原语 → 功能组件”的分层实现。
+> 摘要：品牌化运营工作台架构。亮色优先、暗色兼容；当前视觉基线为更扁平、偏硬朗的品牌编辑台风格。统一页面壳、导航壳与共享弹层原语；业务页面采用“页面壳 → 区块表面 → 共享原语 → 功能组件”的分层实现。
 
 ## 设计规范引用
 
@@ -77,7 +77,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 约束：
 
 - Sidebar 固定为品牌导航表面
-- Header 作为全局工具栏，使用半透明背景与模糊
+- Header 作为全局工具栏，使用更实的底色、清晰底边和紧凑控件
 - 页面内容通过 `DashboardPageShell` 管理容器宽度与标题区
 
 ### DashboardPageShell
@@ -110,7 +110,7 @@ interface DashboardPageShellProps {
 
 - 同一套图标壳与卡片结构
 - 同一套 active / hover 状态
-- 同一套品牌气氛层
+- 同一套更克制的品牌气氛层
 - 同一套用户身份与退出逻辑呈现
 - 当导航需要表达“工作区 / 系统管理”等信息架构时，优先使用**分区标题 + 平铺导航项**，避免树状二级菜单破坏整体卡片语言
 
@@ -242,7 +242,7 @@ src/components/
 
 ## 前端实现规则
 
-1. **颜色只用 token**：通过 `bg-card`、`text-muted-foreground`、`border-border/60` 等语义类表达。
+1. **颜色只用 token**：通过 `bg-card`、`text-muted-foreground`、`border-border/55`、`border-border/45`、`border-border/28` 等语义类表达。
 2. **字号只用 token**：优先 `text-2xs` ~ `text-3xl`，禁止滥用 `text-[Npx]`。
 3. **全局原语先改**：当多个页面出现同类样式漂移时，先改 `src/components/ui/*`。
 4. **页面壳必复用**：Dashboard 页面优先使用 `DashboardPageShell`。

@@ -42,7 +42,7 @@ export function AccountAddDrawer({ open, onOpenChange, onSuccess }: AccountAddDr
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-xl">
-        <SheetHeader className="border-b border-border/60 px-6 py-6 text-left">
+        <SheetHeader className="border-b border-border/35 px-6 py-6 text-left">
           <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
             Source Intake
           </p>

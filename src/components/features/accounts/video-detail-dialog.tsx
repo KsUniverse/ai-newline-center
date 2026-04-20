@@ -25,8 +25,8 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
       width="lg"
     >
       <div className="space-y-5">
-        <section className="space-y-4 rounded-3xl border border-border/60 bg-background/70 p-4 shadow-sm">
-          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-border/60 bg-muted">
+        <section className="space-y-4 rounded-xl border border-border/55 bg-background/70 p-4">
+          <div className="aspect-video w-full overflow-hidden rounded-lg border border-border/55 bg-muted">
             {video.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -38,16 +38,16 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/14 bg-primary/8 px-2.5 py-1 text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               内容样本
             </span>
             {video.accountNickname ? (
-              <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+              <span className="inline-flex items-center rounded-md border border-border/45 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
                 {video.accountNickname}
               </span>
             ) : null}
-            <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+            <span className="inline-flex items-center rounded-md border border-border/45 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
               {formatDateTime(video.publishedAt)}
             </span>
           </div>
@@ -60,7 +60,7 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
           </div>
         </section>
 
-        <section className="rounded-3xl border border-border/60 bg-background/70 p-4 shadow-sm">
+        <section className="rounded-xl border border-border/55 bg-background/70 p-4">
           <p className="text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">Distribution</p>
           <p className="mt-3 text-sm leading-6 text-muted-foreground/80">
             该面板用于快速核查内容样本的互动表现、发布时间与原视频跳转链接。
@@ -92,7 +92,7 @@ function StatItem({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/80 p-3 text-center">
+    <div className="rounded-lg border border-border/55 bg-card/80 p-3 text-center">
       <Icon className="h-4 w-4 text-muted-foreground" />
       <span className="text-lg font-semibold tabular-nums tracking-tight text-foreground/90">
         {formatNumber(value)}

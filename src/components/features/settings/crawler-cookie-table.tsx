@@ -37,9 +37,9 @@ export function CrawlerCookieTable({
   const someSelected = selectedIds.size > 0 && selectedIds.size < items.length;
 
   return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 overflow-hidden">
+    <div className="rounded-lg border border-border/55 bg-card/60 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border/60 bg-background/50 px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-border/35 bg-background/50 px-4 py-3">
         <div className="flex h-4 w-4 shrink-0 items-center justify-center">
           <Checkbox
             checked={allSelected ? true : someSelected ? "indeterminate" : false}

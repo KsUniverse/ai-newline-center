@@ -46,8 +46,8 @@ export function BenchmarkCard({
       role="button"
       tabIndex={0}
       className={cn(
-        "group relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/90 p-5 text-left shadow-sm transition-all",
-        "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        "group relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-border/55 bg-card/90 p-5 text-left transition-all",
+        "hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card",
       )}
       onClick={() => router.push(`/benchmarks/${account.id}`)}
       onKeyDown={(event) => {
@@ -65,25 +65,25 @@ export function BenchmarkCard({
         <img
           src={proxyImageUrl(account.avatar)}
           alt={account.nickname}
-          className="h-14 w-14 shrink-0 rounded-full border border-border/60 bg-muted object-cover"
+          className="h-14 w-14 shrink-0 rounded-full border border-border/45 bg-muted object-cover"
         />
 
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2 text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-primary">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-primary/14 bg-primary/8 px-2.5 py-1 text-primary">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                   组织共享
                 </span>
                 {archived && account.deletedAt ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-muted-foreground">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
                     归档于 {formatDateTime(account.deletedAt)}
                   </span>
                 ) : null}
                 {account.douyinNumber ? (
-                  <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 font-mono normal-case tracking-normal text-muted-foreground">
+                  <span className="inline-flex items-center rounded-md border border-border/45 bg-background/80 px-2.5 py-1 font-mono normal-case tracking-normal text-muted-foreground">
                     {account.douyinNumber}
                   </span>
                 ) : null}
@@ -97,7 +97,7 @@ export function BenchmarkCard({
                   <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
                 {showVerification ? (
-                  <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-2xs text-primary">
+                  <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-md border border-primary/14 bg-primary/8 px-2.5 py-1 text-2xs text-primary">
                     {account.verificationIconUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -131,7 +131,7 @@ export function BenchmarkCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="w-36 border-border/60 bg-popover/95"
+                  className="w-36 border-border/55 bg-popover/95"
                   onClick={(event) => event.stopPropagation()}
                 >
                   <DropdownMenuItem
@@ -157,7 +157,7 @@ export function BenchmarkCard({
         {metrics.map((metric) => (
           <div
             key={metric.label}
-            className="rounded-2xl border border-border/60 bg-background/70 p-3"
+            className="rounded-lg border border-border/55 bg-background/70 p-3"
           >
             <p className="text-2xs uppercase tracking-[0.18em] text-muted-foreground/70">
               {metric.label}
@@ -169,12 +169,12 @@ export function BenchmarkCard({
         ))}
       </div>
 
-      <div className="relative mt-5 space-y-3 border-t border-border/60 pt-4">
+      <div className="relative mt-5 space-y-3 border-t border-border/35 pt-4">
         <div className="flex flex-wrap items-center gap-2 text-2xs uppercase tracking-[0.18em] text-muted-foreground/75">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
             {getBenchmarkCreatedByLabel(account.creatorName)}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
             首次录入 {formatRelativeTime(account.createdAt)}
           </span>
         </div>

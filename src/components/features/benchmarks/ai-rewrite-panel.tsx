@@ -267,7 +267,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             {displayedChips.map((fragment) => (
               <span
                 key={fragment.id}
-                className="inline-flex max-w-60 items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs text-foreground/90 shadow-sm"
+                className="inline-flex max-w-60 items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-3 py-1.5 text-xs text-foreground/90"
               >
                 <span className="truncate">
                   {fragment.content.length > 30
@@ -288,7 +288,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
               <button
                 type="button"
                 onClick={() => setChipsExpanded((p) => !p)}
-                className="inline-flex items-center rounded-full border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground/80 hover:text-foreground transition-colors"
+                className="inline-flex items-center rounded-md border border-border/45 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground/80 hover:text-foreground transition-colors"
               >
                 {chipsExpanded
                   ? "收折"
@@ -313,7 +313,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
           onChange={(e) => setUserInputContent(e.target.value)}
           maxLength={500}
           placeholder="输入金句、例子、数据等，直接参与本次仿写"
-          className="min-h-20 resize-none rounded-2xl border-border/60 bg-background/80 text-sm leading-6 placeholder:text-muted-foreground/50"
+          className="min-h-20 resize-none rounded-lg border-border/55 bg-background/80 text-sm leading-6 placeholder:text-muted-foreground/50"
         />
         <p className="text-right text-xs text-muted-foreground/50">
           {localState.userInputContent.length}/500
@@ -339,10 +339,10 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             value={localState.targetAccountId ?? ""}
             onValueChange={(v) => setTargetAccountId(v || null)}
           >
-            <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background/80 text-sm">
+            <SelectTrigger className="h-9 rounded-xl border-border/55 bg-background/80 text-sm">
               <SelectValue placeholder="选择目标发布账号" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-card/95">
+            <SelectContent className="rounded-xl border-border/55 bg-card/95">
               {accounts.map((account) => (
                 <SelectItem key={account.id} value={account.id} className="rounded-lg text-sm">
                   <div className="flex items-center gap-2">
@@ -384,10 +384,10 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             value={localState.modelConfigId ?? ""}
             onValueChange={(v) => setModelConfigId(v || null)}
           >
-            <SelectTrigger className="h-9 rounded-xl border-border/60 bg-background/80 text-sm">
+            <SelectTrigger className="h-9 rounded-xl border-border/55 bg-background/80 text-sm">
               <SelectValue placeholder="选择生成模型" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/60 bg-card/95">
+            <SelectContent className="rounded-xl border-border/55 bg-card/95">
               {modelConfigs.map((config) => (
                 <SelectItem key={config.id} value={config.id} className="rounded-lg text-sm">
                   {config.name}
@@ -408,7 +408,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs text-foreground/90 shadow-sm hover:bg-background/90 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-3 py-1.5 text-xs text-foreground/90 hover:bg-background/90 transition-colors"
               >
                 {activeVersion
                   ? `版本 ${activeVersion.versionNumber}`
@@ -418,7 +418,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="min-w-60 rounded-xl border-border/60 bg-card/95 p-1"
+              className="min-w-60 rounded-xl border-border/55 bg-card/95 p-1"
             >
               {rewrite.versions.map((version) => (
                 <DropdownMenuItem
@@ -438,7 +438,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
         ) : (
           <Badge
             variant="secondary"
-            className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+            className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
           >
             暂无版本
           </Badge>
@@ -464,7 +464,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
 
       {/* No annotations hint */}
       {annotations.length === 0 && (
-        <p className="rounded-2xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-500/90">
+        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-500/90">
           请先完成拆解步骤，才能发起 AI 仿写
         </p>
       )}
@@ -472,7 +472,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
       {/* Result editor */}
       <div className="flex min-h-40 flex-1 flex-col gap-2">
         {activeVersion?.status === "FAILED" ? (
-          <div className="flex-1 rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-4 text-sm text-destructive/90">
+          <div className="flex-1 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-4 text-sm text-destructive/90">
             <p className="font-medium">生成失败</p>
             {activeVersion.errorMessage && (
               <p className="mt-1 text-xs text-destructive/70">{activeVersion.errorMessage}</p>
@@ -485,7 +485,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
               <div className="absolute right-3 top-3 z-10">
                 <Badge
                   variant="secondary"
-                  className="rounded-full border border-border/60 bg-card/90 px-2 py-0.5 text-xs shadow-sm"
+                  className="rounded-md border border-border/45 bg-card/90 px-2 py-0.5 text-xs"
                 >
                   {editContent.length} 字
                 </Badge>
@@ -496,7 +496,7 @@ export const AiRewritePanel = memo(function AiRewritePanel({
               onChange={(e) => handleEditChange(e.target.value)}
               disabled={textareaDisabled}
               placeholder={textareaPlaceholder}
-              className="flex-1 resize-none rounded-2xl border-border/60 bg-background/80 pr-16 text-sm leading-7 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex-1 resize-none rounded-lg border-border/55 bg-background/80 pr-16 text-sm leading-7 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-70"
               style={{ minHeight: "160px" }}
             />
           </div>

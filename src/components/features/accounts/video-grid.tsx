@@ -19,7 +19,7 @@ export function VideoGrid({ videos, loading, onVideoClick }: VideoGridProps) {
         {Array.from({ length: 8 }).map((_, index) => (
           <div
             key={index}
-            className="aspect-3/4 animate-pulse rounded-2xl border border-border/60 bg-card"
+            className="aspect-3/4 animate-pulse rounded-lg border border-border/55 bg-card"
           />
         ))}
       </div>
@@ -28,8 +28,8 @@ export function VideoGrid({ videos, loading, onVideoClick }: VideoGridProps) {
 
   if (videos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-background/60 px-6 py-16 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-card">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/50 bg-background/60 px-6 py-16 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-border/55 bg-card">
           <Film className="h-6 w-6 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-semibold tracking-tight text-foreground/90">内容样本暂时为空</h3>

@@ -15,8 +15,8 @@ export function DashboardBannedCard({
   return (
     <article
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/90 p-5 shadow-sm transition-all",
-        "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10",
+        "group relative flex h-full flex-col overflow-hidden rounded-xl border border-border/55 bg-card/90 p-5 transition-all",
+        "hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card",
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.16),transparent_42%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.08),transparent_34%)]" />
@@ -28,10 +28,10 @@ export function DashboardBannedCard({
           <img
             src={proxyImageUrl(account.avatar)}
             alt={account.nickname}
-            className="h-14 w-14 shrink-0 rounded-full border border-border/60 bg-muted object-cover"
+            className="h-14 w-14 shrink-0 rounded-full border border-border/45 bg-muted object-cover"
           />
         ) : (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border/45 bg-muted">
             <UserX className="h-6 w-6 text-muted-foreground/60" />
           </div>
         )}
@@ -42,7 +42,7 @@ export function DashboardBannedCard({
               <ShieldAlert className="h-3.5 w-3.5" />
               封禁中
             </span>
-            <span className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-2.5 py-1 font-mono normal-case tracking-normal text-muted-foreground">
+            <span className="inline-flex items-center rounded-md border border-border/45 bg-background/80 px-2.5 py-1 font-mono normal-case tracking-normal text-muted-foreground">
               {account.douyinNumber ?? "未填写抖音号"}
             </span>
           </div>
@@ -58,7 +58,7 @@ export function DashboardBannedCard({
         </div>
       </div>
 
-      <div className="relative mt-5 rounded-2xl border border-border/60 bg-background/70 p-3">
+      <div className="relative mt-5 rounded-lg border border-border/55 bg-background/70 p-3">
         <p className="text-sm text-muted-foreground">
           该状态由账号资料定时同步自动识别，仪表盘仅展示命中过封禁条件的账号。
         </p>

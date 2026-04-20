@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { BRAND_OVERLAY_SURFACE_CLASS_NAME } from "@/components/shared/common/brand"
 import { SHARED_MODAL_LAYER_CLASS } from "@/components/ui/layering"
 
 const Dialog = DialogPrimitive.Root
@@ -20,7 +21,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      `fixed inset-0 ${SHARED_MODAL_LAYER_CLASS} bg-black/65 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0`,
+      `fixed inset-0 ${SHARED_MODAL_LAYER_CLASS} bg-black/55 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0`,
       className
     )}
     {...props}
@@ -37,13 +38,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        `fixed left-[50%] top-[50%] ${SHARED_MODAL_LAYER_CLASS} grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-hidden rounded-3xl border border-border/60 bg-card/95 p-6 shadow-2xl shadow-black/15 duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[52%] data-[state=open]:slide-in-from-top-[52%]`,
+        `fixed left-[50%] top-[50%] ${SHARED_MODAL_LAYER_CLASS} grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 overflow-hidden p-6 duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-top-[52%] data-[state=open]:slide-in-from-top-[52%]`,
+        BRAND_OVERLAY_SURFACE_CLASS_NAME,
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-xl border border-border/60 bg-background/80 p-1.5 text-muted-foreground opacity-100 ring-offset-background transition-colors hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-background/90">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md border border-border/50 bg-background p-1.5 text-muted-foreground opacity-100 ring-offset-background transition-colors hover:bg-accent/65 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/15 disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

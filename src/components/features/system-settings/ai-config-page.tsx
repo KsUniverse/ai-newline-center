@@ -154,7 +154,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
             <input
               {...register("name")}
               placeholder="例：DashScope qwen-vl-max"
-              className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-9 w-full rounded-md border border-border/55 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
           </div>
@@ -164,7 +164,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
             <input
               {...register("baseUrl")}
               placeholder="例：https://dashscope.aliyuncs.com/compatible-mode/v1"
-              className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-9 w-full rounded-md border border-border/55 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.baseUrl && <p className="text-xs text-destructive">{errors.baseUrl.message}</p>}
           </div>
@@ -177,7 +177,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
               {...register("apiKey")}
               type="password"
               placeholder={editing ? "留空保持不变" : "sk-..."}
-              className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-9 w-full rounded-md border border-border/55 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
@@ -186,7 +186,7 @@ function ModelConfigDialog({ open, editing, onClose, onSaved }: ModelConfigDialo
             <input
               {...register("modelName")}
               placeholder="例：qwen-vl-max-latest"
-              className="h-9 w-full rounded-md border border-border/60 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-9 w-full rounded-md border border-border/55 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {errors.modelName && <p className="text-xs text-destructive">{errors.modelName.message}</p>}
           </div>
@@ -381,13 +381,13 @@ export function AiConfigPageView() {
             bodyClassName="space-y-3"
           >
             {!loading && modelConfigs.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-border/60 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground/70">
+              <div className="rounded-xl border border-dashed border-border/55 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground/70">
                 暂无模型配置，点击“新增”开始添加
               </div>
             )}
 
             {modelConfigs.map((config) => (
-              <article key={config.id} className="rounded-3xl border border-border/60 bg-background/75 p-4 shadow-sm">
+              <article key={config.id} className="rounded-xl border border-border/55 bg-background/75 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 space-y-0.5">
                     <h3 className="truncate text-sm font-semibold tracking-tight text-foreground/95">{config.name}</h3>
@@ -422,7 +422,7 @@ export function AiConfigPageView() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full rounded-2xl"
+              className="w-full rounded-lg"
               disabled={loading}
               onClick={() => { setEditingConfig(null); setDialogOpen(true); }}
             >
@@ -454,7 +454,7 @@ export function AiConfigPageView() {
                 : modelConfigs;
 
               return (
-                <div key={step} className="rounded-3xl border border-border/60 bg-background/75 p-4 shadow-sm">
+                <div key={step} className="rounded-xl border border-border/55 bg-background/75 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="space-y-0.5">
                       <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">{label}</p>

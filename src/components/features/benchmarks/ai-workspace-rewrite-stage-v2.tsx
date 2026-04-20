@@ -45,8 +45,8 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
   return (
     <div className="flex h-full min-h-0">
       {/* Left column — annotation list ~25% */}
-      <div className="flex min-h-0 basis-[25%] flex-col border-r border-border/60">
-        <div className="border-b border-border/60 px-4 py-4">
+      <div className="flex min-h-0 basis-[25%] flex-col border-r border-border/55">
+        <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
@@ -58,7 +58,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
             </div>
             <Badge
               variant="secondary"
-              className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+              className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
             >
               {annotations.length} 条
             </Badge>
@@ -84,10 +84,10 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
                   type="button"
                   onClick={() => onAnnotationSelect(annotation.id)}
                   className={cn(
-                    "w-full rounded-2xl border px-4 py-3 text-left transition-all hover:-translate-y-px",
+                    "w-full rounded-lg border px-4 py-3 text-left transition-all hover:-translate-y-px",
                     isActive
-                      ? "border-primary/30 bg-primary/10 shadow-sm shadow-primary/10"
-                      : "border-border/60 bg-card/80 hover:bg-card/90",
+                      ? "border-primary/30 bg-primary/10 shadow-primary/10"
+                      : "border-border/55 bg-card/80 hover:bg-card/90",
                   )}
                 >
                   <p
@@ -115,8 +115,8 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
       </div>
 
       {/* Middle column — transcript read-only with highlights ~35% */}
-      <div className="flex min-h-0 basis-[35%] flex-col border-r border-border/60">
-        <div className="border-b border-border/60 px-4 py-4">
+      <div className="flex min-h-0 basis-[35%] flex-col border-r border-border/55">
+        <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
@@ -128,7 +128,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
             </div>
             <Badge
               variant="secondary"
-              className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+              className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
             >
               仿写参考
             </Badge>
@@ -156,7 +156,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
                         "bg-primary/12 ring-1 ring-primary/18",
                       activeAnnotationId &&
                         chunk.annotationIds.includes(activeAnnotationId) &&
-                        "bg-primary/18 ring-2 ring-primary/36 shadow-sm shadow-primary/12",
+                        "bg-primary/18 ring-2 ring-primary/36 shadow-primary/12",
                     )}
                   >
                     {chunk.text}
@@ -175,7 +175,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
       {/* Right column — rewrite panel ~40% */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.06),transparent_30%)]" />
-        <div className="border-b border-border/60 px-4 py-4">
+        <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <div>
               <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
@@ -187,7 +187,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
             </div>
             <Badge
               variant="secondary"
-              className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+              className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
             >
               {rewrite?.versions.length ? `${rewrite.versions.length} 个版本` : "首次生成"}
             </Badge>

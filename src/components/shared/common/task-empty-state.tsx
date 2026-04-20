@@ -26,13 +26,13 @@ export function TaskEmptyState({
 }: TaskEmptyStateProps) {
   const iconToneClassName =
     tone === "muted"
-      ? "border-border/60 bg-background/80 text-muted-foreground"
+      ? "border-border/55 bg-background/80 text-muted-foreground"
       : "border-primary/15 bg-primary/10 text-primary";
 
   return (
     <div
       className={cn(
-        "rounded-3xl border border-dashed border-border/70 bg-background/60 px-6 py-6 shadow-sm sm:px-7",
+        "rounded-xl border border-dashed border-border/50 bg-background/60 px-6 py-6 sm:px-7",
         className,
       )}
     >
@@ -40,7 +40,7 @@ export function TaskEmptyState({
         <div className="flex max-w-2xl items-start gap-4">
           <div
             className={cn(
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border shadow-sm",
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border",
               iconToneClassName,
             )}
           >
@@ -62,7 +62,7 @@ export function TaskEmptyState({
       </div>
 
       {hint ? (
-        <div className="mt-4 rounded-2xl border border-border/60 bg-card/70 px-4 py-3 text-sm leading-6 text-muted-foreground/80">
+        <div className="mt-4 rounded-lg border border-border/55 bg-card/70 px-4 py-3 text-sm leading-6 text-muted-foreground/80">
           {hint}
         </div>
       ) : null}

@@ -18,7 +18,7 @@ export function AccountRowCard({ account }: AccountRowCardProps) {
     <button
       type="button"
       onClick={() => router.push(`/accounts/${account.id}`)}
-      className="flex min-w-50 shrink-0 cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/30"
+      className="flex min-w-50 shrink-0 cursor-pointer items-center gap-3 rounded-lg border border-border/55 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/30"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

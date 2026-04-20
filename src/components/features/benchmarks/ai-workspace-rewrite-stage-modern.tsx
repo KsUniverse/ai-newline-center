@@ -86,7 +86,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
   return (
     <section className="relative flex h-full min-h-0 flex-1 flex-col">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.08),transparent_32%),radial-gradient(circle_at_bottom_right,hsl(var(--info)/0.05),transparent_36%)]" />
-      <div className="border-b border-border/60 px-4 py-4 sm:px-5">
+      <div className="border-b border-border/35 px-4 py-4 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
@@ -96,7 +96,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
           </div>
           <Badge
             variant="secondary"
-            className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+            className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
           >
             {savingDraft ? "保存中" : `${draft.length} 字`}
           </Badge>
@@ -105,7 +105,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
 
       <div className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1.35fr)_minmax(0,0.9fr)] gap-4 px-4 py-4 sm:px-5">
         <div className="grid min-h-0 gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.9fr)]">
-          <div className="flex min-h-0 flex-col rounded-3xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm">
+          <div className="flex min-h-0 flex-col rounded-xl border border-border/55 bg-card/82 px-4 py-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
                 仿写稿
@@ -118,20 +118,20 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
               value={draft}
               onChange={(event) => onDraftChange(event.target.value)}
               rows={16}
-              className="min-h-0 flex-1 resize-none rounded-2xl border border-border/60 bg-background/82 px-4 py-4 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
+              className="min-h-0 flex-1 resize-none rounded-lg border border-border/55 bg-background/82 px-4 py-4 text-sm leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/30 focus:ring-2 focus:ring-primary/10"
               placeholder="在这里继续完成仿写草稿。"
             />
           </div>
 
           <div className="grid min-h-0 grid-rows-[minmax(0,0.8fr)_minmax(0,1fr)] gap-4">
-            <div className="min-h-0 rounded-3xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm">
+            <div className="min-h-0 rounded-xl border border-border/55 bg-card/82 px-4 py-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
                   原文对照
                 </p>
                 <Badge
                   variant="secondary"
-                  className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+                  className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
                 >
                   原文
                 </Badge>
@@ -141,14 +141,14 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
               </div>
             </div>
 
-            <div className="min-h-0 rounded-3xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm">
+            <div className="min-h-0 rounded-xl border border-border/55 bg-card/82 px-4 py-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
                   拆解参考
                 </p>
                 <Badge
                   variant="secondary"
-                  className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+                  className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
                 >
                   {annotations.length} 条
                 </Badge>
@@ -159,7 +159,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
                     key={annotation.id}
                     type="button"
                     onClick={() => onAnnotationSelect(annotation.id)}
-                    className={`w-full rounded-2xl border border-border/60 bg-background/70 px-3 py-2.5 text-left text-sm transition-all hover:border-primary/25 hover:bg-primary/5 ${
+                    className={`w-full rounded-lg border border-border/55 bg-background/70 px-3 py-2.5 text-left text-sm transition-all hover:border-primary/14 hover:bg-primary/5 ${
                       activeAnnotationId === annotation.id ? "border-primary/30 bg-primary/6 shadow-primary/10" : ""
                     }`}
                   >
@@ -174,7 +174,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
         </div>
 
         <div className="grid min-h-0 grid-cols-[1fr_minmax(280px,1fr)] gap-4">
-          <div className="rounded-3xl border border-border/60 bg-card/75 px-4 py-4 shadow-sm">
+          <div className="rounded-xl border border-border/55 bg-card/75 px-4 py-4">
             <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
               仿写说明
             </p>
@@ -183,7 +183,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
             </p>
           </div>
 
-          <div className="flex min-h-0 flex-col rounded-3xl border border-border/60 bg-card/82 px-4 py-4 shadow-sm">
+          <div className="flex min-h-0 flex-col rounded-xl border border-border/55 bg-card/82 px-4 py-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
                 今日观点参考
@@ -192,7 +192,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
                 {selectedFragmentIds.length > 0 ? (
                   <Badge
                     variant="secondary"
-                    className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-xs shadow-sm"
+                    className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
                   >
                     已选 {selectedFragmentIds.length} 条
                   </Badge>
@@ -215,7 +215,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
               type="search"
               placeholder="搜索今日观点..."
               onChange={(event) => handleFragmentQueryChange(event.target.value)}
-              className="mb-2 h-8 rounded-xl border-border/60 bg-background/80 text-xs"
+              className="mb-2 h-8 rounded-xl border-border/55 bg-background/80 text-xs"
             />
 
             <div className="min-h-0 flex-1 overflow-y-auto">
@@ -224,7 +224,7 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
                   {Array.from({ length: 3 }).map((_, index) => (
                     <div
                       key={index}
-                      className="h-16 animate-pulse rounded-2xl border border-border/60 bg-background/60"
+                      className="h-16 animate-pulse rounded-lg border border-border/55 bg-background/60"
                     />
                   ))}
                 </div>
@@ -242,10 +242,10 @@ export const AiWorkspaceRewriteStageModern = memo(function AiWorkspaceRewriteSta
                         key={fragment.id}
                         type="button"
                         onClick={() => onFragmentToggle(fragment.id)}
-                        className={`w-full rounded-2xl border px-3 py-3 text-left transition-all ${
+                        className={`w-full rounded-lg border px-3 py-3 text-left transition-all ${
                           selected
-                            ? "border-primary/30 bg-primary/6 shadow-sm"
-                            : "border-border/60 bg-background/70 hover:border-primary/25 hover:bg-primary/5"
+                            ? "border-primary/30 bg-primary/6"
+                            : "border-border/55 bg-background/70 hover:border-primary/14 hover:bg-primary/5"
                         }`}
                       >
                         <div className="flex items-start gap-3">

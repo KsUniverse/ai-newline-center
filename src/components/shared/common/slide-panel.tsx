@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import {
+  BRAND_DIVIDER_CLASS_NAME,
+  BRAND_OVERLAY_SURFACE_CLASS_NAME,
+} from "@/components/shared/common/brand";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -43,12 +47,13 @@ export function SlidePanel({
       <SheetContent
         side="right"
         className={cn(
-          "h-full border-l border-border/60 bg-card p-0 shadow-2xl shadow-black/20 [&>button]:hidden",
+          "h-full p-0 [&>button]:hidden",
+          BRAND_OVERLAY_SURFACE_CLASS_NAME,
           widthMap[width],
         )}
       >
         <div className="flex h-full flex-col">
-          <SheetHeader className="border-b border-border/60 px-5 py-4 text-left sm:px-6">
+          <SheetHeader className={cn("border-b px-5 py-4 text-left sm:px-6", BRAND_DIVIDER_CLASS_NAME)}>
             <p className="text-2xs font-medium uppercase tracking-[0.24em] text-primary/80">
               研究详情
             </p>

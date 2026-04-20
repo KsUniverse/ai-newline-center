@@ -64,7 +64,7 @@ export function VideoGridCard({ video, onClick }: VideoGridCardProps) {
   return (
     <button
       type="button"
-      className="group relative aspect-3/4 w-full overflow-hidden rounded-2xl border border-border/60 bg-card/90 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
+      className="group relative aspect-3/4 w-full overflow-hidden rounded-lg border border-border/55 bg-card/90 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
@@ -104,21 +104,21 @@ export function VideoGridCard({ video, onClick }: VideoGridCardProps) {
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
         <div className="flex flex-wrap gap-1.5">
           {video.accountNickname ? (
-            <span className="inline-flex items-center rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+            <span className="inline-flex items-center rounded-md border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
               {video.accountNickname}
             </span>
           ) : null}
           {video.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-2xs font-medium text-white/75 backdrop-blur-sm"
+              className="inline-flex items-center rounded-md border border-white/15 bg-black/30 px-2 py-0.5 text-2xs font-medium text-white/75 backdrop-blur-sm"
             >
               {tag}
             </span>
           ))}
         </div>
 
-        <span className="inline-flex items-center rounded-full border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
+        <span className="inline-flex items-center rounded-md border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
           内容样本
         </span>
       </div>
