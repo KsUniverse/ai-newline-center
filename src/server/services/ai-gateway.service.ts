@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/ge
 import { FileState, GoogleAIFileManager } from "@google/generative-ai/server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, streamText } from "ai";
+import OpenAI from "openai";
 import { writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -39,6 +40,50 @@ function resolveVideoMimeType(filePath: string): string {
     case ".mkv": return "video/x-matroska";
     default: return "video/mp4";
   }
+}
+
+function normalizeCompatibleBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/chat\/completions\/?$/, "");
+}
+
+function createCompatibleOpenAIClient(config: AiModelConfig): OpenAI {
+  return new OpenAI({
+    apiKey: config.apiKey,
+    baseURL: normalizeCompatibleBaseUrl(config.baseUrl),
+  });
+}
+
+function extractContentText(content: unknown): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return content
+    .map((part) => {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        "text" in part &&
+        typeof part.text === "string"
+      ) {
+        return part.text;
+      }
+
+      return "";
+    })
+    .join("");
+}
+
+interface OpenAICompatibleChatChunk {
+  choices?: Array<{
+    delta?: {
+      content?: unknown;
+    };
+  }>;
 }
 
 async function resolveModelConfig(step: AiStep, modelConfigId?: string): Promise<AiModelConfig> {
@@ -185,45 +230,81 @@ async function transcribeWithGoogleFile(
   }
 }
 
+async function streamTranscriptionWithGoogleFile(
+  config: AiModelConfig,
+  videoInput: string,
+): Promise<AsyncIterable<string>> {
+  const text = await transcribeWithGoogleFile(config, videoInput);
+
+  return (async function* () {
+    if (text) {
+      yield text;
+    }
+  })();
+}
+
 // ─── 转录实现 — OSS 直链（千问 VL，直接传 HTTPS URL） ─────────────────────────
 
-async function transcribeWithOssUrl(
+async function streamTranscriptionWithOssUrl(
   config: AiModelConfig,
   videoUrl: string,
-): Promise<string> {
-  const baseUrl = config.baseUrl.replace(/\/chat\/completions\/?$/, "");
-  const chatResp = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
+): Promise<AsyncIterable<string>> {
+  const client = createCompatibleOpenAIClient(config);
+  const request = {
+    model: config.modelName,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "video_url", video_url: { url: videoUrl } },
+          { type: "text", text: buildVideoTranscriptionPrompt() },
+        ],
+      },
+    ],
+    stream: true,
+    stream_options: {
+      include_usage: true,
     },
-    body: JSON.stringify({
-      model: config.modelName,
-      // stream: true,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "video_url", video_url: { url: videoUrl } },
-            { type: "text", text: buildVideoTranscriptionPrompt() },
-          ],
-        },
-      ],
-    }),
-  });
+  };
+  // OpenAI SDK typings lag behind DashScope's OpenAI-compatible multimodal video payload.
+  const stream = (await client.chat.completions.create(
+    request as never,
+  )) as unknown as AsyncIterable<OpenAICompatibleChatChunk>;
 
-  if (!chatResp.ok) {
-    const body = await chatResp.text().catch(() => "");
-    throw new AppError("AI_REQUEST_FAILED", `DashScope 视频转录请求失败: ${body}`, 502);
+  return (async function* () {
+    for await (const chunk of stream) {
+      const delta = extractContentText(chunk.choices?.[0]?.delta?.content);
+
+      if (delta) {
+        yield delta;
+      }
+    }
+  })();
+}
+
+async function streamTranscriptionWithConfig(
+  config: AiModelConfig,
+  videoInput: string,
+): Promise<AsyncIterable<string>> {
+  if (config.videoInputMode === "GOOGLE_FILE") {
+    return streamTranscriptionWithGoogleFile(config, videoInput);
   }
 
-  const chatData = (await chatResp.json()) as {
-    choices: Array<{ message: { content: string | null } }>;
-  };
+  return streamTranscriptionWithOssUrl(config, videoInput);
+}
 
-  const text = chatData.choices[0]?.message?.content?.trim() ?? "";
-  if (!text) throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+async function consumeTextStream(textStream: AsyncIterable<string>): Promise<string> {
+  const textParts: string[] = [];
+
+  for await (const delta of textStream) {
+    textParts.push(delta);
+  }
+
+  const text = textParts.join("").trim();
+  if (!text) {
+    throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+  }
+
   return text;
 }
 
@@ -270,10 +351,10 @@ interface GenerateRewriteResult {
 }
 
 class AiGatewayService {
-  async generateTranscriptionFromVideo(
+  async streamTranscriptionFromVideo(
     videoInput: string,
     modelConfigId?: string,
-  ): Promise<{ modelConfigId: string; modelName: string; text: string }> {
+  ): Promise<{ modelConfigId: string; modelName: string; textStream: AsyncIterable<string> }> {
     const config = await resolveModelConfig("TRANSCRIBE", modelConfigId);
 
     if (config.videoInputMode === "NONE") {
@@ -284,15 +365,27 @@ class AiGatewayService {
       );
     }
 
-    let text: string;
-    if (config.videoInputMode === "GOOGLE_FILE") {
-      text = await transcribeWithGoogleFile(config, videoInput);
-    } else {
-      // OSS_FILE: pass the HTTPS URL directly to the model
-      text = await transcribeWithOssUrl(config, videoInput);
-    }
+    const textStream = await streamTranscriptionWithConfig(config, videoInput);
 
-    return { modelConfigId: config.id, modelName: config.modelName, text };
+    return {
+      modelConfigId: config.id,
+      modelName: config.modelName,
+      textStream,
+    };
+  }
+
+  async generateTranscriptionFromVideo(
+    videoInput: string,
+    modelConfigId?: string,
+  ): Promise<{ modelConfigId: string; modelName: string; text: string }> {
+    const result = await this.streamTranscriptionFromVideo(videoInput, modelConfigId);
+    const text = await consumeTextStream(result.textStream);
+
+    return {
+      modelConfigId: result.modelConfigId,
+      modelName: result.modelName,
+      text,
+    };
   }
 
   async generateText(

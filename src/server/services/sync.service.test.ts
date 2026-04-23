@@ -5,6 +5,9 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  findDueProfilesMock,
+  findNearestScheduledProfileMock,
+  addCrawlerVideoSyncJobMock,
   benchmarkCreateWithMemberMock,
   benchmarkFindAllMock,
   benchmarkFindByOrgSecUserIdMock,
@@ -26,19 +29,26 @@ const {
   fetchOneVideoMock,
   fetchUserProfileMock,
   fetchVideoListMock,
+  findProfileByAccountMock,
   findFirstActiveShareCookieMock,
   findAllActiveVideosForSnapshotSyncMock,
   findAllAccountsMock,
   findAllMyAccountsForCollectionMock,
   findByVideoIdMock,
+  findRecentBenchmarkPublishedAtMock,
+  findRecentPublishedAtMock,
   getSecUserIdMock,
   markLoginExpiredMock,
+  upsertProfileStateMock,
   updateAccountInfoMock,
   updateSecUserIdMock,
   updateStatsMock,
   upsertVideoMock,
   videoSnapshotCreateMock,
 } = vi.hoisted(() => ({
+  findDueProfilesMock: vi.fn(),
+  findNearestScheduledProfileMock: vi.fn(),
+  addCrawlerVideoSyncJobMock: vi.fn(),
   benchmarkCreateWithMemberMock: vi.fn(),
   benchmarkFindAllMock: vi.fn(),
   benchmarkFindByOrgSecUserIdMock: vi.fn(),
@@ -60,18 +70,29 @@ const {
   fetchOneVideoMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
   fetchVideoListMock: vi.fn(),
+  findProfileByAccountMock: vi.fn(),
   findFirstActiveShareCookieMock: vi.fn(),
   findAllActiveVideosForSnapshotSyncMock: vi.fn(),
   findAllAccountsMock: vi.fn(),
   findAllMyAccountsForCollectionMock: vi.fn(),
   findByVideoIdMock: vi.fn(),
+  findRecentBenchmarkPublishedAtMock: vi.fn(),
+  findRecentPublishedAtMock: vi.fn(),
   getSecUserIdMock: vi.fn(),
   markLoginExpiredMock: vi.fn(),
+  upsertProfileStateMock: vi.fn(),
   updateAccountInfoMock: vi.fn(),
   updateSecUserIdMock: vi.fn(),
   updateStatsMock: vi.fn(),
   upsertVideoMock: vi.fn(),
   videoSnapshotCreateMock: vi.fn(),
+}));
+
+vi.mock("@/lib/bullmq", () => ({
+  CRAWLER_VIDEO_SYNC_QUEUE_NAME: "crawler-video-sync",
+  getCrawlerVideoSyncQueue: () => ({
+    add: addCrawlerVideoSyncJobMock,
+  }),
 }));
 
 vi.mock("@/server/services/crawler.service", () => ({
@@ -120,6 +141,7 @@ vi.mock("@/server/repositories/douyin-video.repository", () => ({
     countByAccountId: countByAccountIdMock,
     findAllActiveForSnapshotSync: findAllActiveVideosForSnapshotSyncMock,
     findByVideoId: findByVideoIdMock,
+    findRecentPublishedAtByAccountId: findRecentPublishedAtMock,
     updateStats: updateStatsMock,
     updateStatsByVideoId: updateStatsMock,
     upsertByVideoId: upsertVideoMock,
@@ -131,9 +153,20 @@ vi.mock("@/server/repositories/benchmark-video.repository", () => ({
     countByAccountId: countByAccountIdMock,
     findAllActiveForSnapshotSync: vi.fn().mockResolvedValue([]),
     findByAccountAndVideoId: benchmarkFindVideoByAccountAndVideoIdMock,
+    findRecentPublishedAtByAccountId: findRecentBenchmarkPublishedAtMock,
     updateStats: benchmarkUpdateStatsMock,
     updateStatsByAccountVideoId: benchmarkUpdateStatsByAccountVideoIdMock,
     upsertByVideoId: benchmarkUpsertVideoMock,
+  },
+}));
+
+vi.mock("@/server/repositories/account-video-sync-profile.repository", () => ({
+  accountVideoSyncProfileRepository: {
+    ensureProfiles: vi.fn(),
+    findByAccount: findProfileByAccountMock,
+    findDueProfiles: findDueProfilesMock,
+    findNearestScheduledProfile: findNearestScheduledProfileMock,
+    upsertState: upsertProfileStateMock,
   },
 }));
 
@@ -157,6 +190,7 @@ vi.mock("@/server/services/storage.service", () => ({
 
 describe("syncService", () => {
   beforeEach(() => {
+    addCrawlerVideoSyncJobMock.mockReset();
     benchmarkCreateWithMemberMock.mockReset();
     benchmarkFindAllMock.mockReset();
     benchmarkFindByOrgSecUserIdMock.mockReset();
@@ -178,13 +212,19 @@ describe("syncService", () => {
     fetchOneVideoMock.mockReset();
     fetchUserProfileMock.mockReset();
     fetchVideoListMock.mockReset();
+    findDueProfilesMock.mockReset();
+    findNearestScheduledProfileMock.mockReset();
+    findProfileByAccountMock.mockReset();
     findFirstActiveShareCookieMock.mockReset();
     findAllActiveVideosForSnapshotSyncMock.mockReset();
     findAllAccountsMock.mockReset();
     findAllMyAccountsForCollectionMock.mockReset();
     findByVideoIdMock.mockReset();
+    findRecentBenchmarkPublishedAtMock.mockReset();
+    findRecentPublishedAtMock.mockReset();
     getSecUserIdMock.mockReset();
     markLoginExpiredMock.mockReset();
+    upsertProfileStateMock.mockReset();
     updateAccountInfoMock.mockReset();
     updateSecUserIdMock.mockReset();
     updateStatsMock.mockReset();
@@ -192,6 +232,7 @@ describe("syncService", () => {
     videoSnapshotCreateMock.mockReset();
 
     benchmarkFindAllMock.mockResolvedValue([]);
+    addCrawlerVideoSyncJobMock.mockResolvedValue(undefined);
     collectionCreateMock.mockResolvedValue(undefined);
     collectionExistsByAwemeIdMock.mockResolvedValue(false);
     collectionExistsForAccountMock.mockResolvedValue(false);
@@ -199,8 +240,14 @@ describe("syncService", () => {
     downloadAndStoreMock.mockResolvedValue(null);
     findAllActiveVideosForSnapshotSyncMock.mockResolvedValue([]);
     findAllAccountsMock.mockResolvedValue([]);
+    findDueProfilesMock.mockResolvedValue([]);
+    findNearestScheduledProfileMock.mockResolvedValue(null);
     findFirstActiveShareCookieMock.mockResolvedValue(null);
     findByVideoIdMock.mockResolvedValue(null);
+    findProfileByAccountMock.mockResolvedValue(null);
+    findRecentBenchmarkPublishedAtMock.mockResolvedValue([]);
+    findRecentPublishedAtMock.mockResolvedValue([]);
+    upsertProfileStateMock.mockResolvedValue(undefined);
     updateAccountInfoMock.mockResolvedValue({
       id: "account_1",
       lastSyncedAt: new Date("2026-04-03T00:00:00.000Z"),
@@ -310,6 +357,73 @@ describe("syncService", () => {
     expect(result).toMatchObject({
       lastSyncedAt: expect.any(Date),
     });
+    expect(upsertProfileStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountType: "MY_ACCOUNT",
+        accountId: "account_1",
+        organizationId: "org_1",
+        lastSuccessAt: expect.any(Date),
+        nextSyncAt: expect.any(Date),
+      }),
+    );
+  });
+
+  it("updates sync profile state after processing a queued my-account job", async () => {
+    douyinFindAccountByIdMock.mockResolvedValue({
+      id: "account_1",
+      userId: "user_1",
+      organizationId: "org_1",
+      profileUrl: "https://www.douyin.com/user/tester",
+      secUserId: "sec_123",
+    });
+    findProfileByAccountMock.mockResolvedValue(null);
+    findRecentPublishedAtMock.mockResolvedValue([
+      new Date("2026-04-01T08:10:00+08:00"),
+      new Date("2026-04-02T08:40:00+08:00"),
+      new Date("2026-04-03T12:05:00+08:00"),
+      new Date("2026-04-04T12:15:00+08:00"),
+      new Date("2026-04-05T19:00:00+08:00"),
+    ]);
+    fetchVideoListMock.mockResolvedValue({
+      videos: [
+        {
+          awemeId: "video_1",
+          title: "视频 1",
+          shareUrl: "https://www.iesdouyin.com/share/video/1",
+          coverSourceUrl: null,
+          videoSourceUrl: null,
+          publishedAt: "2026-04-21T08:05:00+08:00",
+          playCount: 10,
+          likeCount: 2,
+          commentCount: 1,
+          shareCount: 0,
+          collectCount: 4,
+          admireCount: 5,
+          recommendCount: 6,
+        },
+      ],
+      hasMore: false,
+      cursor: 0,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await syncService.processCrawlerVideoSyncJob({
+      accountType: "MY_ACCOUNT",
+      accountId: "account_1",
+      organizationId: "org_1",
+    });
+
+    expect(upsertProfileStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountType: "MY_ACCOUNT",
+        accountId: "account_1",
+        organizationId: "org_1",
+        fastFollowUntil: expect.any(Date),
+        nextSyncAt: expect.any(Date),
+        publishWindowsJson: expect.any(Array),
+      }),
+    );
   });
 
   it("deduplicates crawler video-list fetches across my-account and benchmark batches", async () => {

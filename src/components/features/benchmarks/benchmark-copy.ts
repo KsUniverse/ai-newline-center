@@ -120,9 +120,9 @@ export function getBenchmarkArchiveDialogTitle(nickname?: string): string {
 }
 
 export function getBenchmarkArchiveDialogDescription(nickname?: string): string {
-  const targetLabel = nickname ? `${nickname} 的` : "该";
+  const targetLabel = nickname ? `${nickname} 的账号档案` : "该研究对象档案";
 
-  return `${targetLabel}账号会从主研究库移出，但资料、样本和转录会继续保留。`;
+  return `${targetLabel}会从主研究库移出，但资料、样本和转录会继续保留。`;
 }
 
 export function getBenchmarkArchiveActionLabel(): string {

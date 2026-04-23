@@ -1,12 +1,16 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import path from "node:path";
 import { existsSync } from "node:fs";
+import path from "node:path";
 
-import { prisma } from "@/lib/prisma";
-import { aiGateway } from "@/server/services/ai-gateway.service";
+let prisma: (typeof import("@/lib/prisma"))["prisma"] | null = null;
+let aiGateway: (typeof import("@/server/services/ai-gateway.service"))["aiGateway"] | null = null;
 
 async function resolveTargetWorkspace() {
+  if (!prisma) {
+    throw new Error("Prisma is not initialized for the live transcription test");
+  }
+
   const workspaceId = process.env.LIVE_TRANSCRIPTION_WORKSPACE_ID;
 
   if (workspaceId) {
@@ -72,8 +76,21 @@ async function resolveTargetWorkspace() {
 }
 
 describe("transcription worker live integration", () => {
+  beforeAll(async () => {
+    if (process.env.RUN_LIVE_TRANSCRIPTION_TEST !== "true") {
+      return;
+    }
+
+    const prismaModule = await import("@/lib/prisma");
+    const aiGatewayModule = await import("@/server/services/ai-gateway.service");
+    prisma = prismaModule.prisma;
+    aiGateway = aiGatewayModule.aiGateway;
+  });
+
   afterAll(async () => {
-    await prisma.$disconnect();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
   });
 
   it.runIf(process.env.RUN_LIVE_TRANSCRIPTION_TEST === "true")(
@@ -99,6 +116,10 @@ describe("transcription worker live integration", () => {
         absoluteVideoPath,
         hasExistingTranscript: Boolean(workspace.transcript?.originalText?.trim()),
       });
+
+      if (!aiGateway) {
+        throw new Error("AI gateway is not initialized for the live transcription test");
+      }
 
       const result = await aiGateway.generateTranscriptionFromVideo(absoluteVideoPath);
 

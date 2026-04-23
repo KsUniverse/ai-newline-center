@@ -166,6 +166,10 @@ function createLoginSession(status: DouyinLoginSessionStatus = DouyinLoginSessio
 describe("douyinAuthService relogin flow", () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ai_newline");
+    vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
+    vi.stubEnv("CRAWLER_COOKIE_ENCRYPTION_KEY", "a".repeat(64));
+    vi.stubEnv("NODE_ENV", "test");
     updateLoginStateBindingMock.mockReset();
     clearLoginStateBindingMock.mockReset();
     findLoginStateMetaMock.mockReset();

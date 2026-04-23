@@ -3,12 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   findIdsByOrganizationIdMock,
-  findMyAccountIdsByUserIdMock,
   findIdsByUserIdMock,
   findManyWithAccountMock,
 } = vi.hoisted(() => ({
   findIdsByOrganizationIdMock: vi.fn(),
-  findMyAccountIdsByUserIdMock: vi.fn(),
   findIdsByUserIdMock: vi.fn(),
   findManyWithAccountMock: vi.fn(),
 }));
@@ -17,7 +15,6 @@ vi.mock("@/server/repositories/douyin-account.repository", () => ({
   douyinAccountRepository: {
     findIdsByOrganizationId: findIdsByOrganizationIdMock,
     findIdsByUserId: findIdsByUserIdMock,
-    findMyAccountIdsByUserId: findMyAccountIdsByUserIdMock,
   },
 }));
 
@@ -30,13 +27,12 @@ vi.mock("@/server/repositories/douyin-video.repository", () => ({
 describe("videoService", () => {
   beforeEach(() => {
     findIdsByOrganizationIdMock.mockReset();
-    findMyAccountIdsByUserIdMock.mockReset();
     findIdsByUserIdMock.mockReset();
     findManyWithAccountMock.mockReset();
   });
 
   it("limits employees to their own account videos", async () => {
-    findMyAccountIdsByUserIdMock.mockResolvedValue(["account_1"]);
+    findIdsByUserIdMock.mockResolvedValue(["account_1"]);
     findManyWithAccountMock.mockResolvedValue({
       items: [],
       total: 0,
@@ -72,7 +68,7 @@ describe("videoService", () => {
   });
 
   it("rejects accountId outside employee scope", async () => {
-    findMyAccountIdsByUserIdMock.mockResolvedValue(["account_1"]);
+    findIdsByUserIdMock.mockResolvedValue(["account_1"]);
 
     const { videoService } = await import("@/server/services/video.service");
 

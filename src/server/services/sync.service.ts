@@ -5,13 +5,30 @@
   type DouyinAccount,
 } from "@prisma/client";
 
+import {
+  CRAWLER_VIDEO_SYNC_QUEUE_NAME,
+  getCrawlerVideoSyncQueue,
+  type CrawlerVideoSyncJobData,
+} from "@/lib/bullmq";
 import { AppError } from "@/lib/errors";
+import { accountVideoSyncProfileRepository } from "@/server/repositories/account-video-sync-profile.repository";
 import { benchmarkAccountRepository } from "@/server/repositories/benchmark-account.repository";
 import { benchmarkVideoRepository } from "@/server/repositories/benchmark-video.repository";
 import { benchmarkVideoSnapshotRepository } from "@/server/repositories/benchmark-video-snapshot.repository";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
 import { employeeCollectionVideoRepository } from "@/server/repositories/employee-collection-video.repository";
+import {
+  applySyncFailure,
+  applySyncSuccess,
+  buildHourlyDistributionFromHistory,
+  calculateNextSyncPlan,
+  defaultPublishWindows,
+  learnPublishWindowsFromHistory,
+  mergeLearnedAndTemporaryWindows,
+  type AccountSyncType,
+  type AccountVideoSyncProfileState,
+} from "@/server/services/account-video-sync-profile.service";
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { crawlerService } from "@/server/services/crawler.service";
 import { storageService } from "@/server/services/storage.service";
@@ -24,6 +41,27 @@ const COLLECTION_BATCH_SIZE = 30;
 const RECENT_VIDEO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MID_TERM_VIDEO_WINDOW_MS = 72 * 60 * 60 * 1000;
 const MID_TERM_VIDEO_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+const VIDEO_SYNC_PLANNER_BATCH_LIMIT = 50;
+
+function toInputJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
+
+function buildCrawlerVideoSyncJobId(params: {
+  accountType: "MY_ACCOUNT" | "BENCHMARK_ACCOUNT";
+  accountId: string;
+  nextSyncAt: Date | null;
+}): string {
+  const syncWindowKey = params.nextSyncAt?.getTime() ?? "immediate";
+  const normalize = (value: string) => value.replaceAll(":", "_");
+
+  return [
+    "crawler-video-sync",
+    normalize(params.accountType),
+    normalize(params.accountId),
+    syncWindowKey,
+  ].join("__");
+}
 
 interface SyncableAccount {
   id: string;
@@ -93,6 +131,11 @@ interface CrawlerVideoDetail {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+}
+
+interface VideoSyncRunResult {
+  discoveredVideoPublishedAts: Date[];
+  newestVideoPublishedAt: Date | null;
 }
 
 interface SyncCaches {
@@ -198,6 +241,165 @@ interface SnapshotSyncAdapter {
 }
 
 class SyncService {
+  async runVideoSyncPlanner(now: Date = new Date()): Promise<{
+    dueProfiles: number;
+    enqueuedJobs: number;
+    skippedProfiles: number;
+    nearestNextSyncAt: Date | null;
+  }> {
+    const [myAccounts, benchmarkAccounts] = await Promise.all([
+      douyinAccountRepository.findAll(),
+      benchmarkAccountRepository.findAll(),
+    ]);
+    const activeAccountKeys = new Set([
+      ...myAccounts.map((account) => `MY_ACCOUNT:${account.id}`),
+      ...benchmarkAccounts.map((account) => `BENCHMARK_ACCOUNT:${account.id}`),
+    ]);
+
+    await accountVideoSyncProfileRepository.ensureProfiles([
+      ...myAccounts.map((account) => ({
+        accountType: "MY_ACCOUNT" as const,
+        accountId: account.id,
+        organizationId: account.organizationId,
+        status: "ACTIVE" as const,
+        nextSyncAt: now,
+        publishWindowsJson: toInputJsonValue(defaultPublishWindows()),
+        hourlyDistributionJson: toInputJsonValue([]),
+      })),
+      ...benchmarkAccounts.map((account) => ({
+        accountType: "BENCHMARK_ACCOUNT" as const,
+        accountId: account.id,
+        organizationId: account.organizationId,
+        status: account.bannedAt ? ("STOPPED_BANNED" as const) : ("ACTIVE" as const),
+        nextSyncAt: account.bannedAt ? null : now,
+        publishWindowsJson: toInputJsonValue(defaultPublishWindows()),
+        hourlyDistributionJson: toInputJsonValue([]),
+      })),
+    ]);
+
+    const dueProfiles = await accountVideoSyncProfileRepository.findDueProfiles(now, VIDEO_SYNC_PLANNER_BATCH_LIMIT);
+    const queue = getCrawlerVideoSyncQueue();
+    let enqueuedCount = 0;
+
+    console.log("[VideoSyncPlanner] Planning due profiles", {
+      totalMyAccounts: myAccounts.length,
+      totalBenchmarkAccounts: benchmarkAccounts.length,
+      dueProfiles: dueProfiles.length,
+    });
+
+    for (const profile of dueProfiles) {
+      if (!activeAccountKeys.has(`${profile.accountType}:${profile.accountId}`)) {
+        continue;
+      }
+
+      const jobData: CrawlerVideoSyncJobData = {
+        accountType: profile.accountType,
+        accountId: profile.accountId,
+        organizationId: profile.organizationId,
+      };
+      const jobId = buildCrawlerVideoSyncJobId({
+        accountType: profile.accountType,
+        accountId: profile.accountId,
+        nextSyncAt: profile.nextSyncAt,
+      });
+
+      await queue.add(CRAWLER_VIDEO_SYNC_QUEUE_NAME, jobData, {
+        jobId,
+      });
+      enqueuedCount += 1;
+    }
+
+    const nearestScheduledProfile =
+      await accountVideoSyncProfileRepository.findNearestScheduledProfile();
+    const nearestNextSyncAt = nearestScheduledProfile?.nextSyncAt ?? null;
+    const skippedProfiles = dueProfiles.length - enqueuedCount;
+
+    console.log("[VideoSyncPlanner] Planning completed", {
+      dueProfiles: dueProfiles.length,
+      enqueuedJobs: enqueuedCount,
+      skippedProfiles,
+      nearestNextSyncAt: nearestNextSyncAt?.toISOString() ?? null,
+    });
+
+    return {
+      dueProfiles: dueProfiles.length,
+      enqueuedJobs: enqueuedCount,
+      skippedProfiles,
+      nearestNextSyncAt,
+    };
+  }
+
+  async processCrawlerVideoSyncJob(job: CrawlerVideoSyncJobData): Promise<void> {
+    console.log("[CrawlerVideoSync] Job started", {
+      accountType: job.accountType,
+      accountId: job.accountId,
+      organizationId: job.organizationId,
+    });
+
+    const account = await this.findSyncableAccountByType(job.accountType, job.accountId);
+
+    if (!account || account.organizationId !== job.organizationId) {
+      console.warn("[CrawlerVideoSync] Job skipped because account is missing or moved", {
+        accountType: job.accountType,
+        accountId: job.accountId,
+        organizationId: job.organizationId,
+      });
+      return;
+    }
+
+    if (job.accountType === "BENCHMARK_ACCOUNT" && account.bannedAt) {
+      const profile = await this.loadProfileState(
+        job.accountType,
+        account.id,
+        account.organizationId,
+      );
+      await this.persistProfileState({
+        ...profile,
+        status: "STOPPED_BANNED",
+        priority: 0,
+        nextSyncAt: null,
+        cooldownUntil: null,
+      });
+      return;
+    }
+
+    const caches = this.createCaches();
+    const adapter =
+      job.accountType === "MY_ACCOUNT"
+        ? this.myVideoSyncAdapter()
+        : this.benchmarkVideoSyncAdapter();
+
+    try {
+      const syncResult = await this.syncAccountVideosRecord(account, adapter, caches);
+      await this.updateProfileAfterVideoSync(
+        job.accountType,
+        account.id,
+        account.organizationId,
+        syncResult,
+      );
+      console.log("[CrawlerVideoSync] Job completed", {
+        accountType: job.accountType,
+        accountId: account.id,
+        organizationId: account.organizationId,
+        newestVideoPublishedAt: syncResult.newestVideoPublishedAt?.toISOString() ?? null,
+        discoveredVideos: syncResult.discoveredVideoPublishedAts.length,
+      });
+    } catch (error) {
+      await this.updateProfileAfterVideoSyncFailure(
+        job.accountType,
+        account.id,
+        account.organizationId,
+      );
+      console.error("[CrawlerVideoSync] Job failed", {
+        accountType: job.accountType,
+        accountId: account.id,
+        organizationId: account.organizationId,
+        error,
+      });
+      throw error;
+    }
+  }
+
   async runAccountInfoBatchSync(): Promise<void> {
     const [myAccounts, benchmarkAccounts] = await Promise.all([
       douyinAccountRepository.findAll(),
@@ -303,8 +505,23 @@ class SyncService {
     );
 
     try {
-      await this.syncAccountVideosRecord(account, this.myVideoSyncAdapter(), caches);
+      const syncResult = await this.syncAccountVideosRecord(
+        account,
+        this.myVideoSyncAdapter(),
+        caches,
+      );
+      await this.updateProfileAfterVideoSync(
+        "MY_ACCOUNT",
+        account.id,
+        account.organizationId,
+        syncResult,
+      );
     } catch (error) {
+      await this.updateProfileAfterVideoSyncFailure(
+        "MY_ACCOUNT",
+        account.id,
+        account.organizationId,
+      );
       console.error("Failed to sync douyin account videos during manual sync:", {
         accountId: account.id,
         error,
@@ -573,7 +790,7 @@ class SyncService {
     account: AccountRecord,
     adapter: VideoSyncAdapter,
     caches: SyncCaches,
-  ): Promise<void> {
+  ): Promise<VideoSyncRunResult> {
     const secUserId = await this.ensureSecUserId(
       account,
       adapter.updateSecUserId,
@@ -581,6 +798,7 @@ class SyncService {
     );
     const existingVideoCount = await adapter.countByAccountId(account.id);
     const shareCookieHeader = await this.getCachedShareResolveCookie(caches);
+    const discoveredVideoPublishedAts: Date[] = [];
 
     if (existingVideoCount === 0) {
       const result = await this.getCachedVideoList(
@@ -592,10 +810,16 @@ class SyncService {
       );
 
       for (const video of result.videos.slice(0, INITIAL_SYNC_LIMIT)) {
-        await this.upsertCrawlerVideo(account, video, adapter);
+        const created = await this.upsertCrawlerVideo(account, video, adapter);
+        if (created && video.publishedAt) {
+          discoveredVideoPublishedAts.push(new Date(video.publishedAt));
+        }
       }
 
-      return;
+      return {
+        discoveredVideoPublishedAts,
+        newestVideoPublishedAt: this.getNewestPublishedAt(discoveredVideoPublishedAts),
+      };
     }
 
     let cursor = 0;
@@ -618,7 +842,10 @@ class SyncService {
           break;
         }
 
-        await this.upsertCrawlerVideo(account, video, adapter);
+        const created = await this.upsertCrawlerVideo(account, video, adapter);
+        if (created && video.publishedAt) {
+          discoveredVideoPublishedAts.push(new Date(video.publishedAt));
+        }
       }
 
       if (foundExisting || !result.hasMore) {
@@ -627,6 +854,11 @@ class SyncService {
 
       cursor = result.cursor;
     }
+
+    return {
+      discoveredVideoPublishedAts,
+      newestVideoPublishedAt: this.getNewestPublishedAt(discoveredVideoPublishedAts),
+    };
   }
 
   private async collectSnapshots<VideoRecord extends SyncableVideo>(
@@ -716,7 +948,7 @@ class SyncService {
     account: AccountRecord,
     video: CrawlerVideo,
     adapter: VideoSyncAdapter,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const existing = await adapter.findExistingVideo(account.id, video.awemeId);
     if (existing) {
       await adapter.updateExistingVideoStats(account.id, video.awemeId, {
@@ -729,7 +961,7 @@ class SyncService {
         admireCount: video.admireCount,
         recommendCount: video.recommendCount,
       });
-      return;
+      return false;
     }
 
     const coverStoragePath = video.coverSourceUrl
@@ -761,6 +993,8 @@ class SyncService {
       recommendCount: video.recommendCount,
       tags: [],
     });
+
+    return true;
   }
 
   private async ensureBenchmarkAccountMemberFromCollection(
@@ -840,6 +1074,200 @@ class SyncService {
 
       throw error;
     }
+  }
+
+  private async findSyncableAccountByType(
+    accountType: AccountSyncType,
+    accountId: string,
+  ): Promise<SyncableAccount | null> {
+    if (accountType === "MY_ACCOUNT") {
+      const account = await douyinAccountRepository.findById(accountId);
+      if (!account) {
+        return null;
+      }
+
+      return {
+        id: account.id,
+        profileUrl: account.profileUrl,
+        secUserId: account.secUserId,
+        organizationId: account.organizationId,
+      };
+    }
+
+    const account = await benchmarkAccountRepository.findById(accountId);
+    if (!account || account.deletedAt) {
+      return null;
+    }
+
+    return {
+      id: account.id,
+      profileUrl: account.profileUrl,
+      secUserId: account.secUserId,
+      organizationId: account.organizationId,
+      bannedAt: account.bannedAt,
+    };
+  }
+
+  private async loadProfileState(
+    accountType: AccountSyncType,
+    accountId: string,
+    organizationId: string,
+  ): Promise<AccountVideoSyncProfileState> {
+    const existing = await accountVideoSyncProfileRepository.findByAccount(
+      accountType,
+      accountId,
+    );
+    const recentPublishedAts = await this.loadRecentPublishedAts(accountType, accountId);
+    const learnedWindows = learnPublishWindowsFromHistory(recentPublishedAts);
+    const hourlyDistribution = buildHourlyDistributionFromHistory(recentPublishedAts);
+
+    if (!existing) {
+      return {
+        accountType,
+        accountId,
+        organizationId,
+        status: "ACTIVE",
+        priority: 0,
+        lastVideoPublishedAt: recentPublishedAts[0] ?? null,
+        lastSyncAt: null,
+        lastSuccessAt: null,
+        lastFailureAt: null,
+        lastAttemptAt: null,
+        nextSyncAt: null,
+        cooldownUntil: null,
+        fastFollowUntil: null,
+        consecutiveFailureCount: 0,
+        consecutiveNoNewCount: 0,
+        publishWindows: learnedWindows,
+        hourlyDistribution,
+        notes: null,
+      };
+    }
+
+    return {
+      accountType: existing.accountType,
+      accountId: existing.accountId,
+      organizationId: existing.organizationId,
+      status: existing.status,
+      priority: existing.priority,
+      lastVideoPublishedAt: existing.lastVideoPublishedAt,
+      lastSyncAt: existing.lastSuccessAt,
+      lastSuccessAt: existing.lastSuccessAt,
+      lastFailureAt: existing.lastFailureAt,
+      lastAttemptAt: existing.lastAttemptAt,
+      nextSyncAt: existing.nextSyncAt,
+      cooldownUntil: existing.cooldownUntil,
+      fastFollowUntil: existing.fastFollowUntil,
+      consecutiveFailureCount: existing.consecutiveFailureCount,
+      consecutiveNoNewCount: existing.consecutiveNoNewCount,
+      publishWindows: mergeLearnedAndTemporaryWindows(
+        learnedWindows,
+        Array.isArray(existing.publishWindowsJson)
+          ? (existing.publishWindowsJson as unknown as AccountVideoSyncProfileState["publishWindows"])
+          : defaultPublishWindows(),
+        new Date(),
+      ),
+      hourlyDistribution,
+      notes: existing.notes,
+    };
+  }
+
+  private async loadRecentPublishedAts(
+    accountType: AccountSyncType,
+    accountId: string,
+  ): Promise<Date[]> {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    return accountType === "MY_ACCOUNT"
+      ? douyinVideoRepository.findRecentPublishedAtByAccountId(accountId, since)
+      : benchmarkVideoRepository.findRecentPublishedAtByAccountId(accountId, since);
+  }
+
+  private async updateProfileAfterVideoSync(
+    accountType: AccountSyncType,
+    accountId: string,
+    organizationId: string,
+    syncResult: VideoSyncRunResult,
+  ): Promise<void> {
+    const now = new Date();
+    const currentState = await this.loadProfileState(accountType, accountId, organizationId);
+    const successState = applySyncSuccess(currentState, {
+      now,
+      newestVideoPublishedAt: syncResult.newestVideoPublishedAt,
+      discoveredVideoPublishedAts: syncResult.discoveredVideoPublishedAts,
+    });
+    const recentPublishedAts = await this.loadRecentPublishedAts(accountType, accountId);
+    const learnedWindows = learnPublishWindowsFromHistory(recentPublishedAts);
+    const mergedWindows = mergeLearnedAndTemporaryWindows(
+      learnedWindows,
+      successState.publishWindows,
+      now,
+    );
+    const nextPlan = calculateNextSyncPlan(
+      {
+        ...successState,
+        publishWindows: mergedWindows,
+        hourlyDistribution: buildHourlyDistributionFromHistory(recentPublishedAts),
+      },
+      now,
+    );
+
+    await this.persistProfileState({
+      ...successState,
+      publishWindows: mergedWindows,
+      hourlyDistribution: buildHourlyDistributionFromHistory(recentPublishedAts),
+      status: nextPlan.status,
+      priority: nextPlan.priority,
+      nextSyncAt: nextPlan.nextSyncAt,
+    });
+  }
+
+  private async updateProfileAfterVideoSyncFailure(
+    accountType: AccountSyncType,
+    accountId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const failedState = applySyncFailure(
+      await this.loadProfileState(accountType, accountId, organizationId),
+      new Date(),
+    );
+
+    await this.persistProfileState(failedState);
+  }
+
+  private async persistProfileState(state: AccountVideoSyncProfileState): Promise<void> {
+    await accountVideoSyncProfileRepository.upsertState({
+      accountType: state.accountType,
+      accountId: state.accountId,
+      organizationId: state.organizationId,
+      status: state.status,
+      priority: state.priority,
+      nextSyncAt: state.nextSyncAt,
+      cooldownUntil: state.cooldownUntil,
+      fastFollowUntil: state.fastFollowUntil,
+      lastVideoPublishedAt: state.lastVideoPublishedAt,
+      lastAttemptAt: state.lastAttemptAt,
+      lastSuccessAt: state.lastSuccessAt,
+      lastFailureAt: state.lastFailureAt,
+      consecutiveFailureCount: state.consecutiveFailureCount,
+      consecutiveNoNewCount: state.consecutiveNoNewCount,
+      publishWindowsJson: toInputJsonValue(state.publishWindows),
+      hourlyDistributionJson: toInputJsonValue(state.hourlyDistribution),
+      notes:
+        state.notes === null || state.notes === undefined
+          ? Prisma.JsonNull
+          : toInputJsonValue(state.notes),
+    });
+  }
+
+  private getNewestPublishedAt(publishedAts: Date[]): Date | null {
+    if (publishedAts.length === 0) {
+      return null;
+    }
+
+    return publishedAts.reduce((latest, current) =>
+      latest.getTime() > current.getTime() ? latest : current,
+    );
   }
 
   private getCachedSecUserId(profileUrl: string, caches: SyncCaches): Promise<string> {

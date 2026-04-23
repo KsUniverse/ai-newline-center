@@ -24,13 +24,17 @@ export async function ensureServerBootstrap(): Promise<void> {
     });
 
     const { startScheduler } = await import("@/lib/scheduler");
+    const { startVideoSyncScheduler } = await import("@/lib/video-sync-scheduler");
+    const { startCrawlerVideoSyncWorker } = await import("@/lib/crawler-video-sync-worker");
     const { startTranscriptionWorker } = await import("@/lib/transcription-worker");
     const { startRewriteWorker } = await import("@/lib/rewrite-worker");
 
     if (shouldStartScheduler) {
       startScheduler();
+      startVideoSyncScheduler();
     }
 
+    startCrawlerVideoSyncWorker();
     startTranscriptionWorker();
     startRewriteWorker();
 

@@ -34,6 +34,7 @@ model Organization {
   rewrites Rewrite[]
   douyinLoginSessions DouyinLoginSession[]
   crawlerCookies CrawlerCookie[]
+  accountVideoSyncProfiles AccountVideoSyncProfile[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -131,6 +132,18 @@ enum BenchmarkAccountMemberSource {
   COLLECTION_SYNC
 }
 
+enum AccountSyncType {
+  MY_ACCOUNT
+  BENCHMARK_ACCOUNT
+}
+
+enum AccountVideoSyncStatus {
+  ACTIVE
+  COOLDOWN
+  LOW_ACTIVITY
+  STOPPED_BANNED
+}
+
 model DouyinAccount {
   id             String            @id @default(cuid())
   profileUrl     String            @unique
@@ -214,6 +227,34 @@ model BenchmarkAccount {
   @@unique([organizationId, profileUrl])
   @@unique([organizationId, secUserId])
   @@map("benchmark_accounts")
+}
+
+model AccountVideoSyncProfile {
+  accountType             AccountSyncType
+  accountId               String
+  organizationId          String
+  organization            Organization           @relation(fields: [organizationId], references: [id])
+  status                  AccountVideoSyncStatus @default(ACTIVE)
+  priority                Int                    @default(0)
+  lastVideoPublishedAt    DateTime?
+  lastAttemptAt           DateTime?
+  lastSuccessAt           DateTime?
+  lastFailureAt           DateTime?
+  nextSyncAt              DateTime?
+  cooldownUntil           DateTime?
+  fastFollowUntil         DateTime?
+  consecutiveFailureCount Int                    @default(0)
+  consecutiveNoNewCount   Int                    @default(0)
+  publishWindowsJson      Json                   @default("[]")
+  hourlyDistributionJson  Json                   @default("[]")
+  notes                   Json?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@id([accountType, accountId])
+  @@index([organizationId, status])
+  @@index([nextSyncAt, status, priority])
+  @@map("account_video_sync_profiles")
 }
 
 model BenchmarkAccountMember {

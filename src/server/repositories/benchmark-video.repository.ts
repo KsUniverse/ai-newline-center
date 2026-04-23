@@ -194,6 +194,33 @@ class BenchmarkVideoRepository {
     });
   }
 
+  async findRecentPublishedAtByAccountId(
+    accountId: string,
+    since: Date,
+    db: DatabaseClient = prisma,
+  ): Promise<Date[]> {
+    const records = await db.benchmarkVideo.findMany({
+      where: {
+        accountId,
+        deletedAt: null,
+        publishedAt: {
+          gte: since,
+          not: null,
+        },
+      },
+      select: {
+        publishedAt: true,
+      },
+      orderBy: {
+        publishedAt: "desc",
+      },
+    });
+
+    return records
+      .map((record) => record.publishedAt)
+      .filter((publishedAt): publishedAt is Date => publishedAt !== null);
+  }
+
   async findByAccountId(
     params: { accountId: string; page: number; limit: number },
     db: DatabaseClient = prisma,

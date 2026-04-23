@@ -1,6 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("storageService", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ai_newline");
+    vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
+    vi.stubEnv("CRAWLER_COOKIE_ENCRYPTION_KEY", "a".repeat(64));
+    vi.stubEnv("NODE_ENV", "test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("builds a dated storage path and logs the pending download", async () => {
     const consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.stubGlobal(
@@ -22,7 +34,7 @@ describe("storageService", () => {
 
     expect(path).toMatch(/^\/storage\/videos\/\d{4}-\d{2}-\d{2}\/video\.mp4$/);
     expect(consoleInfoSpy).toHaveBeenCalledWith(
-      expect.stringContaining("[StorageService] 待下载: https://cdn.example.com/video.mp4 →"),
+      expect.stringContaining("[StorageService] 本地存储: https://cdn.example.com/video.mp4 →"),
     );
 
     consoleInfoSpy.mockRestore();

@@ -1,11 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const baseEnv = {
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
+  NEXTAUTH_SECRET: "a".repeat(32),
+  CRAWLER_COOKIE_ENCRYPTION_KEY: "a".repeat(64),
+};
+
 describe("parseEnv", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
-    vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ai_newline");
-    vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
+    vi.stubEnv("DATABASE_URL", baseEnv.DATABASE_URL);
+    vi.stubEnv("NEXTAUTH_SECRET", baseEnv.NEXTAUTH_SECRET);
+    vi.stubEnv("CRAWLER_COOKIE_ENCRYPTION_KEY", baseEnv.CRAWLER_COOKIE_ENCRYPTION_KEY);
   });
 
   it("allows NEXTAUTH_URL to be omitted in development", async () => {
@@ -13,8 +20,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
     });
 
@@ -29,8 +35,7 @@ describe("parseEnv", () => {
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
       AUTH_TRUST_HOST: "true",
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NEXTAUTH_URL: "https://app.example.com",
       CRAWLER_API_URL: "https://crawler.example.com",
       NODE_ENV: "production",
@@ -47,8 +52,7 @@ describe("parseEnv", () => {
     const { parseEnv } = await import("@/lib/env");
     expect(() =>
       parseEnv({
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-        NEXTAUTH_SECRET: "a".repeat(32),
+        ...baseEnv,
         CRAWLER_API_URL: "https://crawler.example.com",
         NODE_ENV: "production",
       }),
@@ -60,8 +64,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
     });
 
@@ -76,8 +79,7 @@ describe("parseEnv", () => {
     const { parseEnv } = await import("@/lib/env");
     expect(() =>
       parseEnv({
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-        NEXTAUTH_SECRET: "a".repeat(32),
+        ...baseEnv,
         NEXTAUTH_URL: "https://app.example.com",
         NODE_ENV: "production",
       }),
@@ -89,8 +91,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       ACCOUNT_SYNC_CRON: "0 */6 * * *",
       VIDEO_SYNC_CRON: "0 * * * *",
@@ -105,8 +106,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       VIDEO_SNAPSHOT_CRON: "*/10 * * * *",
     });
@@ -119,8 +119,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       COLLECTION_SYNC_CRON: "*/5 * * * *",
     });
@@ -128,13 +127,24 @@ describe("parseEnv", () => {
     expect(result.COLLECTION_SYNC_CRON).toBe("*/5 * * * *");
   });
 
+  it("defaults crawler video sync worker concurrency to 3", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+
+    const { parseEnv } = await import("@/lib/env");
+    const result = parseEnv({
+      ...baseEnv,
+      NODE_ENV: "development",
+    });
+
+    expect(result.CRAWLER_VIDEO_SYNC_WORKER_CONCURRENCY).toBe(3);
+  });
+
   it("allows DEEPGRAM_API_KEY to be omitted in development", async () => {
     vi.stubEnv("NODE_ENV", "development");
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
     });
 
@@ -147,8 +157,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
     });
 
@@ -163,8 +172,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       ARK_API_KEY: "ark_test_key",
       ARK_BASE_URL: "https://ark.example.com",
@@ -185,8 +193,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       DEEPGRAM_API_KEY: "dg_test_key",
     });
@@ -199,8 +206,7 @@ describe("parseEnv", () => {
 
     const { parseEnv } = await import("@/lib/env");
     const result = parseEnv({
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/ai_newline",
-      NEXTAUTH_SECRET: "a".repeat(32),
+      ...baseEnv,
       NODE_ENV: "development",
       GOOGLE_API_KEY: "google_test_key",
     });

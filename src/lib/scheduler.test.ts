@@ -5,19 +5,16 @@ const {
   envMock,
   runCollectionSyncMock,
   runAccountInfoBatchSyncMock,
-  runVideoBatchSyncMock,
   runVideoSnapshotCollectionMock,
 } = vi.hoisted(() => ({
   scheduleMock: vi.fn(),
   envMock: {
     ACCOUNT_SYNC_CRON: undefined as string | undefined,
     COLLECTION_SYNC_CRON: undefined as string | undefined,
-    VIDEO_SYNC_CRON: undefined as string | undefined,
     VIDEO_SNAPSHOT_CRON: undefined as string | undefined,
   },
   runCollectionSyncMock: vi.fn(),
   runAccountInfoBatchSyncMock: vi.fn(),
-  runVideoBatchSyncMock: vi.fn(),
   runVideoSnapshotCollectionMock: vi.fn(),
 }));
 
@@ -35,7 +32,6 @@ vi.mock("@/server/services/sync.service", () => ({
   syncService: {
     runCollectionSync: runCollectionSyncMock,
     runAccountInfoBatchSync: runAccountInfoBatchSyncMock,
-    runVideoBatchSync: runVideoBatchSyncMock,
     runVideoSnapshotCollection: runVideoSnapshotCollectionMock,
   },
 }));
@@ -45,11 +41,12 @@ describe("startScheduler", () => {
     scheduleMock.mockReset();
     runCollectionSyncMock.mockReset();
     runAccountInfoBatchSyncMock.mockReset();
-    runVideoBatchSyncMock.mockReset();
     runVideoSnapshotCollectionMock.mockReset();
+    runCollectionSyncMock.mockResolvedValue(undefined);
+    runAccountInfoBatchSyncMock.mockResolvedValue(undefined);
+    runVideoSnapshotCollectionMock.mockResolvedValue(undefined);
     envMock.ACCOUNT_SYNC_CRON = undefined;
     envMock.COLLECTION_SYNC_CRON = undefined;
-    envMock.VIDEO_SYNC_CRON = undefined;
     envMock.VIDEO_SNAPSHOT_CRON = undefined;
     globalThis.__schedulerInitialized = undefined;
     vi.resetModules();
@@ -61,11 +58,10 @@ describe("startScheduler", () => {
     startScheduler();
     startScheduler();
 
-    expect(scheduleMock).toHaveBeenCalledTimes(4);
+    expect(scheduleMock).toHaveBeenCalledTimes(3);
     expect(scheduleMock).toHaveBeenNthCalledWith(1, "3 * * * *", expect.any(Function));
     expect(scheduleMock).toHaveBeenNthCalledWith(2, "*/10 * * * *", expect.any(Function));
-    expect(scheduleMock).toHaveBeenNthCalledWith(3, "*/10 * * * *", expect.any(Function));
-    expect(scheduleMock).toHaveBeenNthCalledWith(4, "*/15 * * * *", expect.any(Function));
+    expect(scheduleMock).toHaveBeenNthCalledWith(3, "*/15 * * * *", expect.any(Function));
   });
 
   it("skips collection sync reentry while the previous run is still active", async () => {
@@ -80,7 +76,7 @@ describe("startScheduler", () => {
     const { startScheduler } = await import("@/lib/scheduler");
     startScheduler();
 
-    const collectionHandler = scheduleMock.mock.calls[3]?.[1] as (() => void) | undefined;
+    const collectionHandler = scheduleMock.mock.calls[2]?.[1] as (() => void) | undefined;
 
     collectionHandler?.();
     collectionHandler?.();

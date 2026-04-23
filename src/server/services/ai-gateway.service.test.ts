@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createOpenAIMock,
+  createChatCompletionsMock,
   findByIdRawMock,
   findByStepMock,
   generateTextMock,
   streamTextMock,
 } = vi.hoisted(() => ({
   createOpenAIMock: vi.fn(),
+  createChatCompletionsMock: vi.fn(),
   findByIdRawMock: vi.fn(),
   findByStepMock: vi.fn(),
   generateTextMock: vi.fn(),
@@ -35,6 +37,16 @@ vi.mock("ai", () => ({
   streamText: streamTextMock,
 }));
 
+vi.mock("openai", () => ({
+  default: class {
+    chat = {
+      completions: {
+        create: createChatCompletionsMock,
+      },
+    };
+  },
+}));
+
 const textConfig = {
   id: "config_2",
   name: "Ark 文本",
@@ -46,9 +58,21 @@ const textConfig = {
   updatedAt: new Date(),
 };
 
+const transcriptionConfig = {
+  id: "config_3",
+  name: "Qwen 视频",
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  apiKey: "dashscope_test_key",
+  modelName: "qwen3-vl-plus",
+  videoInputMode: "OSS_FILE",
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 describe("aiGateway", () => {
   beforeEach(() => {
     createOpenAIMock.mockReset();
+    createChatCompletionsMock.mockReset();
     findByIdRawMock.mockReset();
     findByStepMock.mockReset();
     generateTextMock.mockReset();
@@ -82,6 +106,53 @@ describe("aiGateway", () => {
     expect(result.modelConfigId).toBe("config_2");
     expect(result.modelName).toBe("ark/decompose");
     expect(chunks).toEqual(["逐", "字"]);
+  });
+
+  it("streams transcription deltas using the configured TRANSCRIBE binding", async () => {
+    findByStepMock.mockResolvedValue({ step: "TRANSCRIBE", modelConfigId: "config_3" });
+    findByIdRawMock.mockResolvedValue(transcriptionConfig);
+    createChatCompletionsMock.mockResolvedValue(
+      (async function* () {
+        yield {
+          choices: [
+            {
+              delta: {
+                content: "第一段",
+              },
+            },
+          ],
+        };
+        yield {
+          choices: [
+            {
+              delta: {
+                content: "第二段",
+              },
+            },
+          ],
+        };
+      })(),
+    );
+
+    const { aiGateway } = await import("@/server/services/ai-gateway.service");
+    const result = await aiGateway.streamTranscriptionFromVideo("https://oss.example.com/demo.mp4");
+
+    const chunks: string[] = [];
+    for await (const chunk of result.textStream) {
+      chunks.push(chunk);
+    }
+
+    expect(findByStepMock).toHaveBeenCalledWith("TRANSCRIBE");
+    expect(findByIdRawMock).toHaveBeenCalledWith("config_3");
+    expect(createChatCompletionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "qwen3-vl-plus",
+        stream: true,
+      }),
+    );
+    expect(result.modelConfigId).toBe("config_3");
+    expect(result.modelName).toBe("qwen3-vl-plus");
+    expect(chunks).toEqual(["第一段", "第二段"]);
   });
 
   it("generates text using the configured step binding", async () => {
@@ -123,4 +194,3 @@ describe("aiGateway", () => {
     });
   });
 });
-

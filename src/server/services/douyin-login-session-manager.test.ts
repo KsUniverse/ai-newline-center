@@ -100,6 +100,7 @@ describe("douyinLoginSessionManager", () => {
     vi.setSystemTime(new Date("2026-04-04T08:00:00.000Z"));
     vi.stubEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/ai_newline");
     vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
+    vi.stubEnv("CRAWLER_COOKIE_ENCRYPTION_KEY", "a".repeat(64));
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("DOUYIN_LOGIN_TIMEOUT_MS", "60000");
     vi.stubEnv("DOUYIN_LOGIN_PAGE_URL", "https://www.douyin.com/");

@@ -12,6 +12,7 @@ const envSchema = z.object({
   DOUYIN_LOGIN_OPEN_DEVTOOLS: z.coerce.boolean().default(false),
   DOUYIN_LOGIN_TIMEOUT_MS: z.coerce.number().int().min(60_000).default(180_000),
   REDIS_URL: z.string().url().optional(),
+  CRAWLER_VIDEO_SYNC_WORKER_CONCURRENCY: z.coerce.number().int().min(1).default(3),
   ACCOUNT_SYNC_CRON: z.string().optional(),
   VIDEO_SYNC_CRON: z.string().optional(),
   VIDEO_SNAPSHOT_CRON: z.string().optional(),

@@ -18,6 +18,10 @@ import {
   splitTranscriptIntoSegments,
   type SelectedTextRange,
 } from "./ai-workspace-view-model";
+import {
+  applyTranscriptStreamEvent,
+  createTranscriptStreamState,
+} from "./ai-workspace-transcript-stream";
 
 export type AiWorkspaceStage = "transcribe" | "decompose" | "rewrite";
 type DestructiveAction = "unlock" | "retranscribe";
@@ -69,6 +73,10 @@ function findLatestAnnotationId(
 
 function isWorkspaceMissing(error: unknown): boolean {
   return error instanceof ApiError && error.code === "NOT_FOUND";
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
 }
 
 function resolveWorkspaceStage(workspace: AiWorkspaceDTO | null): AiWorkspaceStage {
@@ -123,10 +131,8 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [generatingRewrite, setGeneratingRewrite] = useState(false);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const workspacePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rewritePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
-  const transcriptionFailureToastShownRef = useRef(false);
 
   const resetToInitialWorkspace = useCallback(() => {
     if (rewritePollTimerRef.current) {
@@ -164,12 +170,6 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   useEffect(() => {
     activeAnnotationIdRef.current = activeAnnotationId;
   }, [activeAnnotationId]);
-
-  useEffect(() => {
-    if (workspace?.status !== "TRANSCRIBING") {
-      transcriptionFailureToastShownRef.current = false;
-    }
-  }, [workspace?.status]);
 
   const applyWorkspace = useCallback(function applyWorkspace(
     next: AiWorkspaceDTO,
@@ -268,16 +268,16 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
 
   useEffect(() => {
     if (!video || !workspace?.id || workspace.status !== "TRANSCRIBING") {
-      if (workspacePollTimerRef.current) {
-        clearTimeout(workspacePollTimerRef.current);
-        workspacePollTimerRef.current = null;
-      }
       return;
     }
 
+    const abortController = new AbortController();
     let cancelled = false;
+    let streamState = createTranscriptStreamState(
+      workspace.transcript?.currentText ?? workspace.transcript?.originalText ?? "",
+    );
 
-    const pollWorkspace = async () => {
+    const syncWorkspace = async () => {
       try {
         const next = await apiClient.get<AiWorkspaceDTO>(`/ai-workspaces?videoId=${video.id}`);
         if (cancelled) {
@@ -289,50 +289,58 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
           nextSelection: manualSelection,
           nextActiveAnnotationId: activeAnnotationIdRef.current,
         });
-
-        if (next.status === "TRANSCRIBING") {
-          workspacePollTimerRef.current = setTimeout(() => {
-            void pollWorkspace();
-          }, 2000);
-          return;
-        }
-
-        if (
-          next.status === "IDLE" &&
-          !next.transcript &&
-          !transcriptionFailureToastShownRef.current
-        ) {
-          transcriptionFailureToastShownRef.current = true;
-          toast.error("AI 转录未成功生成正文，请重试");
-        }
       } catch (error) {
-        if (cancelled) {
+        if (cancelled || isAbortError(error)) {
           return;
         }
 
-        workspacePollTimerRef.current = setTimeout(() => {
-          void pollWorkspace();
-        }, 3000);
-
-        if (!transcriptionFailureToastShownRef.current && error instanceof ApiError) {
-          transcriptionFailureToastShownRef.current = true;
-          toast.error(error.message);
-        }
+        toast.error(error instanceof ApiError ? error.message : "AI 工作台刷新失败");
       }
     };
 
-    workspacePollTimerRef.current = setTimeout(() => {
-      void pollWorkspace();
-    }, 1500);
+    void apiClient
+      .stream(
+        `/ai-workspaces/${workspace.id}/transcript/sse`,
+        {
+          method: "GET",
+          signal: abortController.signal,
+        },
+        (message) => {
+          streamState = applyTranscriptStreamEvent(streamState, message);
+
+          if (
+            message.event === "start" ||
+            message.event === "delta" ||
+            message.event === "done"
+          ) {
+            setTranscriptText(streamState.text);
+          }
+
+          if (message.event === "done") {
+            void syncWorkspace();
+            return;
+          }
+
+          if (message.event === "error" && streamState.errorMessage) {
+            toast.error(streamState.errorMessage);
+            void syncWorkspace();
+          }
+        },
+      )
+      .catch((error) => {
+        if (cancelled || isAbortError(error)) {
+          return;
+        }
+
+        toast.error(error instanceof ApiError ? error.message : "转录流连接失败");
+        void syncWorkspace();
+      });
 
     return () => {
       cancelled = true;
-      if (workspacePollTimerRef.current) {
-        clearTimeout(workspacePollTimerRef.current);
-        workspacePollTimerRef.current = null;
-      }
+      abortController.abort();
     };
-  }, [applyWorkspace, manualSelection, video, workspace?.id, workspace?.status]);
+  }, [applyWorkspace, manualSelection, video, workspace?.id, workspace?.status, workspace?.transcript?.currentText, workspace?.transcript?.originalText]);
 
   useEffect(() => {
     if (!workspace?.id || stage !== "rewrite" || !draftDirty) {

@@ -205,6 +205,7 @@ describe("crawlerService", () => {
         {
           awemeId: "video_1",
           title: "真实视频",
+          shareUrl: null,
           coverUrl: null,
           coverSourceUrl: "https://cdn.example.com/cover.jpg",
           videoUrl: null,
@@ -478,6 +479,7 @@ describe("crawlerService", () => {
 
     expect(result).toEqual({
       awemeId: "video_1",
+      shareUrl: null,
       playCount: 200,
       likeCount: 20,
       commentCount: 3,

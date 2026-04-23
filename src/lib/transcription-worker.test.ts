@@ -5,6 +5,7 @@ const {
   generateTranscriptionFromVideoMock,
   markQueuedTranscriptionFailedMock,
   publishMock,
+  streamTranscriptionFromVideoMock,
   workerHandlers,
   workerState,
 } = vi.hoisted(() => ({
@@ -12,6 +13,7 @@ const {
   generateTranscriptionFromVideoMock: vi.fn(),
   markQueuedTranscriptionFailedMock: vi.fn(),
   publishMock: vi.fn(),
+  streamTranscriptionFromVideoMock: vi.fn(),
   workerHandlers: new Map<string, (job: unknown, error: unknown) => unknown>(),
   workerState: {
     processFn: null as null | ((job: unknown) => Promise<unknown>),
@@ -37,6 +39,7 @@ vi.mock("@/lib/redis", () => ({
 vi.mock("@/server/services/ai-gateway.service", () => ({
   aiGateway: {
     generateTranscriptionFromVideo: generateTranscriptionFromVideoMock,
+    streamTranscriptionFromVideo: streamTranscriptionFromVideoMock,
   },
 }));
 
@@ -67,6 +70,7 @@ describe("startTranscriptionWorker", () => {
     generateTranscriptionFromVideoMock.mockReset();
     markQueuedTranscriptionFailedMock.mockReset();
     publishMock.mockReset();
+    streamTranscriptionFromVideoMock.mockReset();
     workerHandlers.clear();
     workerState.processFn = null;
     vi.restoreAllMocks();
@@ -76,10 +80,14 @@ describe("startTranscriptionWorker", () => {
   });
 
   it("uses the configured TRANSCRIBE implementation for successful jobs", async () => {
-    generateTranscriptionFromVideoMock.mockResolvedValue({
-      modelConfigId: "google-transcribe",
-      modelName: "gemini-2.5-flash-lite",
-      text: "Gemini 转录正文",
+    streamTranscriptionFromVideoMock.mockResolvedValue({
+      modelConfigId: "qwen-stream",
+      modelName: "qwen3-vl-plus",
+      textStream: (async function* () {
+        yield "流式";
+        yield "转录";
+        yield "正文";
+      })(),
     });
 
     const { startTranscriptionWorker } = await import("@/lib/transcription-worker");
@@ -96,20 +104,61 @@ describe("startTranscriptionWorker", () => {
       },
     });
 
-    expect(generateTranscriptionFromVideoMock).toHaveBeenCalledWith(
+    expect(streamTranscriptionFromVideoMock).toHaveBeenCalledWith(
       expect.stringContaining("/public/storage/videos/demo.mp4"),
     );
     expect(completeQueuedTranscriptionMock).toHaveBeenCalledWith(
       "workspace_1",
       "org_1",
       expect.objectContaining({
-        originalText: "Gemini 转录正文",
-        currentText: "Gemini 转录正文",
-        aiProviderKey: "google-transcribe",
-        aiModel: "gemini-2.5-flash-lite",
+        originalText: "流式转录正文",
+        currentText: "流式转录正文",
+        aiProviderKey: "qwen-stream",
+        aiModel: "qwen3-vl-plus",
       }),
     );
-    expect(publishMock).toHaveBeenCalled();
+    expect(publishMock.mock.calls).toEqual([
+      [
+        "ai-workspace:transcript:workspace_1",
+        JSON.stringify({
+          event: "start",
+          data: { kind: "transcript" },
+        }),
+      ],
+      [
+        "ai-workspace:transcript:workspace_1",
+        JSON.stringify({
+          event: "delta",
+          data: { kind: "transcript", delta: "流式" },
+        }),
+      ],
+      [
+        "ai-workspace:transcript:workspace_1",
+        JSON.stringify({
+          event: "delta",
+          data: { kind: "transcript", delta: "转录" },
+        }),
+      ],
+      [
+        "ai-workspace:transcript:workspace_1",
+        JSON.stringify({
+          event: "delta",
+          data: { kind: "transcript", delta: "正文" },
+        }),
+      ],
+      [
+        "ai-workspace:transcript:workspace_1",
+        JSON.stringify({
+          event: "done",
+          data: {
+            kind: "transcript",
+            text: "流式转录正文",
+            modelConfigId: "qwen-stream",
+            modelName: "qwen3-vl-plus",
+          },
+        }),
+      ],
+    ]);
   });
 
   it("logs permanent transcription failures and marks the workspace as failed", async () => {

@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Worker } from "bullmq";
 
-import { buildTranscriptStreamChannel, chunkText } from "@/lib/ai-stream";
+import { buildTranscriptStreamChannel } from "@/lib/ai-stream";
 import { TRANSCRIPTION_QUEUE_NAME, type TranscriptionJobData } from "@/lib/bullmq";
 import { env } from "@/lib/env";
 import { createBullMQRedisConnection, createPubSubRedisClient } from "@/lib/redis";
@@ -83,24 +83,32 @@ export function startTranscriptionWorker(): void {
         await publishTranscriptionEvent(workspaceId, "start", {
           kind: "transcript",
         });
-        const result = await aiGateway.generateTranscriptionFromVideo(videoInput);
-        for (const delta of chunkText(result.text, 24)) {
+        const result = await aiGateway.streamTranscriptionFromVideo(videoInput);
+        let transcriptText = "";
+
+        for await (const delta of result.textStream) {
+          transcriptText += delta;
           await publishTranscriptionEvent(workspaceId, "delta", {
             kind: "transcript",
             delta,
           });
         }
 
+        transcriptText = transcriptText.trim();
+        if (!transcriptText) {
+          throw new AppError("AI_EMPTY_RESPONSE", "AI 未返回有效内容", 502);
+        }
+
         await aiWorkspaceRepository.completeQueuedTranscription(workspaceId, organizationId, {
-          originalText: result.text,
-          currentText: result.text,
+          originalText: transcriptText,
+          currentText: transcriptText,
           aiProviderKey: result.modelConfigId,
           aiModel: result.modelName,
         });
 
         await publishTranscriptionEvent(workspaceId, "done", {
           kind: "transcript",
-          text: result.text,
+          text: transcriptText,
           modelConfigId: result.modelConfigId,
           modelName: result.modelName,
         });
@@ -109,7 +117,7 @@ export function startTranscriptionWorker(): void {
           jobId: job.id,
           workspaceId,
           organizationId,
-          transcriptLength: result.text.length,
+          transcriptLength: transcriptText.length,
           aiProviderKey: result.modelConfigId,
           aiModel: result.modelName,
         });

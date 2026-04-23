@@ -56,3 +56,32 @@ export function getRewriteQueue(): Queue<RewriteJobData> {
   }
   return rewriteQueue;
 }
+
+export const CRAWLER_VIDEO_SYNC_QUEUE_NAME = "crawler-video-sync";
+
+export interface CrawlerVideoSyncJobData {
+  accountType: "MY_ACCOUNT" | "BENCHMARK_ACCOUNT";
+  accountId: string;
+  organizationId: string;
+}
+
+let crawlerVideoSyncQueue: Queue<CrawlerVideoSyncJobData> | null = null;
+
+export function getCrawlerVideoSyncQueue(): Queue<CrawlerVideoSyncJobData> {
+  if (!crawlerVideoSyncQueue) {
+    crawlerVideoSyncQueue = new Queue<CrawlerVideoSyncJobData>(
+      CRAWLER_VIDEO_SYNC_QUEUE_NAME,
+      {
+        connection: createBullMQRedisConnection(),
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 15_000 },
+          removeOnComplete: { age: 86_400 },
+          removeOnFail: false,
+        },
+      },
+    );
+  }
+
+  return crawlerVideoSyncQueue;
+}

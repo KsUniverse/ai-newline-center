@@ -19,16 +19,14 @@ export function startScheduler(): void {
   globalThis.__schedulerInitialized = true;
 
   const accountSyncCron = env.ACCOUNT_SYNC_CRON ?? "3 * * * *";
-  const videoSyncCron = env.VIDEO_SYNC_CRON ?? "*/10 * * * *";
   const videoSnapshotCron = env.VIDEO_SNAPSHOT_CRON ?? "*/10 * * * *";
   const collectionSyncCron = env.COLLECTION_SYNC_CRON ?? "*/15 * * * *";
   let accountSyncRunning = false;
-  let videoSyncRunning = false;
   let videoSnapshotRunning = false;
   let collectionSyncRunning = false;
 
   console.log(
-    `[Scheduler] Initialized: accountSync=${accountSyncCron}, videoSync=${videoSyncCron}, videoSnapshot=${videoSnapshotCron}, collectionSync=${collectionSyncCron}`,
+    `[Scheduler] Initialized: accountSync=${accountSyncCron}, videoSnapshot=${videoSnapshotCron}, collectionSync=${collectionSyncCron}`,
   );
 
   cron.schedule(accountSyncCron, () => {
@@ -49,27 +47,6 @@ export function startScheduler(): void {
       })
       .finally(() => {
         accountSyncRunning = false;
-      });
-  });
-
-  cron.schedule(videoSyncCron, () => {
-    if (videoSyncRunning) {
-      console.warn("[Scheduler] Video sync already running, skipping...");
-      return;
-    }
-
-    videoSyncRunning = true;
-    console.log("[Scheduler] Video sync triggered");
-    void syncService
-      .runVideoBatchSync()
-      .then(() => {
-        console.log("[Scheduler] Video sync completed");
-      })
-      .catch((error: unknown) => {
-        console.error("[Scheduler] Video sync failed:", error);
-      })
-      .finally(() => {
-        videoSyncRunning = false;
       });
   });
 

@@ -8,6 +8,7 @@ const {
   findByIdMock,
   findByOrganizationAndProfileUrlIncludingDeletedMock,
   findByOrganizationAndSecUserIdIncludingDeletedMock,
+  findMemberBenchmarkAccountIdsMock,
   findManyMock,
   findVideosByAccountIdMock,
   getSecUserIdMock,
@@ -20,6 +21,7 @@ const {
   findByIdMock: vi.fn(),
   findByOrganizationAndProfileUrlIncludingDeletedMock: vi.fn(),
   findByOrganizationAndSecUserIdIncludingDeletedMock: vi.fn(),
+  findMemberBenchmarkAccountIdsMock: vi.fn(),
   findManyMock: vi.fn(),
   findVideosByAccountIdMock: vi.fn(),
   getSecUserIdMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("@/server/repositories/benchmark-account.repository", () => ({
       findByOrganizationAndProfileUrlIncludingDeletedMock,
     findByOrganizationAndSecUserIdIncludingDeleted:
       findByOrganizationAndSecUserIdIncludingDeletedMock,
+    findMemberBenchmarkAccountIds: findMemberBenchmarkAccountIdsMock,
     findMany: findManyMock,
     hasMember: hasMemberMock,
     upsertMember: upsertMemberMock,
@@ -63,6 +66,7 @@ describe("benchmarkAccountService", () => {
     findByIdMock.mockReset();
     findByOrganizationAndProfileUrlIncludingDeletedMock.mockReset();
     findByOrganizationAndSecUserIdIncludingDeletedMock.mockReset();
+    findMemberBenchmarkAccountIdsMock.mockReset();
     findManyMock.mockReset();
     findVideosByAccountIdMock.mockReset();
     getSecUserIdMock.mockReset();
@@ -206,7 +210,7 @@ describe("benchmarkAccountService", () => {
       page: 1,
       limit: 20,
     });
-    hasMemberMock.mockResolvedValue(true);
+    findMemberBenchmarkAccountIdsMock.mockResolvedValue(new Set(["benchmark_1"]));
 
     const { benchmarkAccountService } = await import("@/server/services/benchmark-account.service");
     const result = await benchmarkAccountService.listBenchmarks(
