@@ -6,10 +6,11 @@ const {
   findByIdMock,
   findByIdRawMock,
   upsertByWorkspaceMock,
-  createVersionMock,
+  createNextVersionMock,
   findByWorkspaceIdMock,
   findVersionByIdMock,
   updateVersionContentMock,
+  markVersionFailedMock,
   addJobMock,
   findUniqueAccountMock,
 } = vi.hoisted(() => ({
@@ -17,10 +18,11 @@ const {
   findByIdMock: vi.fn(),
   findByIdRawMock: vi.fn(),
   upsertByWorkspaceMock: vi.fn(),
-  createVersionMock: vi.fn(),
+  createNextVersionMock: vi.fn(),
   findByWorkspaceIdMock: vi.fn(),
   findVersionByIdMock: vi.fn(),
   updateVersionContentMock: vi.fn(),
+  markVersionFailedMock: vi.fn(),
   addJobMock: vi.fn(),
   findUniqueAccountMock: vi.fn(),
 }));
@@ -36,9 +38,10 @@ vi.mock("@/server/repositories/rewrite.repository", () => ({
   rewriteRepository: {
     findByWorkspaceId: findByWorkspaceIdMock,
     upsertByWorkspace: upsertByWorkspaceMock,
-    createVersion: createVersionMock,
+    createNextVersion: createNextVersionMock,
     findVersionById: findVersionByIdMock,
     updateVersionContent: updateVersionContentMock,
+    markVersionFailed: markVersionFailedMock,
   },
 }));
 
@@ -126,6 +129,21 @@ describe("rewriteService.getOrNullByWorkspace", () => {
     const result = await rewriteService.getOrNullByWorkspace("video_1", mockCaller);
     expect(result).toEqual(mockRewriteDTO);
   });
+
+  it("maps a missing rewrite table to a migration guidance error", async () => {
+    findByVideoIdAndUserIdMock.mockResolvedValue({ id: "ws_1" });
+    findByWorkspaceIdMock.mockRejectedValue({
+      code: "P2021",
+      meta: { table: "rewrites" },
+    });
+
+    await expect(
+      rewriteService.getOrNullByWorkspace("video_1", mockCaller),
+    ).rejects.toMatchObject({
+      code: "REWRITE_TABLE_MISSING",
+      statusCode: 503,
+    });
+  });
 });
 
 describe("rewriteService.generate — 前置校验", () => {
@@ -207,5 +225,37 @@ describe("rewriteService.generate — 前置校验", () => {
         mockCaller,
       ),
     ).rejects.toMatchObject({ code: "MODEL_NOT_FOUND" });
+  });
+
+  it("maps rewrite queue failures to a user-facing AppError instead of INTERNAL_ERROR", async () => {
+    findByVideoIdAndUserIdMock.mockResolvedValue({ id: "ws_1" });
+    findByIdMock.mockResolvedValue({
+      id: "ws_1",
+      annotations: [{ id: "ann_1" }],
+    });
+    findUniqueAccountMock.mockResolvedValue({ id: "acc_1" });
+    findByIdRawMock.mockResolvedValue({ id: "model_1" });
+    upsertByWorkspaceMock.mockResolvedValue({ id: "rewrite_1" });
+    createNextVersionMock.mockResolvedValue({ id: "version_1", versionNumber: 1 });
+    addJobMock.mockRejectedValue(new Error("REDIS_URL is not configured"));
+
+    await expect(
+      rewriteService.generate(
+        "video_1",
+        {
+          targetAccountId: "acc_1",
+          modelConfigId: "model_1",
+          usedFragmentIds: [],
+        },
+        mockCaller,
+      ),
+    ).rejects.toMatchObject({
+      code: "REWRITE_QUEUE_UNAVAILABLE",
+      statusCode: 503,
+    });
+    expect(markVersionFailedMock).toHaveBeenCalledWith(
+      "version_1",
+      "REDIS_URL is not configured",
+    );
   });
 });

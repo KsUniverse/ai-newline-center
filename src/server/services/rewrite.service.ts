@@ -8,6 +8,16 @@ import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import type { SessionUser } from "@/types/session";
 import type { GenerateRewriteInput, RewriteDTO } from "@/types/ai-workspace";
 
+function isMissingRewriteTableError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2021" &&
+    JSON.stringify((error as { meta?: unknown }).meta ?? "").includes("rewrites")
+  );
+}
+
 class RewriteService {
   private async getWorkspaceForCaller(videoId: string, callerId: string) {
     const workspace = await aiWorkspaceRepository.findByVideoIdAndUserId(videoId, callerId);
@@ -22,7 +32,18 @@ class RewriteService {
     caller: SessionUser,
   ): Promise<RewriteDTO | null> {
     const workspace = await this.getWorkspaceForCaller(videoId, caller.id);
-    return rewriteRepository.findByWorkspaceId(workspace.id);
+    try {
+      return await rewriteRepository.findByWorkspaceId(workspace.id);
+    } catch (error) {
+      if (isMissingRewriteTableError(error)) {
+        throw new AppError(
+          "REWRITE_TABLE_MISSING",
+          "仿写数据表尚未迁移，请先执行数据库迁移",
+          503,
+        );
+      }
+      throw error;
+    }
   }
 
   async generate(
@@ -79,14 +100,25 @@ class RewriteService {
       return { rewrite, version };
     });
 
-    // Enqueue BullMQ job
-    const queue = getRewriteQueue();
-    await queue.add("generate-rewrite", {
-      rewriteVersionId: version.id,
-      workspaceId: workspace.id,
-      organizationId: caller.organizationId,
-      userId: caller.id,
-    });
+    try {
+      const queue = getRewriteQueue();
+      await queue.add("generate-rewrite", {
+        rewriteVersionId: version.id,
+        workspaceId: workspace.id,
+        organizationId: caller.organizationId,
+        userId: caller.id,
+      });
+    } catch (error) {
+      await rewriteRepository.markVersionFailed(
+        version.id,
+        error instanceof Error ? error.message : "仿写任务队列不可用",
+      );
+      throw new AppError(
+        "REWRITE_QUEUE_UNAVAILABLE",
+        "仿写任务队列暂不可用，请检查 Redis 配置后重试",
+        503,
+      );
+    }
 
     return { rewriteVersionId: version.id, versionNumber: version.versionNumber };
   }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { GenerateRewriteInput, RewriteDTO } from "@/types/ai-workspace";
 import { buildTranscriptHighlightChunks, type DecompositionAnnotation } from "./ai-workspace-view-model";
 import { AiRewritePanel } from "./ai-rewrite-panel";
+import { REWRITE_STAGE_GRID_TEMPLATE_COLUMNS } from "./ai-workspace-rewrite-layout";
 
 export interface AiWorkspaceRewriteStageV2Props {
   transcriptText: string;
@@ -43,9 +44,12 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
   );
 
   return (
-    <div className="flex h-full min-h-0">
-      {/* Left column — annotation list ~25% */}
-      <div className="flex min-h-0 basis-[25%] flex-col border-r border-border/55">
+    <div
+      className="grid h-full min-h-0"
+      style={{ gridTemplateColumns: REWRITE_STAGE_GRID_TEMPLATE_COLUMNS }}
+    >
+      {/* Left column — annotation list 2fr */}
+      <div className="flex min-h-0 min-w-0 flex-col border-r border-border/55">
         <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -114,8 +118,8 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
         </div>
       </div>
 
-      {/* Middle column — transcript read-only with highlights ~35% */}
-      <div className="flex min-h-0 basis-[35%] flex-col border-r border-border/55">
+      {/* Middle column — transcript read-only with highlights 4fr */}
+      <div className="flex min-h-0 min-w-0 flex-col border-r border-border/55">
         <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -172,8 +176,8 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
         </div>
       </div>
 
-      {/* Right column — rewrite panel ~40% */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* Right column — rewrite panel 4fr */}
+      <div className="relative flex min-h-0 min-w-0 flex-col">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.06),transparent_30%)]" />
         <div className="border-b border-border/35 px-4 py-4">
           <div className="flex items-center justify-between gap-2">

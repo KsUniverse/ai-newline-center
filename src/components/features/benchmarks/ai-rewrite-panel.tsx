@@ -40,6 +40,10 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import type { DecompositionAnnotation } from "./ai-workspace-view-model";
+import {
+  getRewritePanelFocus,
+  REWRITE_PANEL_SETTINGS_GRID_CLASS_NAME,
+} from "./ai-rewrite-panel-layout";
 import { ViewpointPicker } from "./viewpoint-picker";
 
 export interface AiRewritePanelProps {
@@ -246,231 +250,258 @@ export const AiRewritePanel = memo(function AiRewritePanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-5">
-      {/* Viewpoint selection */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <Label className="text-xs font-medium text-muted-foreground/80 uppercase tracking-[0.18em]">
-            今日观点
+      <section
+        data-focus={getRewritePanelFocus("temporaryMaterial")}
+        className="rounded-lg border border-primary/20 bg-primary/6 px-4 py-4 shadow-xs"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <Label className="text-xs font-semibold uppercase tracking-[0.18em] text-primary/90">
+            创作素材
           </Label>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 rounded-lg px-3 text-xs"
-            onClick={() => setPickerOpen(true)}
+          <Badge
+            variant="secondary"
+            className="rounded-md border border-primary/20 bg-background/75 px-2 py-0.5 text-xs"
           >
-            选择今日观点
-          </Button>
+            {localState.userInputContent.length}/500
+          </Badge>
         </div>
-
-        {displayedChips.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {displayedChips.map((fragment) => (
-              <span
-                key={fragment.id}
-                className="inline-flex max-w-60 items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-3 py-1.5 text-xs text-foreground/90"
-              >
-                <span className="truncate">
-                  {fragment.content.length > 30
-                    ? `${fragment.content.slice(0, 30)}...`
-                    : fragment.content}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveFragment(fragment.id)}
-                  className="ml-0.5 shrink-0 rounded-full text-muted-foreground/60 hover:text-foreground transition-colors"
-                  aria-label="移除"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-            {selectedFragments.length > 5 && (
-              <button
-                type="button"
-                onClick={() => setChipsExpanded((p) => !p)}
-                className="inline-flex items-center rounded-md border border-border/45 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground/80 hover:text-foreground transition-colors"
-              >
-                {chipsExpanded
-                  ? "收折"
-                  : `+${selectedFragments.length - 5} 条`}
-              </button>
-            )}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground/60 leading-5">
-            未选择观点（0 条也可发起生成）
-          </p>
-        )}
-      </div>
-
-      {/* Temporary material input */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground/80 uppercase tracking-[0.18em]">
-          临时素材（不入观点库）
-        </Label>
         <Textarea
           value={localState.userInputContent}
           onChange={(e) => setUserInputContent(e.target.value)}
           maxLength={500}
           placeholder="输入金句、例子、数据等，直接参与本次仿写"
-          className="min-h-20 resize-none rounded-lg border-border/55 bg-background/80 text-sm leading-6 placeholder:text-muted-foreground/50"
+          className="min-h-32 resize-none rounded-lg border-primary/25 bg-background/90 text-sm leading-7 placeholder:text-muted-foreground/50 focus-visible:ring-primary/35"
         />
-        <p className="text-right text-xs text-muted-foreground/50">
-          {localState.userInputContent.length}/500
-        </p>
-      </div>
+      </section>
 
-      {/* Target account select */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground/80 uppercase tracking-[0.18em]">
-          目标发布账号
-        </Label>
-        {loadingAccounts ? (
-          <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground/60">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            加载中...
-          </div>
-        ) : accounts.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 leading-5">
-            请先在「我的账号」中添加抖音账号
-          </p>
-        ) : (
-          <Select
-            value={localState.targetAccountId ?? ""}
-            onValueChange={(v) => setTargetAccountId(v || null)}
+      <section className="rounded-lg border border-border/45 bg-background/55 px-3 py-3">
+        <div className={REWRITE_PANEL_SETTINGS_GRID_CLASS_NAME}>
+          <div
+            data-focus={getRewritePanelFocus("viewpoints")}
+            className="space-y-2 rounded-lg border border-border/35 bg-card/45 px-3 py-2.5"
           >
-            <SelectTrigger className="h-9 rounded-xl border-border/55 bg-background/80 text-sm">
-              <SelectValue placeholder="选择目标发布账号" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/55 bg-card/95">
-              {accounts.map((account) => (
-                <SelectItem key={account.id} value={account.id} className="rounded-lg text-sm">
-                  <div className="flex items-center gap-2">
-                    {account.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={account.avatar}
-                        alt={account.nickname}
-                        className="h-5 w-5 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-5 w-5 rounded-full bg-muted" />
-                    )}
-                    <span>{account.nickname}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-
-      {/* AI model select */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground/80 uppercase tracking-[0.18em]">
-          生成模型
-        </Label>
-        {loadingSettings ? (
-          <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground/60">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            加载中...
-          </div>
-        ) : modelConfigs.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 leading-5">
-            请联系管理员配置 AI 模型
-          </p>
-        ) : (
-          <Select
-            value={localState.modelConfigId ?? ""}
-            onValueChange={(v) => setModelConfigId(v || null)}
-          >
-            <SelectTrigger className="h-9 rounded-xl border-border/55 bg-background/80 text-sm">
-              <SelectValue placeholder="选择生成模型" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/55 bg-card/95">
-              {modelConfigs.map((config) => (
-                <SelectItem key={config.id} value={config.id} className="rounded-lg text-sm">
-                  {config.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
-
-      {/* Version panel */}
-      <div className="flex items-center justify-between gap-3">
-        <Label className="text-xs font-medium text-muted-foreground/80 uppercase tracking-[0.18em]">
-          版本
-        </Label>
-        {rewrite && rewrite.versions.length > 0 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-3 py-1.5 text-xs text-foreground/90 hover:bg-background/90 transition-colors"
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
+                今日观点
+              </Label>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 rounded-md px-2.5 text-xs"
+                onClick={() => setPickerOpen(true)}
               >
-                {activeVersion
-                  ? `版本 ${activeVersion.versionNumber}`
-                  : `版本 ${rewrite.versions[0]?.versionNumber ?? 1}`}
-                <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="min-w-60 rounded-xl border-border/55 bg-card/95 p-1"
-            >
-              {rewrite.versions.map((version) => (
-                <DropdownMenuItem
-                  key={version.id}
-                  onClick={() => onSetActiveVersionId(version.id)}
-                  className={`flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm ${activeVersionId === version.id ? "bg-primary/10 text-primary" : ""}`}
-                >
-                  <span className="font-medium">版本 {version.versionNumber}</span>
-                  <span className="text-xs text-muted-foreground/70">
-                    {formatDateTime(version.createdAt)}
-                    {version.modelConfig ? ` · ${version.modelConfig.name}` : ""}
+                选择
+              </Button>
+            </div>
+            {displayedChips.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {displayedChips.map((fragment) => (
+                  <span
+                    key={fragment.id}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/45 bg-background/80 px-2 py-1 text-xs text-foreground/90"
+                  >
+                    <span className="truncate">
+                      {fragment.content.length > 24
+                        ? `${fragment.content.slice(0, 24)}...`
+                        : fragment.content}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFragment(fragment.id)}
+                      className="shrink-0 rounded-full text-muted-foreground/60 transition-colors hover:text-foreground"
+                      aria-label="移除"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <Badge
-            variant="secondary"
-            className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
+                ))}
+                {selectedFragments.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setChipsExpanded((p) => !p)}
+                    className="inline-flex items-center rounded-md border border-border/45 bg-background/60 px-2 py-1 text-xs text-muted-foreground/80 transition-colors hover:text-foreground"
+                  >
+                    {chipsExpanded ? "收折" : `+${selectedFragments.length - 5}`}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs leading-5 text-muted-foreground/60">0 条观点</p>
+            )}
+          </div>
+
+          <div
+            data-focus={getRewritePanelFocus("targetAccount")}
+            className="space-y-2 rounded-lg border border-border/35 bg-card/45 px-3 py-2.5"
           >
-            暂无版本
-          </Badge>
-        )}
-      </div>
+            <Label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
+              目标账号
+            </Label>
+            {loadingAccounts ? (
+              <div className="flex h-8 items-center gap-2 text-sm text-muted-foreground/60">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                加载中...
+              </div>
+            ) : accounts.length === 0 ? (
+              <p className="text-xs leading-5 text-muted-foreground/60">
+                请先在「我的账号」中添加抖音账号
+              </p>
+            ) : (
+              <Select
+                value={localState.targetAccountId ?? ""}
+                onValueChange={(v) => setTargetAccountId(v || null)}
+              >
+                <SelectTrigger className="h-8 rounded-lg border-border/55 bg-background/80 text-sm">
+                  <SelectValue placeholder="选择目标发布账号" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-border/55 bg-card/95">
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id} className="rounded-lg text-sm">
+                      <div className="flex items-center gap-2">
+                        {account.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={account.avatar}
+                            alt={account.nickname}
+                            className="h-5 w-5 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full bg-muted" />
+                        )}
+                        <span>{account.nickname}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
 
-      {/* Generate button */}
-      <Button
-        disabled={isGenerateDisabled || loadingAccounts || loadingSettings}
-        onClick={handleGenerateClick}
-        className="w-full rounded-xl"
-        size="sm"
+          <div
+            data-focus={getRewritePanelFocus("model")}
+            className="space-y-2 rounded-lg border border-border/35 bg-card/45 px-3 py-2.5"
+          >
+            <Label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
+              生成模型
+            </Label>
+            {loadingSettings ? (
+              <div className="flex h-8 items-center gap-2 text-sm text-muted-foreground/60">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                加载中...
+              </div>
+            ) : modelConfigs.length === 0 ? (
+              <p className="text-xs leading-5 text-muted-foreground/60">请联系管理员配置 AI 模型</p>
+            ) : (
+              <Select
+                value={localState.modelConfigId ?? ""}
+                onValueChange={(v) => setModelConfigId(v || null)}
+              >
+                <SelectTrigger className="h-8 rounded-lg border-border/55 bg-background/80 text-sm">
+                  <SelectValue placeholder="选择生成模型" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-border/55 bg-card/95">
+                  {modelConfigs.map((config) => (
+                    <SelectItem key={config.id} value={config.id} className="rounded-lg text-sm">
+                      {config.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          <div
+            data-focus={getRewritePanelFocus("version")}
+            className="space-y-2 rounded-lg border border-border/35 bg-card/45 px-3 py-2.5"
+          >
+            <Label className="text-2xs font-medium uppercase tracking-[0.18em] text-muted-foreground/75">
+              版本
+            </Label>
+            {rewrite && rewrite.versions.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border/45 bg-background/80 px-3 text-xs text-foreground/90 transition-colors hover:bg-background/90"
+                  >
+                    {activeVersion
+                      ? `版本 ${activeVersion.versionNumber}`
+                      : `版本 ${rewrite.versions[0]?.versionNumber ?? 1}`}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="min-w-60 rounded-xl border-border/55 bg-card/95 p-1"
+                >
+                  {rewrite.versions.map((version) => (
+                    <DropdownMenuItem
+                      key={version.id}
+                      onClick={() => onSetActiveVersionId(version.id)}
+                      className={`flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm ${activeVersionId === version.id ? "bg-primary/10 text-primary" : ""}`}
+                    >
+                      <span className="font-medium">版本 {version.versionNumber}</span>
+                      <span className="text-xs text-muted-foreground/70">
+                        {formatDateTime(version.createdAt)}
+                        {version.modelConfig ? ` · ${version.modelConfig.name}` : ""}
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="rounded-md border border-border/45 bg-background/80 px-2.5 py-1 text-xs"
+              >
+                暂无版本
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-2">
+          <Button
+            disabled={isGenerateDisabled || loadingAccounts || loadingSettings}
+            onClick={handleGenerateClick}
+            className="h-9 w-full rounded-lg"
+            size="sm"
+          >
+            {generatingRewrite || activeVersion?.status === "GENERATING" ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                生成中...
+              </>
+            ) : (
+              "仿写"
+            )}
+          </Button>
+
+          {annotations.length === 0 && (
+            <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs leading-5 text-amber-500/90">
+              请先完成拆解步骤，才能发起 AI 仿写
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section
+        data-focus={getRewritePanelFocus("resultEditor")}
+        className="flex min-h-72 flex-1 flex-col gap-3 rounded-lg border border-border/45 bg-background/70 px-4 py-4"
       >
-        {generatingRewrite || activeVersion?.status === "GENERATING" ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            生成中...
-          </>
-        ) : (
-          "仿写"
-        )}
-      </Button>
-
-      {/* No annotations hint */}
-      {annotations.length === 0 && (
-        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-amber-500/90">
-          请先完成拆解步骤，才能发起 AI 仿写
-        </p>
-      )}
-
-      {/* Result editor */}
-      <div className="flex min-h-40 flex-1 flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <Label className="text-xs font-semibold uppercase tracking-[0.18em] text-foreground/80">
+            生成文案
+          </Label>
+          {editContent.length > 0 ? (
+            <Badge
+              variant="secondary"
+              className="rounded-md border border-border/45 bg-card/90 px-2 py-0.5 text-xs"
+            >
+              {editContent.length} 字
+            </Badge>
+          ) : null}
+        </div>
         {activeVersion?.status === "FAILED" ? (
           <div className="flex-1 rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-4 text-sm text-destructive/90">
             <p className="font-medium">生成失败</p>
@@ -480,28 +511,15 @@ export const AiRewritePanel = memo(function AiRewritePanel({
             <p className="mt-2 text-xs text-muted-foreground/60">请重新点击「仿写」按钮重试</p>
           </div>
         ) : (
-          <div className="relative flex flex-1 flex-col">
-            {editContent.length > 0 && (
-              <div className="absolute right-3 top-3 z-10">
-                <Badge
-                  variant="secondary"
-                  className="rounded-md border border-border/45 bg-card/90 px-2 py-0.5 text-xs"
-                >
-                  {editContent.length} 字
-                </Badge>
-              </div>
-            )}
-            <Textarea
-              value={editContent}
-              onChange={(e) => handleEditChange(e.target.value)}
-              disabled={textareaDisabled}
-              placeholder={textareaPlaceholder}
-              className="flex-1 resize-none rounded-lg border-border/55 bg-background/80 pr-16 text-sm leading-7 placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-70"
-              style={{ minHeight: "160px" }}
-            />
-          </div>
+          <Textarea
+            value={editContent}
+            onChange={(e) => handleEditChange(e.target.value)}
+            disabled={textareaDisabled}
+            placeholder={textareaPlaceholder}
+            className="min-h-64 flex-1 resize-none rounded-lg border-border/55 bg-card/80 text-sm leading-7 placeholder:text-muted-foreground/50 focus-visible:ring-primary/35 disabled:cursor-not-allowed disabled:opacity-70"
+          />
         )}
-      </div>
+      </section>
 
       {/* Viewpoint picker dialog */}
       <ViewpointPicker

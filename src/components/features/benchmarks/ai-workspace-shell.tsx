@@ -45,6 +45,7 @@ import { AiWorkspaceVideoPane } from "./ai-workspace-video-pane";
 import { AiWorkspaceTranscriptCanvas } from "./ai-workspace-transcript-canvas";
 import { AiWorkspaceDecompositionPanel } from "./ai-workspace-decomposition-panel";
 import { AiWorkspaceRewriteStageV2 } from "./ai-workspace-rewrite-stage-v2";
+import { getWorkspaceShellColumns } from "./ai-workspace-rewrite-layout";
 
 type TransitionPhase =
   | "idle"
@@ -131,12 +132,6 @@ function getTargetRect(anchor: HTMLElement | null): AiWorkspaceTransitionOrigin 
   };
 }
 
-function getStageColumns(stage: AiWorkspaceStage) {
-  return stage === "rewrite"
-    ? (["decomposition", "transcript", "rewrite"] as const)
-    : (["video", "transcript", "decomposition"] as const);
-}
-
 function getWorkspaceShellMotionState(
   transitionPhase: TransitionPhase,
 ): WorkspaceShellMotionState {
@@ -205,7 +200,7 @@ export function AiWorkspaceShell({
   const [ghostVisible, setGhostVisible] = useState(false);
   const [ghostFading, setGhostFading] = useState(false);
 
-  const columnOrder = useMemo(() => getStageColumns(visualStage), [visualStage]);
+  const columnOrder = useMemo(() => getWorkspaceShellColumns(visualStage), [visualStage]);
   const motionState = useMemo(
     () => getWorkspaceShellMotionState(transitionPhase),
     [transitionPhase],
@@ -471,13 +466,12 @@ export function AiWorkspaceShell({
                       ? 1
                       : 0
                     : 1;
-                const widthClass = index === 0
-                  ? "basis-[24%]"
-                  : visualStage === "rewrite"
-                    ? index === 1
-                      ? "basis-[38%]"
-                      : "basis-[34%]"
-                    : "basis-[38%]";
+                const widthClass =
+                  visualStage === "rewrite"
+                    ? "basis-full flex-1"
+                    : index === 0
+                      ? "basis-[24%]"
+                      : "basis-[38%]";
 
                 if (columnId === "video") {
                   return (
