@@ -120,16 +120,20 @@ class BenchmarkAccountService {
       archiveFilter: params.archiveFilter ?? "active",
     });
 
-    const memberIds = await benchmarkAccountRepository.findMemberBenchmarkAccountIds(
-      caller.id,
-      result.items.map((item) => item.id),
-    );
+    const memberIds =
+      caller.role === UserRole.SUPER_ADMIN
+        ? null
+        : await benchmarkAccountRepository.findMemberBenchmarkAccountIds(
+            caller.id,
+            result.items.map((item) => item.id),
+          );
 
     return {
       ...result,
       items: result.items.map((item) => ({
         ...mapBenchmarkAccountToDto(item),
-        canArchive: memberIds.has(item.id),
+        canArchive:
+          caller.role === UserRole.SUPER_ADMIN || Boolean(memberIds?.has(item.id)),
       })),
     };
   }
@@ -164,7 +168,9 @@ class BenchmarkAccountService {
 
     return {
       ...mapBenchmarkAccountDetailToDto(account),
-      canArchive: await benchmarkAccountRepository.hasMember(account.id, caller.id),
+      canArchive:
+        caller.role === UserRole.SUPER_ADMIN ||
+        (await benchmarkAccountRepository.hasMember(account.id, caller.id)),
     };
   }
 
@@ -185,8 +191,10 @@ class BenchmarkAccountService {
       throw new AppError("FORBIDDEN", "无操作权限", 403);
     }
 
-    const isMember = await benchmarkAccountRepository.hasMember(account.id, caller.id);
-    if (!isMember) {
+    if (
+      caller.role !== UserRole.SUPER_ADMIN &&
+      !(await benchmarkAccountRepository.hasMember(account.id, caller.id))
+    ) {
       throw new AppError("FORBIDDEN", "仅关联员工可归档该对标账号", 403);
     }
 

@@ -133,12 +133,14 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rewritePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeAnnotationIdRef = useRef<string | null>(null);
+  const pollVersionRef = useRef<number>(0);
 
   const resetToInitialWorkspace = useCallback(() => {
     if (rewritePollTimerRef.current) {
       clearTimeout(rewritePollTimerRef.current);
       rewritePollTimerRef.current = null;
     }
+    pollVersionRef.current++; // invalidate any ongoing poll
     startTransition(() => {
       setWorkspace(null);
       setStage("transcribe");
@@ -393,6 +395,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
       clearTimeout(rewritePollTimerRef.current);
       rewritePollTimerRef.current = null;
     }
+    pollVersionRef.current++; // invalidate any ongoing poll
   }, [video?.id]);
 
   // Load rewrite when entering rewrite stage
@@ -440,11 +443,14 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
         rewritePollTimerRef.current = null;
       }
 
+      const pollVersion = ++pollVersionRef.current;
+
       const poll = async () => {
         try {
           const result = await apiClient.get<{ rewrite: RewriteDTO | null }>(
             `/ai-workspace/${video.id}/rewrite`,
           );
+          if (pollVersionRef.current !== pollVersion) return;
           setRewrite(result.rewrite);
 
           const targetVersion = result.rewrite?.versions.find((v) => v.id === targetVersionId);
@@ -456,6 +462,7 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
             setActiveVersionId(targetVersionId);
           }
         } catch {
+          if (pollVersionRef.current !== pollVersion) return;
           rewritePollTimerRef.current = setTimeout(() => void poll(), 3000);
         }
       };

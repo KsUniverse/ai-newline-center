@@ -37,6 +37,7 @@ export const ViewpointPicker = memo(function ViewpointPicker({
   const [items, setItems] = useState<FragmentDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(selectedIds);
+  const [allSelectedFragmentsMap, setAllSelectedFragmentsMap] = useState<Map<string, FragmentDTO>>(new Map());
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync when dialog opens
@@ -45,6 +46,15 @@ export const ViewpointPicker = memo(function ViewpointPicker({
       setLocalSelectedIds(selectedIds);
       setQuery("");
       setDebouncedQuery("");
+      // Reset map, preserving entries for IDs still in selectedIds
+      setAllSelectedFragmentsMap((prev) => {
+        const next = new Map<string, FragmentDTO>();
+        for (const id of selectedIds) {
+          const existing = prev.get(id);
+          if (existing) next.set(id, existing);
+        }
+        return next;
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -61,6 +71,20 @@ export const ViewpointPicker = memo(function ViewpointPicker({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [query]);
+
+  // Merge newly visible selected items into the persistent map
+  useEffect(() => {
+    if (items.length === 0) return;
+    setAllSelectedFragmentsMap((prev) => {
+      const next = new Map(prev);
+      for (const item of items) {
+        if (localSelectedIds.includes(item.id)) {
+          next.set(item.id, item);
+        }
+      }
+      return next;
+    });
+  }, [items, localSelectedIds]);
 
   // Load viewpoints
   useEffect(() => {
@@ -104,10 +128,12 @@ export const ViewpointPicker = memo(function ViewpointPicker({
   }, []);
 
   const handleConfirm = useCallback(() => {
-    const selectedFragments = items.filter((item) => localSelectedIds.includes(item.id));
+    const selectedFragments = localSelectedIds
+      .map((id) => allSelectedFragmentsMap.get(id))
+      .filter((f): f is FragmentDTO => f !== undefined);
     onConfirm(localSelectedIds, selectedFragments);
     onOpenChange(false);
-  }, [items, localSelectedIds, onConfirm, onOpenChange]);
+  }, [allSelectedFragmentsMap, localSelectedIds, onConfirm, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

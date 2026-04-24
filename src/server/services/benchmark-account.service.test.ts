@@ -237,6 +237,120 @@ describe("benchmarkAccountService", () => {
     });
   });
 
+  it("lets super admins archive any listed benchmark", async () => {
+    findManyMock.mockResolvedValue({
+      items: [
+        {
+          id: "benchmark_1",
+          profileUrl: "https://www.douyin.com/user/target",
+          secUserId: "sec_target",
+          nickname: "对标账号",
+          avatar: "https://cdn.example.com/avatar.jpg",
+          bio: null,
+          signature: null,
+          followersCount: 10,
+          followingCount: 1,
+          likesCount: 20,
+          videosCount: 2,
+          douyinNumber: null,
+          ipLocation: null,
+          age: null,
+          province: null,
+          city: null,
+          verificationLabel: null,
+          verificationIconUrl: null,
+          verificationType: null,
+          createdByUserId: "user_1",
+          organizationId: "org_1",
+          createdAt: new Date("2026-04-03T00:00:00.000Z"),
+          updatedAt: new Date("2026-04-03T00:00:00.000Z"),
+          deletedAt: null,
+          lastSyncedAt: null,
+          createdByUser: {
+            id: "user_1",
+            name: "创建者",
+          },
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    const { benchmarkAccountService } = await import("@/server/services/benchmark-account.service");
+    const result = await benchmarkAccountService.listBenchmarks(
+      {
+        id: "super_admin_1",
+        account: "admin",
+        name: "超级管理员",
+        role: UserRole.SUPER_ADMIN,
+        organizationId: "org_admin",
+      },
+      { page: 1, limit: 20 },
+    );
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      organizationId: undefined,
+      archiveFilter: "active",
+      page: 1,
+      limit: 20,
+    });
+    expect(findMemberBenchmarkAccountIdsMock).not.toHaveBeenCalled();
+    expect(result.items[0]).toMatchObject({
+      id: "benchmark_1",
+      canArchive: true,
+    });
+  });
+
+  it("exposes canArchive for super admin benchmark detail without membership", async () => {
+    findByIdMock.mockResolvedValue({
+      id: "benchmark_1",
+      profileUrl: "https://www.douyin.com/user/target",
+      secUserId: "sec_target",
+      nickname: "对标账号",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+      createdByUserId: "user_1",
+      organizationId: "org_1",
+      createdAt: new Date("2026-04-03T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-03T00:00:00.000Z"),
+      deletedAt: null,
+      lastSyncedAt: null,
+      createdByUser: {
+        id: "user_1",
+        name: "创建者",
+      },
+    });
+
+    const { benchmarkAccountService } = await import("@/server/services/benchmark-account.service");
+    const result = await benchmarkAccountService.getBenchmarkDetail(
+      {
+        id: "super_admin_1",
+        account: "admin",
+        name: "超级管理员",
+        role: UserRole.SUPER_ADMIN,
+        organizationId: "org_admin",
+      },
+      "benchmark_1",
+    );
+
+    expect(hasMemberMock).not.toHaveBeenCalled();
+    expect(result.canArchive).toBe(true);
+  });
+
   it("allows any associated member to archive the benchmark", async () => {
     findByIdMock.mockResolvedValue({
       id: "benchmark_1",
@@ -288,6 +402,62 @@ describe("benchmarkAccountService", () => {
     );
 
     expect(hasMemberMock).toHaveBeenCalledWith("benchmark_1", "user_2");
+    expect(result).toEqual({
+      id: "benchmark_1",
+      deletedAt: "2026-04-05T00:00:00.000Z",
+    });
+  });
+
+  it("allows super admins to archive benchmarks without member linkage", async () => {
+    findByIdMock.mockResolvedValue({
+      id: "benchmark_1",
+      profileUrl: "https://www.douyin.com/user/target",
+      secUserId: "sec_target",
+      nickname: "对标账号",
+      avatar: "https://cdn.example.com/avatar.jpg",
+      bio: null,
+      signature: null,
+      followersCount: 10,
+      followingCount: 1,
+      likesCount: 20,
+      videosCount: 2,
+      douyinNumber: null,
+      ipLocation: null,
+      age: null,
+      province: null,
+      city: null,
+      verificationLabel: null,
+      verificationIconUrl: null,
+      verificationType: null,
+      createdByUserId: "user_1",
+      organizationId: "org_1",
+      createdAt: new Date("2026-04-03T00:00:00.000Z"),
+      updatedAt: new Date("2026-04-03T00:00:00.000Z"),
+      deletedAt: null,
+      lastSyncedAt: null,
+      createdByUser: {
+        id: "user_1",
+        name: "创建者",
+      },
+    });
+    archiveMock.mockResolvedValue({
+      id: "benchmark_1",
+      deletedAt: new Date("2026-04-05T00:00:00.000Z"),
+    });
+
+    const { benchmarkAccountService } = await import("@/server/services/benchmark-account.service");
+    const result = await benchmarkAccountService.archiveBenchmark(
+      {
+        id: "super_admin_1",
+        account: "admin",
+        name: "超级管理员",
+        role: UserRole.SUPER_ADMIN,
+        organizationId: "org_admin",
+      },
+      "benchmark_1",
+    );
+
+    expect(hasMemberMock).not.toHaveBeenCalled();
     expect(result).toEqual({
       id: "benchmark_1",
       deletedAt: "2026-04-05T00:00:00.000Z",
