@@ -8,8 +8,79 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
+import type { CursorPaginatedData } from "@/types/api";
+import type { DecompositionListItemDTO } from "@/types/ai-workspace";
 
 type DatabaseClient = PrismaClient | Prisma.TransactionClient;
+
+// ─── Cursor 工具（仅此文件内部使用）────────────────────────────────────────────
+
+interface WorkspaceCursor {
+  updatedAt: string; // ISO 8601
+  id: string;
+}
+
+function encodeCursor(cursor: WorkspaceCursor): string {
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+}
+
+function decodeCursor(encoded: string): WorkspaceCursor {
+  const parsed: unknown = JSON.parse(Buffer.from(encoded, "base64url").toString("utf-8"));
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    typeof (parsed as Record<string, unknown>)["updatedAt"] !== "string" ||
+    typeof (parsed as Record<string, unknown>)["id"] !== "string"
+  ) {
+    throw new Error("Invalid cursor format");
+  }
+  return parsed as WorkspaceCursor;
+}
+
+// ─── Include 片段（可复用，satisfies 约束）──────────────────────────────────────
+
+const decompositionListInclude = {
+  video: {
+    select: {
+      id: true,
+      title: true,
+      coverUrl: true,
+      account: {
+        select: { id: true, nickname: true, avatar: true },
+      },
+    },
+  },
+  _count: {
+    select: { annotations: true },
+  },
+} satisfies Prisma.AiWorkspaceInclude;
+
+type DecompositionListRawItem = Prisma.AiWorkspaceGetPayload<{
+  include: typeof decompositionListInclude;
+}>;
+
+function mapToDecompositionListItemDTO(item: DecompositionListRawItem): DecompositionListItemDTO {
+  return {
+    workspaceId: item.id,
+    videoId: item.video.id,
+    videoTitle: item.video.title,
+    videoCoverUrl: item.video.coverUrl ?? null,
+    accountId: item.video.account.id,
+    accountNickname: item.video.account.nickname,
+    accountAvatar: item.video.account.avatar,
+    annotationCount: item._count.annotations,
+    updatedAt: item.updatedAt.toISOString(),
+  };
+}
+
+export interface ListDecompositionsRepoParams {
+  userId: string;
+  organizationId: string;
+  cursor?: string;
+  limit?: number;
+  benchmarkAccountIds?: string[];
+  hasAnnotations?: boolean;
+}
 
 export type AiWorkspaceWithDetails = Prisma.AiWorkspaceGetPayload<{
   include: {
@@ -452,6 +523,95 @@ class AiWorkspaceRepository {
       data: {
         status: "IDLE",
       },
+    });
+  }
+
+  async listDecompositions(
+    params: ListDecompositionsRepoParams,
+  ): Promise<CursorPaginatedData<DecompositionListItemDTO>> {
+    const {
+      userId,
+      organizationId,
+      cursor,
+      limit = 20,
+      benchmarkAccountIds,
+      hasAnnotations,
+    } = params;
+
+    let cursorObj: WorkspaceCursor | null = null;
+    if (cursor) {
+      try {
+        cursorObj = decodeCursor(cursor);
+      } catch {
+        cursorObj = null;
+      }
+    }
+
+    const where: Prisma.AiWorkspaceWhereInput = {
+      userId,
+      organizationId,
+      ...(benchmarkAccountIds != null && benchmarkAccountIds.length > 0
+        ? { video: { accountId: { in: benchmarkAccountIds } } }
+        : {}),
+      ...(hasAnnotations === true ? { annotations: { some: {} } } : {}),
+      ...(hasAnnotations === false ? { annotations: { none: {} } } : {}),
+      ...(cursorObj != null
+        ? {
+            OR: [
+              { updatedAt: { lt: new Date(cursorObj.updatedAt) } },
+              {
+                AND: [
+                  { updatedAt: { equals: new Date(cursorObj.updatedAt) } },
+                  { id: { gt: cursorObj.id } },
+                ],
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await prisma.aiWorkspace.findMany({
+      where,
+      include: decompositionListInclude,
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      take: limit + 1,
+    });
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const lastItem = items[items.length - 1];
+    const nextCursor =
+      hasMore && lastItem != null
+        ? encodeCursor({ updatedAt: lastItem.updatedAt.toISOString(), id: lastItem.id })
+        : null;
+
+    return {
+      items: items.map(mapToDecompositionListItemDTO),
+      nextCursor,
+      hasMore,
+    };
+  }
+
+  async findDistinctBenchmarkAccountsByUser(params: {
+    userId: string;
+    organizationId: string;
+  }): Promise<Array<{ id: string; nickname: string; avatar: string }>> {
+    return prisma.benchmarkAccount.findMany({
+      where: {
+        deletedAt: null,
+        videos: {
+          some: {
+            aiWorkspaces: {
+              some: {
+                userId: params.userId,
+                organizationId: params.organizationId,
+              },
+            },
+          },
+        },
+      },
+      select: { id: true, nickname: true, avatar: true },
+      orderBy: { nickname: "asc" },
     });
   }
 }

@@ -14,10 +14,13 @@ import {
 import type { SessionUser } from "@/types/session";
 import type {
   AiWorkspaceDTO,
+  DecompositionListItemDTO,
+  ListDecompositionsParams,
   SaveAnnotationInput,
   SaveRewriteDraftInput,
   SaveTranscriptInput,
 } from "@/types/ai-workspace";
+import type { CursorPaginatedData } from "@/types/api";
 import type {
   GenerateAnnotationDraftInput,
   GenerateRewriteDraftInput,
@@ -495,6 +498,29 @@ class AiWorkspaceService {
       })),
       selectedViewpoints: input.selectedViewpoints ?? [],
       currentDraft: input.currentDraft,
+    });
+  }
+
+  async listDecompositions(
+    caller: SessionUser,
+    params: ListDecompositionsParams,
+  ): Promise<CursorPaginatedData<DecompositionListItemDTO>> {
+    return aiWorkspaceRepository.listDecompositions({
+      userId: caller.id,
+      organizationId: caller.organizationId,
+      cursor: params.cursor,
+      limit: params.limit,
+      benchmarkAccountIds: params.benchmarkAccountIds,
+      hasAnnotations: params.hasAnnotations,
+    });
+  }
+
+  async listDecompositionFilterAccounts(
+    caller: SessionUser,
+  ): Promise<Array<{ id: string; nickname: string; avatar: string }>> {
+    return aiWorkspaceRepository.findDistinctBenchmarkAccountsByUser({
+      userId: caller.id,
+      organizationId: caller.organizationId,
     });
   }
 

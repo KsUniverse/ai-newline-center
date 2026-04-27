@@ -163,3 +163,24 @@ export interface DirectGenerateRewriteInput extends GenerateRewriteInput {
 export interface SaveRewriteEditInput {
   editedContent: string;
 }
+
+// ─── 拆解列表类型 ────────────────────────────────────────────────────────────
+
+export interface DecompositionListItemDTO {
+  workspaceId: string;
+  videoId: string;
+  videoTitle: string;
+  videoCoverUrl: string | null;
+  accountId: string;
+  accountNickname: string;
+  accountAvatar: string;
+  annotationCount: number;
+  updatedAt: string; // ISO 8601
+}
+
+export interface ListDecompositionsParams {
+  cursor?: string;
+  limit?: number;
+  benchmarkAccountIds?: string[];
+  hasAnnotations?: boolean;
+}

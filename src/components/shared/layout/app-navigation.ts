@@ -1,6 +1,7 @@
 import {
   Building2,
   Cookie,
+  Layers,
   LayoutDashboard,
   Lightbulb,
   MonitorPlay,
@@ -44,6 +45,13 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     icon: Target,
     label: "对标账号",
     href: "/benchmarks",
+    roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
+    section: "workspace",
+  },
+  {
+    icon: Layers,
+    label: "拆解列表",
+    href: "/decompositions",
     roles: ["SUPER_ADMIN", "BRANCH_MANAGER", "EMPLOYEE"],
     section: "workspace",
   },
