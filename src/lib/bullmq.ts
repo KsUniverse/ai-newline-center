@@ -35,7 +35,8 @@ export const REWRITE_QUEUE_NAME = "rewrite";
 
 export interface RewriteJobData {
   rewriteVersionId: string;
-  workspaceId: string;
+  mode: "workspace" | "direct";
+  workspaceId?: string;
   organizationId: string;
   userId: string;
 }

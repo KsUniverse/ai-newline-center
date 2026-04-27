@@ -17,7 +17,7 @@
 
 ### T-FE-001: localStorage Hook
 
-- [ ] 新建 `src/lib/hooks/use-direct-create-local-state.ts`：
+- [x] 新建 `src/lib/hooks/use-direct-create-local-state.ts`：
   - key: `ai_direct_create_state`
   - 存储：`{ currentRewriteId: string | null, fragmentIds: string[], userInputContent: string, topic: string, modelConfigId: string | null, targetAccountId: string | null }`
   - 提供 `loadFromStorage()` 和 `saveToStorage(state)` 方法
@@ -25,7 +25,7 @@
 
 ### T-FE-002: DirectCreatePanel 组件
 
-- [ ] 新建 `src/components/features/rewrites/direct-create-panel.tsx`
+- [x] 新建 `src/components/features/rewrites/direct-create-panel.tsx`
   - 两栏布局（`lg:grid-cols-2`）
   - 左栏：今日观点多选（复用 `ViewpointPicker`）+ 已选观点 Chip + 临时素材输入框 + **创作主题/指令**输入框（必填） + 目标账号下拉 + AI 模型下拉 + 「创作」按钮
   - 右栏：当前任务状态 + 「新建任务」按钮 + 版本 Badge / 下拉 + 生成结果编辑区（Textarea）
@@ -39,7 +39,7 @@
 
 ### T-FE-003: DirectCreatePage 组件
 
-- [ ] 新建 `src/components/features/rewrites/direct-create-page.tsx`：
+- [x] 新建 `src/components/features/rewrites/direct-create-page.tsx`：
   - 使用 `DashboardPageShell`（eyebrow="AI 仿写", title="直接创作", description="不依赖对标视频，直接输入主题和观点生成短视频文案"）
   - 负责数据获取（douyin-accounts、ai-config/settings）和 API 调用（POST generate、GET rewrite、PATCH edit）
   - 首次生成不传 `rewriteId`；生成成功后保存返回的 `rewriteId` 为 `currentRewriteId`
@@ -50,13 +50,13 @@
 
 ### T-FE-004: 路由页面
 
-- [ ] 新建 `src/app/(dashboard)/rewrites/new/page.tsx`：
+- [x] 新建 `src/app/(dashboard)/rewrites/new/page.tsx`：
   - 导出 `DirectCreatePage`
   - 设置 metadata（title: "直接创作 - AI Newline Center"）
 
 ### T-FE-005: 侧边栏导航入口
 
-- [ ] `src/components/shared/layout/app-navigation.ts`：
+- [x] `src/components/shared/layout/app-navigation.ts`：
   - 在"工作区"分区添加"直接创作"导航项
   - 图标：`PenLine`（来自 `lucide-react`）
   - 路由：`/rewrites/new`

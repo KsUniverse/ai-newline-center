@@ -6,7 +6,11 @@ import { aiWorkspaceRepository } from "@/server/repositories/ai-workspace.reposi
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import type { SessionUser } from "@/types/session";
-import type { GenerateRewriteInput, RewriteDTO } from "@/types/ai-workspace";
+import type {
+  DirectGenerateRewriteInput,
+  GenerateRewriteInput,
+  RewriteDTO,
+} from "@/types/ai-workspace";
 
 function isMissingRewriteTableError(error: unknown): boolean {
   return (
@@ -104,6 +108,7 @@ class RewriteService {
       const queue = getRewriteQueue();
       await queue.add("generate-rewrite", {
         rewriteVersionId: version.id,
+        mode: "workspace",
         workspaceId: workspace.id,
         organizationId: caller.organizationId,
         userId: caller.id,
@@ -121,6 +126,152 @@ class RewriteService {
     }
 
     return { rewriteVersionId: version.id, versionNumber: version.versionNumber };
+  }
+
+  async generateDirect(
+    input: DirectGenerateRewriteInput,
+    caller: SessionUser,
+  ): Promise<{ rewriteId: string; rewriteVersionId: string; versionNumber: number }> {
+    const targetAccount = await douyinAccountRepository.findOwnedMyAccount(
+      input.targetAccountId,
+      caller.id,
+      caller.organizationId,
+    );
+    if (!targetAccount) {
+      throw new AppError("ACCOUNT_ACCESS_DENIED", "目标账号不属于当前用户", 403);
+    }
+
+    const modelConfig = await aiModelConfigRepository.findByIdRaw(input.modelConfigId);
+    if (!modelConfig) {
+      throw new AppError("MODEL_NOT_FOUND", "指定的 AI 模型配置不存在", 400);
+    }
+
+    const { rewriteId, version } = await prisma.$transaction(async (tx) => {
+      if (input.rewriteId) {
+        const rewrite = await rewriteRepository.findByIdAndUser(
+          input.rewriteId,
+          caller.id,
+          caller.organizationId,
+          "DIRECT",
+          tx,
+        );
+        if (!rewrite) {
+          throw new AppError("REWRITE_NOT_FOUND", "直接创作任务不存在或无权访问", 404);
+        }
+
+        await rewriteRepository.updateDirectTaskContext(
+          input.rewriteId,
+          {
+            topic: input.topic,
+            targetAccountId: input.targetAccountId,
+          },
+          tx,
+        );
+
+        const version = await rewriteRepository.createNextVersion(
+          {
+            rewriteId: input.rewriteId,
+            modelConfigId: input.modelConfigId,
+            usedFragmentIds: input.usedFragmentIds,
+            userInputContent: input.userInputContent,
+          },
+          tx,
+        );
+
+        return { rewriteId: input.rewriteId, version };
+      }
+
+      const rewrite = await rewriteRepository.createDirect(
+        {
+          targetAccountId: input.targetAccountId,
+          organizationId: caller.organizationId,
+          userId: caller.id,
+          topic: input.topic,
+        },
+        tx,
+      );
+
+      const version = await rewriteRepository.createVersion(
+        {
+          rewriteId: rewrite.id,
+          versionNumber: 1,
+          modelConfigId: input.modelConfigId,
+          usedFragmentIds: input.usedFragmentIds,
+          userInputContent: input.userInputContent,
+        },
+        tx,
+      );
+
+      return { rewriteId: rewrite.id, version };
+    });
+
+    try {
+      const queue = getRewriteQueue();
+      await queue.add("generate-rewrite", {
+        rewriteVersionId: version.id,
+        organizationId: caller.organizationId,
+        userId: caller.id,
+        mode: "direct",
+      });
+    } catch (error) {
+      await rewriteRepository.markVersionFailed(
+        version.id,
+        error instanceof Error ? error.message : "仿写任务队列不可用",
+      );
+      throw new AppError(
+        "REWRITE_QUEUE_UNAVAILABLE",
+        "仿写任务队列暂不可用，请检查 Redis 配置后重试",
+        503,
+      );
+    }
+
+    return {
+      rewriteId,
+      rewriteVersionId: version.id,
+      versionNumber: version.versionNumber,
+    };
+  }
+
+  async getDirectRewrite(rewriteId: string, caller: SessionUser): Promise<RewriteDTO> {
+    const rewrite = await rewriteRepository.findByIdAndUser(
+      rewriteId,
+      caller.id,
+      caller.organizationId,
+      "DIRECT",
+    );
+    if (!rewrite) {
+      throw new AppError("REWRITE_NOT_FOUND", "直接创作任务不存在或无权访问", 404);
+    }
+    return rewrite;
+  }
+
+  async saveDirectVersionEdit(
+    rewriteId: string,
+    versionId: string,
+    editedContent: string,
+    caller: SessionUser,
+  ): Promise<{ id: string; editedContent: string; updatedAt: string }> {
+    const version = await rewriteRepository.findVersionById(versionId);
+    if (
+      !version ||
+      version.rewrite.id !== rewriteId ||
+      version.rewrite.mode !== "DIRECT" ||
+      version.rewrite.userId !== caller.id ||
+      version.rewrite.organizationId !== caller.organizationId
+    ) {
+      throw new AppError("VERSION_NOT_FOUND", "版本不存在或无权访问", 404);
+    }
+
+    if (version.status !== "COMPLETED") {
+      throw new AppError("VERSION_NOT_EDITABLE", "只能编辑已完成生成的版本", 400);
+    }
+
+    const updated = await rewriteRepository.updateVersionContent(versionId, editedContent);
+    return {
+      id: updated.id,
+      editedContent: updated.editedContent ?? editedContent,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
   }
 
   async saveEditedContent(

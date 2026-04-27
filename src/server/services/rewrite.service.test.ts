@@ -6,7 +6,11 @@ const {
   findByIdMock,
   findByIdRawMock,
   upsertByWorkspaceMock,
+  createDirectMock,
+  createVersionMock,
   createNextVersionMock,
+  findByIdAndUserMock,
+  updateDirectTaskContextMock,
   findByWorkspaceIdMock,
   findVersionByIdMock,
   updateVersionContentMock,
@@ -18,7 +22,11 @@ const {
   findByIdMock: vi.fn(),
   findByIdRawMock: vi.fn(),
   upsertByWorkspaceMock: vi.fn(),
+  createDirectMock: vi.fn(),
+  createVersionMock: vi.fn(),
   createNextVersionMock: vi.fn(),
+  findByIdAndUserMock: vi.fn(),
+  updateDirectTaskContextMock: vi.fn(),
   findByWorkspaceIdMock: vi.fn(),
   findVersionByIdMock: vi.fn(),
   updateVersionContentMock: vi.fn(),
@@ -38,7 +46,11 @@ vi.mock("@/server/repositories/rewrite.repository", () => ({
   rewriteRepository: {
     findByWorkspaceId: findByWorkspaceIdMock,
     upsertByWorkspace: upsertByWorkspaceMock,
+    createDirect: createDirectMock,
+    createVersion: createVersionMock,
     createNextVersion: createNextVersionMock,
+    findByIdAndUser: findByIdAndUserMock,
+    updateDirectTaskContext: updateDirectTaskContextMock,
     findVersionById: findVersionByIdMock,
     updateVersionContent: updateVersionContentMock,
     markVersionFailed: markVersionFailedMock,
@@ -257,5 +269,122 @@ describe("rewriteService.generate — 前置校验", () => {
       "version_1",
       "REDIS_URL is not configured",
     );
+  });
+});
+
+describe("rewriteService.generateDirect", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("creates a new DIRECT rewrite task and version when rewriteId is omitted", async () => {
+    findUniqueAccountMock.mockResolvedValue({ id: "acc_1" });
+    findByIdRawMock.mockResolvedValue({ id: "model_1" });
+    createDirectMock.mockResolvedValue({ id: "rewrite_1" });
+    createVersionMock.mockResolvedValue({ id: "version_1", versionNumber: 1 });
+
+    const result = await rewriteService.generateDirect(
+      {
+        targetAccountId: "acc_1",
+        modelConfigId: "model_1",
+        usedFragmentIds: ["frag_1"],
+        userInputContent: "补充素材",
+        topic: "创作主题",
+      },
+      mockCaller,
+    );
+
+    expect(result).toEqual({
+      rewriteId: "rewrite_1",
+      rewriteVersionId: "version_1",
+      versionNumber: 1,
+    });
+    expect(createDirectMock).toHaveBeenCalledWith(
+      {
+        targetAccountId: "acc_1",
+        organizationId: "org_1",
+        userId: "user_1",
+        topic: "创作主题",
+      },
+      expect.anything(),
+    );
+    expect(createVersionMock).toHaveBeenCalledWith(
+      {
+        rewriteId: "rewrite_1",
+        versionNumber: 1,
+        modelConfigId: "model_1",
+        usedFragmentIds: ["frag_1"],
+        userInputContent: "补充素材",
+      },
+      expect.anything(),
+    );
+    expect(addJobMock).toHaveBeenCalledWith("generate-rewrite", {
+      rewriteVersionId: "version_1",
+      organizationId: "org_1",
+      userId: "user_1",
+      mode: "direct",
+    });
+  });
+
+  it("appends a new version to an existing DIRECT rewrite task", async () => {
+    findUniqueAccountMock.mockResolvedValue({ id: "acc_1" });
+    findByIdRawMock.mockResolvedValue({ id: "model_1" });
+    findByIdAndUserMock.mockResolvedValue({ id: "rewrite_1", mode: "DIRECT" });
+    updateDirectTaskContextMock.mockResolvedValue({ id: "rewrite_1" });
+    createNextVersionMock.mockResolvedValue({ id: "version_2", versionNumber: 2 });
+
+    const result = await rewriteService.generateDirect(
+      {
+        rewriteId: "rewrite_1",
+        targetAccountId: "acc_1",
+        modelConfigId: "model_1",
+        usedFragmentIds: [],
+        topic: "新的主题",
+      },
+      mockCaller,
+    );
+
+    expect(result).toEqual({
+      rewriteId: "rewrite_1",
+      rewriteVersionId: "version_2",
+      versionNumber: 2,
+    });
+    expect(findByIdAndUserMock).toHaveBeenCalledWith(
+      "rewrite_1",
+      "user_1",
+      "org_1",
+      "DIRECT",
+      expect.anything(),
+    );
+    expect(updateDirectTaskContextMock).toHaveBeenCalledWith(
+      "rewrite_1",
+      { topic: "新的主题", targetAccountId: "acc_1" },
+      expect.anything(),
+    );
+    expect(addJobMock).toHaveBeenCalledWith("generate-rewrite", {
+      rewriteVersionId: "version_2",
+      organizationId: "org_1",
+      userId: "user_1",
+      mode: "direct",
+    });
+  });
+
+  it("rejects appending to a DIRECT rewrite task owned by another user", async () => {
+    findUniqueAccountMock.mockResolvedValue({ id: "acc_1" });
+    findByIdRawMock.mockResolvedValue({ id: "model_1" });
+    findByIdAndUserMock.mockResolvedValue(null);
+
+    await expect(
+      rewriteService.generateDirect(
+        {
+          rewriteId: "rewrite_other",
+          targetAccountId: "acc_1",
+          modelConfigId: "model_1",
+          usedFragmentIds: [],
+          topic: "主题",
+        },
+        mockCaller,
+      ),
+    ).rejects.toMatchObject({ code: "REWRITE_NOT_FOUND" });
   });
 });

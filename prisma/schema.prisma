@@ -619,16 +619,23 @@ enum RewriteVersionStatus {
   FAILED
 }
 
+enum RewriteMode {
+  WORKSPACE
+  DIRECT
+}
+
 model Rewrite {
   id              String           @id @default(cuid())
-  workspaceId     String           @unique
+  workspaceId     String?          @unique
+  mode            RewriteMode      @default(WORKSPACE)
+  topic           String?          @db.Text
   targetAccountId String?
   organizationId  String
   userId          String
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  workspace     AiWorkspace      @relation(fields: [workspaceId], references: [id])
+  workspace     AiWorkspace?     @relation(fields: [workspaceId], references: [id])
   targetAccount DouyinAccount?   @relation(fields: [targetAccountId], references: [id], onDelete: SetNull)
   organization  Organization     @relation(fields: [organizationId], references: [id])
   user          User             @relation(fields: [userId], references: [id])
@@ -636,6 +643,7 @@ model Rewrite {
 
   @@index([organizationId])
   @@index([userId])
+  @@index([mode, userId])
   @@map("rewrites")
 }
 

@@ -109,6 +109,7 @@ export interface SaveRewriteDraftInput {
 // ─── Rewrite 仿写类型 ────────────────────────────────────────────────────────
 
 export type RewriteVersionStatus = "GENERATING" | "COMPLETED" | "FAILED";
+export type RewriteMode = "WORKSPACE" | "DIRECT";
 
 export interface RewriteVersionDTO {
   id: string;
@@ -130,7 +131,9 @@ export interface RewriteVersionDTO {
 
 export interface RewriteDTO {
   id: string;
-  workspaceId: string;
+  workspaceId: string | null;
+  mode: RewriteMode;
+  topic: string | null;
   targetAccountId: string | null;
   organizationId: string;
   userId: string;
@@ -152,7 +155,11 @@ export interface GenerateRewriteInput {
   userInputContent?: string;
 }
 
+export interface DirectGenerateRewriteInput extends GenerateRewriteInput {
+  rewriteId?: string;
+  topic: string;
+}
+
 export interface SaveRewriteEditInput {
   editedContent: string;
 }
-

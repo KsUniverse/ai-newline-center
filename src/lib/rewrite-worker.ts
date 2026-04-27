@@ -23,6 +23,14 @@ interface BuildRewritePromptParams {
   userInputContent: string | null;
 }
 
+interface BuildDirectRewritePromptParams {
+  targetAccountNickname: string;
+  targetAccountSignature: string | null;
+  topic: string;
+  fragments: Array<{ content: string }>;
+  userInputContent: string | null;
+}
+
 function buildRewriteSystemPrompt(): string {
   return "你是一位短视频文案创作专家，擅长基于对标视频的内容框架，结合观点素材，创作适合特定账号风格的短视频文案。";
 }
@@ -79,6 +87,49 @@ function buildRewriteUserPrompt(params: BuildRewritePromptParams): string {
     .trimEnd();
 }
 
+function buildDirectRewriteUserPrompt(params: BuildDirectRewritePromptParams): string {
+  const {
+    targetAccountNickname,
+    targetAccountSignature,
+    topic,
+    fragments,
+    userInputContent,
+  } = params;
+
+  const fragmentsText =
+    fragments.length > 0
+      ? fragments.map((f) => `• ${f.content}`).join("\n")
+      : "（未选择观点，请基于创作主题自由创作）";
+
+  const userInputSection =
+    userInputContent?.trim()
+      ? `\n【创作者补充的临时素材】\n${userInputContent.trim()}`
+      : "";
+
+  return [
+    `【目标账号风格】`,
+    `账号名称：${targetAccountNickname}`,
+    `账号简介：${targetAccountSignature ?? "暂无"}`,
+    ``,
+    `【创作主题/指令】`,
+    topic.trim(),
+    ``,
+    `【本次创作使用的观点素材】`,
+    fragmentsText,
+    userInputSection,
+    ``,
+    `【创作要求】`,
+    `请基于上述主题和观点素材，为「${targetAccountNickname}」这个账号创作一篇完整的短视频文案。`,
+    `要求：`,
+    `1. 围绕创作主题展开，观点素材必须自然融入正文`,
+    `2. 语言风格贴合账号定位，适合短视频口播`,
+    `3. 结构完整，有开头钩子、主体论证和结尾收束`,
+    `4. 直接输出文案正文，不需要解释或说明`,
+  ]
+    .join("\n")
+    .trimEnd();
+}
+
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
 export function startRewriteWorker(): void {
@@ -97,11 +148,12 @@ export function startRewriteWorker(): void {
   const worker = new Worker<RewriteJobData>(
     REWRITE_QUEUE_NAME,
     async (job) => {
-      const { rewriteVersionId, workspaceId } = job.data;
+      const { rewriteVersionId, workspaceId, mode } = job.data;
 
       console.log("[RewriteWorker] Processing job", {
         jobId: job.id,
         rewriteVersionId,
+        mode,
         workspaceId,
       });
 
@@ -123,25 +175,7 @@ export function startRewriteWorker(): void {
         throw new Error(`RewriteVersion not found: ${rewriteVersionId}`);
       }
 
-      // 2. Load AiWorkspace (transcript + annotations)
-      const workspace = await prisma.aiWorkspace.findUnique({
-        where: { id: workspaceId },
-        include: {
-          transcript: true,
-          annotations: { orderBy: { createdAt: "asc" } },
-        },
-      });
-
-      if (!workspace) {
-        throw new Error(`AiWorkspace not found: ${workspaceId}`);
-      }
-
-      const transcriptText =
-        workspace.transcript?.currentText?.trim() ??
-        workspace.transcript?.originalText?.trim() ??
-        "";
-
-      // 3. Load fragments
+      // 2. Load fragments
       const usedFragmentIds = (version.usedFragmentIds as string[]) ?? [];
       const fragments =
         usedFragmentIds.length > 0
@@ -156,7 +190,7 @@ export function startRewriteWorker(): void {
         .map((id) => fragments.find((f) => f.id === id))
         .filter((f): f is NonNullable<typeof f> => f !== undefined);
 
-      // 4. Load model config (raw, with API key)
+      // 3. Load model config (raw, with API key)
       if (!version.modelConfigId) {
         throw new Error(`RewriteVersion ${rewriteVersionId} has no modelConfigId`);
       }
@@ -167,26 +201,66 @@ export function startRewriteWorker(): void {
         throw new Error(`AiModelConfig not found: ${version.modelConfigId}`);
       }
 
-      // 5. Build prompts
+      // 4. Build prompts
       const targetAccount = version.rewrite.targetAccount;
       const systemPrompt = buildRewriteSystemPrompt();
-      const userPrompt = buildRewriteUserPrompt({
-        targetAccountNickname: targetAccount?.nickname ?? "未知账号",
-        targetAccountSignature: targetAccount?.signature ?? null,
-        annotations: workspace.annotations,
-        transcriptText,
-        fragments: orderedFragments,
-        userInputContent: version.userInputContent ?? null,
-      });
+      const targetAccountNickname = targetAccount?.nickname ?? "未知账号";
+      const targetAccountSignature = targetAccount?.signature ?? null;
+      let userPrompt: string;
 
-      // 6. Call AI gateway
+      if (mode === "direct") {
+        const topic = version.rewrite.topic?.trim();
+        if (!topic) {
+          throw new Error(`Direct Rewrite ${version.rewrite.id} has no topic`);
+        }
+
+        userPrompt = buildDirectRewriteUserPrompt({
+          targetAccountNickname,
+          targetAccountSignature,
+          topic,
+          fragments: orderedFragments,
+          userInputContent: version.userInputContent ?? null,
+        });
+      } else {
+        if (!workspaceId) {
+          throw new Error("Workspace rewrite job missing workspaceId");
+        }
+
+        const workspace = await prisma.aiWorkspace.findUnique({
+          where: { id: workspaceId },
+          include: {
+            transcript: true,
+            annotations: { orderBy: { createdAt: "asc" } },
+          },
+        });
+
+        if (!workspace) {
+          throw new Error(`AiWorkspace not found: ${workspaceId}`);
+        }
+
+        const transcriptText =
+          workspace.transcript?.currentText?.trim() ??
+          workspace.transcript?.originalText?.trim() ??
+          "";
+
+        userPrompt = buildRewriteUserPrompt({
+          targetAccountNickname,
+          targetAccountSignature,
+          annotations: workspace.annotations,
+          transcriptText,
+          fragments: orderedFragments,
+          userInputContent: version.userInputContent ?? null,
+        });
+      }
+
+      // 5. Call AI gateway
       const result = await aiGateway.generateRewrite({
         modelConfig,
         systemPrompt,
         userPrompt,
       });
 
-      // 7. Persist success
+      // 6. Persist success
       await rewriteRepository.markVersionCompleted(rewriteVersionId, result.text);
 
       console.log("[RewriteWorker] Completed job", {

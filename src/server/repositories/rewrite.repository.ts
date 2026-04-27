@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient, Rewrite, RewriteVersion } from "@prisma/client";
+import type { Prisma, PrismaClient, Rewrite, RewriteMode, RewriteVersion } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { RewriteDTO, RewriteVersionDTO } from "@/types/ai-workspace";
@@ -22,6 +22,13 @@ export interface UpsertRewriteData {
   targetAccountId: string;
   organizationId: string;
   userId: string;
+}
+
+export interface CreateDirectRewriteData {
+  targetAccountId: string;
+  organizationId: string;
+  userId: string;
+  topic: string;
 }
 
 export interface CreateRewriteVersionData {
@@ -59,6 +66,8 @@ function rewriteToDTO(r: RewriteWithVersions): RewriteDTO {
   return {
     id: r.id,
     workspaceId: r.workspaceId,
+    mode: r.mode,
+    topic: r.topic ?? null,
     targetAccountId: r.targetAccountId ?? null,
     organizationId: r.organizationId,
     userId: r.userId,
@@ -104,12 +113,70 @@ class RewriteRepository {
       where: { workspaceId: data.workspaceId },
       create: {
         workspaceId: data.workspaceId,
+        mode: "WORKSPACE",
         targetAccountId: data.targetAccountId,
         organizationId: data.organizationId,
         userId: data.userId,
       },
       update: { targetAccountId: data.targetAccountId },
     });
+  }
+
+  async createDirect(
+    data: CreateDirectRewriteData,
+    db: DatabaseClient = prisma,
+  ): Promise<Rewrite> {
+    return db.rewrite.create({
+      data: {
+        workspaceId: null,
+        mode: "DIRECT",
+        topic: data.topic,
+        targetAccountId: data.targetAccountId,
+        organizationId: data.organizationId,
+        userId: data.userId,
+      },
+    });
+  }
+
+  async updateDirectTaskContext(
+    id: string,
+    data: { topic: string; targetAccountId: string },
+    db: DatabaseClient = prisma,
+  ): Promise<Rewrite> {
+    return db.rewrite.update({
+      where: { id },
+      data: {
+        topic: data.topic,
+        targetAccountId: data.targetAccountId,
+      },
+    });
+  }
+
+  async findByIdAndUser(
+    id: string,
+    userId: string,
+    organizationId: string,
+    mode?: RewriteMode,
+    db: DatabaseClient = prisma,
+  ): Promise<RewriteDTO | null> {
+    const record = await db.rewrite.findFirst({
+      where: {
+        id,
+        userId,
+        organizationId,
+        ...(mode ? { mode } : {}),
+      },
+      include: {
+        versions: {
+          orderBy: { versionNumber: "desc" },
+          include: { modelConfig: { select: { id: true, name: true } } },
+        },
+        targetAccount: {
+          select: { id: true, nickname: true, avatar: true, signature: true },
+        },
+      },
+    });
+    return record ? rewriteToDTO(record) : null;
   }
 
   async createVersion(
@@ -143,10 +210,34 @@ class RewriteRepository {
   async findVersionById(
     versionId: string,
     db: DatabaseClient = prisma,
-  ): Promise<Prisma.RewriteVersionGetPayload<{ include: { rewrite: { select: { workspaceId: true } } } }> | null> {
+  ): Promise<
+    Prisma.RewriteVersionGetPayload<{
+      include: {
+        rewrite: {
+          select: {
+            id: true;
+            workspaceId: true;
+            mode: true;
+            userId: true;
+            organizationId: true;
+          };
+        };
+      };
+    }> | null
+  > {
     return db.rewriteVersion.findUnique({
       where: { id: versionId },
-      include: { rewrite: { select: { workspaceId: true } } },
+      include: {
+        rewrite: {
+          select: {
+            id: true,
+            workspaceId: true,
+            mode: true,
+            userId: true,
+            organizationId: true,
+          },
+        },
+      },
     });
   }
 
