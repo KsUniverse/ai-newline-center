@@ -1,6 +1,6 @@
 # UI/UX 设计系统
 
-> 摘要：亮色优先、暗色兼容的品牌化运营界面。当前基线为更扁平、偏硬朗的品牌编辑台风格：用清晰描边、规整块面、克制的氛围层和统一页面壳表达层级，而不是依赖厚圆角、玻璃感和漂浮阴影。基于 Tailwind CSS 4 + shadcn/ui，所有稳定样式模式必须回写到本文档和前端架构文档。
+> 摘要：亮色优先、暗色兼容的品牌化运营界面。当前基线为**品牌编辑台硬化风格（Brand Editorial Hardening）**：用清晰描边（`border-border/55`~`border-border/80`）、规整块面、最小化阴影和统一页面壳表达层级。全局圆角通过 `--radius: 0.3rem` 锁定基准，组件圆角统一为 `rounded-md`（基础控件）/ `rounded-xl`（面板与浮层）；阴影仅用于浮层层级提示（`shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]`），不用于制造拟物感或主面板层次；玻璃感已移除，所有浮层改为实底面板。基于 Tailwind CSS 4 + shadcn/ui，所有稳定样式模式必须回写到本文档和前端架构文档。
 
 ## 规范来源
 
@@ -91,18 +91,30 @@
 
 ### 圆角
 
-- 基准圆角：`--radius: 0.3rem`
-- 输入 / 按钮：`rounded-md`
-- 图标壳 / 内嵌小卡：`rounded-md` ~ `rounded-lg`
-- 区块表面 / 浮层：`rounded-lg` ~ `rounded-xl`
+全局圆角变量：`--radius: 0.3rem`，Tailwind `@theme` 扩展：
+
+| Token | 计算值 | 用途 |
+|-------|--------|------|
+| `rounded-sm` | 0px (`calc(0.3rem - 4px)`) | 极小标签 |
+| `rounded-md` | `calc(0.3rem - 2px)` ≈ 2px | 输入框、按钮、图标小壳 |
+| `rounded-lg` | `0.3rem` = 4.8px | 内嵌表面、字段块 |
+| `rounded-xl` | `calc(0.3rem + 4px)` = 8.8px | 主面板、浮层、Dialog、Sheet、DropdownMenu |
+
+约束：
+- 按钮、输入框：`rounded-md`
+- 图标壳、字段块：`rounded-md` ~ `rounded-lg`
+- 主面板、区块表面：`rounded-xl`
+- Dialog / Sheet / DropdownMenu 浮层：`rounded-xl`
+- 禁止在功能组件内使用 `rounded-2xl`、`rounded-3xl` 等更大圆角
 
 ### 阴影
 
-- 普通表面：默认无阴影或近乎不可见的浅阴影
-- 浮层：轻量紧凑阴影，只提示层级
-- 主 Dialog / Sheet：以实底面板 + 清晰边框为主，阴影仅作补充
+- **普通表面（card、panel）**：无阴影，仅用描边区分层级
+- **浮层（DropdownMenu、Select 内容区）**：`shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]`
+- **主浮层（Dialog、Sheet）**：`shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]`，以实底面板 + 清晰边框为主
+- **禁止**：`shadow-sm`、`shadow-md`、`shadow-lg`、`shadow-xl` 等 Tailwind 内置阴影在主面板上使用
 
-本项目用法上**边框优先于重阴影**，阴影只用于提示悬浮层级，不用于制造厚重拟物感。
+本项目用法上**描边优先于重阴影**，阴影只用于提示悬浮层级，不用于制造拟物感或主面板层次感。
 
 ## 全局背景与氛围层
 
@@ -190,11 +202,18 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 ### 区块表面
 
-页面中的业务表面统一使用如下层级：
+页面中的业务表面统一使用如下层级（推荐使用 `brand.ts` 中的常量，不要手写）：
 
-- 主区块：`rounded-xl border border-border/55 bg-card p-*`
-- 内嵌表面：`rounded-lg border border-border/45 bg-background`
-- 危险或错误提示：语义色边框 + 极浅危险背景
+| 层级 | 常量 | 等价 class |
+|------|------|------------|
+| 主面板 | `BRAND_SURFACE_CLASS_NAME` | `rounded-xl border border-border/55 bg-card` |
+| 浮层面板 | `BRAND_OVERLAY_SURFACE_CLASS_NAME` | `rounded-xl border border-border/55 bg-card shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]` |
+| 内嵌表面 | `BRAND_INSET_SURFACE_CLASS_NAME` | `rounded-lg border border-border/45 bg-background` |
+| 表单分组 | `BRAND_FORM_SECTION_CLASS_NAME` | `grid gap-4 rounded-xl border border-border/45 bg-background p-4 sm:p-5` |
+| 字段块 | `BRAND_FIELD_SHELL_CLASS_NAME` | `flex items-center gap-3 rounded-lg border border-border/45 bg-card px-3 py-2.5` |
+| 桌面表格壳 | `BRAND_TABLE_WRAPPER_CLASS_NAME` | `hidden overflow-hidden rounded-xl border border-border/55 bg-background md:block` |
+| 移动端卡片 | `BRAND_MOBILE_CARD_CLASS_NAME` | `rounded-xl border border-border/45 bg-background p-4` |
+| 危险或错误提示 | — | 语义色边框 + 极浅危险背景 |
 
 ## 共享交互原语
 
@@ -206,11 +225,11 @@ Dashboard 首页默认采用**快捷入口模式**：
 
 | 原语 | 用途 | 当前视觉契约 |
 |------|------|--------------|
-| `DropdownMenu` | 用户菜单、表格行操作、轻量上下文动作 | `rounded-xl`、`border-border/55`、`bg-popover` |
-| `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-xl`、`border-border/55`、`bg-card`、关闭按钮使用紧凑图标壳 |
+| `DropdownMenu` | 用户菜单、表格行操作、轻量上下文动作 | `rounded-xl border border-border/55 bg-popover shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]` |
+| `Dialog` | 聚焦型创建/编辑、短内容详情 | `rounded-xl border border-border/55 bg-card shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]`、关闭按钮：`rounded-md border border-border/50 bg-background p-1.5` |
 | `AlertDialog` | 删除、确认、危险动作 | Header/Footer 分区明确，按钮规格统一 `h-8 rounded-md px-3` |
-| `Sheet` | 长表单、复杂流程、移动端导航 | 实底侧滑面板、右侧/左侧滑出、统一关闭按钮 |
-| `Fullscreen Workspace Overlay` | 沉浸式三栏工作流、共享元素展开 | 全屏卡片化壳、来源卡片共享展开、关闭时反向回收 |
+| `Sheet` | 长表单、复杂流程、移动端导航 | 实底侧滑面板 `bg-card border-border/55`、右侧/左侧滑出、统一关闭按钮 `rounded-md` |
+| `Fullscreen Workspace Overlay` | 沉浸式三栏工作流、共享元素展开 | 全屏卡片化壳 `rounded-xl border border-border/55 bg-card`、来源卡片共享展开、关闭时反向回收 |
 
 ### 交互选择顺序
 

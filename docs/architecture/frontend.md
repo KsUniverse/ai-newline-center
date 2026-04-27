@@ -1,15 +1,33 @@
 # 前端架构规范
 
-> 摘要：品牌化运营工作台架构。亮色优先、暗色兼容；当前视觉基线为更扁平、偏硬朗的品牌编辑台风格。统一页面壳、导航壳与共享弹层原语；业务页面采用“页面壳 → 区块表面 → 共享原语 → 功能组件”的分层实现。
+> 摘要：品牌化运营工作台架构。亮色优先、暗色兼容；当前视觉基线为 **Brand Editorial Hardening**（品牌编辑台硬化风格）：全局圆角收紧（`--radius: 0.3rem`，面板统一 `rounded-xl`，控件统一 `rounded-md`）、描边清晰（`border-border/55`~`border-border/80`）、无主面板阴影（阴影仅限浮层 `shadow-[0_18px_44px_-32px_rgba(15,23,42,0.42)]`）、彻底移除玻璃感（所有浮层改为实底面板）。统一页面壳、导航壳与共享弹层原语；业务页面采用"页面壳 → 区块表面 → 共享原语 → 功能组件"的分层实现。表面样式统一通过 `src/components/shared/common/brand.ts` 常量管理。
 
 ## 设计规范引用
 
 - 视觉规范：`docs/standards/ui-ux-system.md`
 - 全局 token：`src/app/globals.css`
+- **品牌表面常量**：`src/components/shared/common/brand.ts`（所有稳定表面 class 集中定义，禁止在功能组件内手写重复组合）
 - 共享布局壳：`src/components/shared/layout/*`
 - 共享交互原语：`src/components/ui/*`
 
 前端代码必须以这些文件为统一约束来源；若出现稳定新模式，必须同步回写文档。
+
+### 品牌表面常量（brand.ts）
+
+以下常量覆盖最高频的表面组合，功能组件必须优先引用，不得自行拼接等价 class：
+
+| 常量 | 用途 |
+|------|------|
+| `BRAND_SURFACE_CLASS_NAME` | 主区块面板 |
+| `BRAND_OVERLAY_SURFACE_CLASS_NAME` | Dialog / Sheet / 浮层 |
+| `BRAND_INSET_SURFACE_CLASS_NAME` | 页面内嵌次级表面 |
+| `BRAND_FORM_SECTION_CLASS_NAME` | 表单分组容器 |
+| `BRAND_FIELD_SHELL_CLASS_NAME` | 图标 + 输入域外壳 |
+| `BRAND_TABLE_WRAPPER_CLASS_NAME` | 桌面表格容器 |
+| `BRAND_MOBILE_CARD_CLASS_NAME` | 移动端列表卡片 |
+| `BRAND_PILL_BASE_CLASS_NAME` | compact pill 基础结构 |
+| `getBrandNavItemClassName(active)` | 侧边栏导航项 |
+| `getBrandNavIconClassName(active)` | 导航项图标壳 |
 
 ## 前端分层
 
