@@ -121,6 +121,7 @@ export interface RewriteVersionDTO {
   userInputContent: string | null;
   status: RewriteVersionStatus;
   errorMessage: string | null;
+  isFinalVersion: boolean;
   createdAt: string;
   updatedAt: string;
   modelConfig: {

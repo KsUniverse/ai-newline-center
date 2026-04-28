@@ -23,6 +23,7 @@ export interface AiWorkspaceRewriteStageV2Props {
   onGenerateRewrite: (input: GenerateRewriteInput) => void;
   onSaveVersionEdit: (versionId: string, content: string) => void;
   onSetActiveVersionId: (id: string) => void;
+  onSetFinalVersion: (versionId: string) => void;
 }
 
 export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2({
@@ -37,6 +38,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
   onGenerateRewrite,
   onSaveVersionEdit,
   onSetActiveVersionId,
+  onSetFinalVersion,
 }: AiWorkspaceRewriteStageV2Props) {
   const highlightChunks = useMemo(
     () => buildTranscriptHighlightChunks(transcriptText, annotations, null, activeAnnotationId),
@@ -208,6 +210,7 @@ export const AiWorkspaceRewriteStageV2 = memo(function AiWorkspaceRewriteStageV2
             onGenerateRewrite={onGenerateRewrite}
             onSaveVersionEdit={onSaveVersionEdit}
             onSetActiveVersionId={onSetActiveVersionId}
+            onSetFinalVersion={onSetFinalVersion}
           />
         </div>
       </div>

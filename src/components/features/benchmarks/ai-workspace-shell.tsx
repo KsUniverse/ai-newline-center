@@ -577,6 +577,7 @@ export function AiWorkspaceShell({
                       onGenerateRewrite={controller.onGenerateRewrite}
                       onSaveVersionEdit={controller.onSaveVersionEdit}
                       onSetActiveVersionId={controller.onSetActiveVersionId}
+                      onSetFinalVersion={controller.onSetFinalVersion}
                     />
                   </div>
                 );

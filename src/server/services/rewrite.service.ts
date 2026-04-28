@@ -10,6 +10,7 @@ import type {
   DirectGenerateRewriteInput,
   GenerateRewriteInput,
   RewriteDTO,
+  RewriteVersionDTO,
 } from "@/types/ai-workspace";
 
 function isMissingRewriteTableError(error: unknown): boolean {
@@ -297,6 +298,29 @@ class RewriteService {
       editedContent: updated.editedContent ?? editedContent,
       updatedAt: updated.updatedAt.toISOString(),
     };
+  }
+
+  async setFinalVersion(
+    rewriteId: string,
+    versionId: string,
+    caller: SessionUser,
+  ): Promise<RewriteVersionDTO> {
+    const rewrite = await rewriteRepository.findByIdAndUser(
+      rewriteId,
+      caller.id,
+      caller.organizationId,
+    );
+    if (!rewrite) {
+      throw new AppError("REWRITE_NOT_FOUND", "仿写任务不存在或无权访问", 404);
+    }
+
+    const version = rewrite.versions.find((v) => v.id === versionId);
+    if (!version) {
+      throw new AppError("VERSION_NOT_FOUND", "版本不存在", 404);
+    }
+
+    await rewriteRepository.markVersionAsFinal(versionId, rewriteId);
+    return { ...version, isFinalVersion: true };
   }
 }
 

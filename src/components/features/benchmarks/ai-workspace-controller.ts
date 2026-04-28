@@ -518,6 +518,32 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     [video],
   );
 
+  const setFinalVersion = useCallback(
+    async function setFinalVersion(versionId: string) {
+      if (!video) return;
+
+      const previousRewrite = rewrite;
+      setRewrite((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          versions: prev.versions.map((v) => ({
+            ...v,
+            isFinalVersion: v.id === versionId,
+          })),
+        };
+      });
+
+      try {
+        await apiClient.patch(`/ai-workspace/${video.id}/rewrite/versions/${versionId}/final`);
+      } catch (error) {
+        setRewrite(previousRewrite);
+        toast.error(error instanceof ApiError ? error.message : "操作失败，请重试");
+      }
+    },
+    [video, rewrite],
+  );
+
   const requestTranscription = useCallback(function requestTranscription() {
     if (!video) {
       return;
@@ -777,5 +803,6 @@ export function useAiWorkspaceController({ video }: UseAiWorkspaceControllerOpti
     onGenerateRewrite: generateRewrite,
     onSaveVersionEdit: saveVersionEdit,
     onSetActiveVersionId: setActiveVersionId,
+    onSetFinalVersion: setFinalVersion,
   };
 }

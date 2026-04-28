@@ -283,6 +283,32 @@ export function DirectCreatePage() {
     setGenerating(false);
   }, [local]);
 
+  const handleSetFinalVersion = useCallback(
+    async (versionId: string) => {
+      if (!rewrite) return;
+
+      const previousRewrite = rewrite;
+      setRewrite((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          versions: prev.versions.map((v) => ({
+            ...v,
+            isFinalVersion: v.id === versionId,
+          })),
+        };
+      });
+
+      try {
+        await apiClient.patch(`/rewrites/direct/${rewrite.id}/versions/${versionId}/final`);
+      } catch (error) {
+        setRewrite(previousRewrite);
+        toast.error(error instanceof Error ? error.message : "操作失败，请重试");
+      }
+    },
+    [rewrite],
+  );
+
   return (
     <DashboardPageShell
       eyebrow="AI 仿写"
@@ -310,6 +336,7 @@ export function DirectCreatePage() {
         onGenerate={handleGenerate}
         onSaveVersionEdit={handleSaveVersionEdit}
         onNewTask={handleNewTask}
+        onSetFinalVersion={handleSetFinalVersion}
       />
     </DashboardPageShell>
   );

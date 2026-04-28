@@ -54,6 +54,7 @@ function versionToDTO(
     userInputContent: v.userInputContent ?? null,
     status: v.status as RewriteVersionDTO["status"],
     errorMessage: v.errorMessage ?? null,
+    isFinalVersion: v.isFinalVersion,
     createdAt: v.createdAt.toISOString(),
     updatedAt: v.updatedAt.toISOString(),
     modelConfig: v.modelConfig
@@ -272,6 +273,28 @@ class RewriteRepository {
       where: { id: versionId },
       data: { status: "FAILED", errorMessage },
     });
+  }
+
+  async markVersionAsFinal(
+    versionId: string,
+    rewriteId: string,
+    db: DatabaseClient = prisma,
+  ): Promise<RewriteVersion> {
+    const execute = async (client: DatabaseClient): Promise<RewriteVersion> => {
+      await client.rewriteVersion.updateMany({
+        where: { rewriteId },
+        data: { isFinalVersion: false },
+      });
+      return client.rewriteVersion.update({
+        where: { id: versionId },
+        data: { isFinalVersion: true },
+      });
+    };
+
+    if ("$transaction" in db) {
+      return (db as PrismaClient).$transaction(execute);
+    }
+    return execute(db);
   }
 }
 

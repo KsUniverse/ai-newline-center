@@ -1,6 +1,7 @@
 import {
   Building2,
   Cookie,
+  FileText,
   Layers,
   LayoutDashboard,
   Lightbulb,
@@ -87,6 +88,13 @@ export const APP_NAV_ITEMS: readonly AppNavItem[] = [
     icon: Sparkles,
     label: "AI 配置",
     href: "/system-settings/ai",
+    roles: ["SUPER_ADMIN"],
+    section: "system",
+  },
+  {
+    icon: FileText,
+    label: "Prompt 模板",
+    href: "/system-settings/prompt-templates",
     roles: ["SUPER_ADMIN"],
     section: "system",
   },

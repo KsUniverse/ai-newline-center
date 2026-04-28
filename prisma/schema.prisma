@@ -446,6 +446,13 @@ enum AiStep {
   REWRITE
 }
 
+enum PromptStepType {
+  TRANSCRIPTION
+  DECOMPOSITION
+  REWRITE
+  DIRECT_REWRITE
+}
+
 enum AiWorkspaceStatus {
   IDLE
   TRANSCRIBING
@@ -471,8 +478,9 @@ model AiModelConfig {
   videoInputMode AiVideoInputMode @default(NONE)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
-  stepBindings   AiStepBinding[]
+  stepBindings    AiStepBinding[]
   rewriteVersions RewriteVersion[]
+  promptTemplates PromptTemplate[]
 
   @@map("ai_model_configs")
 }
@@ -486,6 +494,24 @@ model AiStepBinding {
   updatedAt     DateTime        @updatedAt
 
   @@map("ai_step_bindings")
+}
+
+model PromptTemplate {
+  id            String         @id @default(cuid())
+  name          String
+  stepType      PromptStepType
+  systemContent String?        @db.Text
+  content       String         @db.Text
+  modelConfigId String?
+  modelConfig   AiModelConfig? @relation(fields: [modelConfigId], references: [id], onDelete: SetNull)
+  isDefault     Boolean        @default(false)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([stepType, isDefault])
+  @@index([stepType, isActive])
+  @@map("prompt_templates")
 }
 
 model AiWorkspace {
@@ -658,6 +684,7 @@ model RewriteVersion {
   userInputContent String?              @db.Text
   status           RewriteVersionStatus @default(GENERATING)
   errorMessage     String?              @db.Text
+  isFinalVersion   Boolean              @default(false)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 

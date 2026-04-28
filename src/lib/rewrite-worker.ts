@@ -3,9 +3,11 @@ import { Worker } from "bullmq";
 import { REWRITE_QUEUE_NAME, type RewriteJobData } from "@/lib/bullmq";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { renderPromptTemplate } from "@/lib/prompt-template-renderer";
 import { createBullMQRedisConnection } from "@/lib/redis";
 import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
+import { promptTemplateService } from "@/server/services/prompt-template.service";
 import type { AiDecompositionAnnotation } from "@prisma/client";
 
 declare global {
@@ -203,9 +205,9 @@ export function startRewriteWorker(): void {
 
       // 4. Build prompts
       const targetAccount = version.rewrite.targetAccount;
-      const systemPrompt = buildRewriteSystemPrompt();
       const targetAccountNickname = targetAccount?.nickname ?? "未知账号";
       const targetAccountSignature = targetAccount?.signature ?? null;
+      let systemPrompt: string;
       let userPrompt: string;
 
       if (mode === "direct") {
@@ -214,13 +216,41 @@ export function startRewriteWorker(): void {
           throw new Error(`Direct Rewrite ${version.rewrite.id} has no topic`);
         }
 
-        userPrompt = buildDirectRewriteUserPrompt({
-          targetAccountNickname,
-          targetAccountSignature,
-          topic,
-          fragments: orderedFragments,
-          userInputContent: version.userInputContent ?? null,
-        });
+        const directTemplate = await promptTemplateService.getDefaultTemplate("DIRECT_REWRITE");
+
+        if (directTemplate) {
+          const targetAccountStr = [
+            `账号名称：${targetAccountNickname}`,
+            `账号简介：${targetAccountSignature ?? "暂无"}`,
+          ].join("\n");
+
+          const fragmentsText =
+            orderedFragments.length > 0
+              ? orderedFragments.map((f) => `• ${f.content}`).join("\n")
+              : "（未选择观点，请基于创作主题自由创作）";
+
+          const variables: Record<string, string> = {
+            topic,
+            viewpoints: fragmentsText,
+            target_account: targetAccountStr,
+            user_input: version.userInputContent?.trim() ?? "",
+          };
+
+          systemPrompt = directTemplate.systemContent
+            ? renderPromptTemplate(directTemplate.systemContent, variables)
+            : buildRewriteSystemPrompt();
+
+          userPrompt = renderPromptTemplate(directTemplate.content, variables);
+        } else {
+          systemPrompt = buildRewriteSystemPrompt();
+          userPrompt = buildDirectRewriteUserPrompt({
+            targetAccountNickname,
+            targetAccountSignature,
+            topic,
+            fragments: orderedFragments,
+            userInputContent: version.userInputContent ?? null,
+          });
+        }
       } else {
         if (!workspaceId) {
           throw new Error("Workspace rewrite job missing workspaceId");
@@ -243,14 +273,47 @@ export function startRewriteWorker(): void {
           workspace.transcript?.originalText?.trim() ??
           "";
 
-        userPrompt = buildRewriteUserPrompt({
-          targetAccountNickname,
-          targetAccountSignature,
-          annotations: workspace.annotations,
-          transcriptText,
-          fragments: orderedFragments,
-          userInputContent: version.userInputContent ?? null,
-        });
+        const rewriteTemplate = await promptTemplateService.getDefaultTemplate("REWRITE");
+
+        if (rewriteTemplate) {
+          const targetAccountStr = [
+            `账号名称：${targetAccountNickname}`,
+            `账号简介：${targetAccountSignature ?? "暂无"}`,
+          ].join("\n");
+
+          const annotationsText = workspace.annotations
+            .map((a) => `• "${a.quotedText}"：${a.note ?? a.function ?? "（无说明）"}`)
+            .join("\n");
+
+          const fragmentsText =
+            orderedFragments.length > 0
+              ? orderedFragments.map((f) => `• ${f.content}`).join("\n")
+              : "（未选择观点，请基于框架结构自由创作）";
+
+          const variables: Record<string, string> = {
+            framework: annotationsText,
+            transcript: transcriptText,
+            viewpoints: fragmentsText,
+            target_account: targetAccountStr,
+            user_input: version.userInputContent?.trim() ?? "",
+          };
+
+          systemPrompt = rewriteTemplate.systemContent
+            ? renderPromptTemplate(rewriteTemplate.systemContent, variables)
+            : buildRewriteSystemPrompt();
+
+          userPrompt = renderPromptTemplate(rewriteTemplate.content, variables);
+        } else {
+          systemPrompt = buildRewriteSystemPrompt();
+          userPrompt = buildRewriteUserPrompt({
+            targetAccountNickname,
+            targetAccountSignature,
+            annotations: workspace.annotations,
+            transcriptText,
+            fragments: orderedFragments,
+            userInputContent: version.userInputContent ?? null,
+          });
+        }
       }
 
       // 5. Call AI gateway

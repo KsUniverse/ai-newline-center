@@ -63,6 +63,7 @@ interface DirectCreatePanelProps {
   onGenerate: (input: DirectGenerateRewriteInput) => void;
   onSaveVersionEdit: (versionId: string, content: string) => void;
   onNewTask: () => void;
+  onSetFinalVersion: (versionId: string) => void;
 }
 
 function formatDateTime(iso: string) {
@@ -94,6 +95,7 @@ export const DirectCreatePanel = memo(function DirectCreatePanel({
   onGenerate,
   onSaveVersionEdit,
   onNewTask,
+  onSetFinalVersion,
 }: DirectCreatePanelProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -423,13 +425,32 @@ export const DirectCreatePanel = memo(function DirectCreatePanel({
                   <DropdownMenuItem
                     key={version.id}
                     onClick={() => onSetActiveVersionId(version.id)}
-                    className={`flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm ${activeVersionId === version.id ? "bg-primary/10 text-primary" : ""}`}
+                    className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${activeVersionId === version.id ? "bg-primary/10 text-primary" : ""}`}
                   >
-                    <span className="font-medium">版本 {version.versionNumber}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(version.createdAt)}
-                      {version.modelConfig ? ` · ${version.modelConfig.name}` : ""}
-                    </span>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">版本 {version.versionNumber}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(version.createdAt)}
+                        {version.modelConfig ? ` · ${version.modelConfig.name}` : ""}
+                      </span>
+                    </div>
+                    {version.isFinalVersion ? (
+                      <Badge variant="outline" className="shrink-0 border-green-600/20 bg-green-600/10 text-green-700 dark:border-green-400/20 dark:bg-green-400/10 dark:text-green-400 text-xs">
+                        最终稿
+                      </Badge>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 shrink-0 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSetFinalVersion(version.id);
+                        }}
+                      >
+                        设最终稿
+                      </Button>
+                    )}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
