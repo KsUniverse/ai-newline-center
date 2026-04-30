@@ -4,12 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Link2, Link2Off, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import type { VideoRewriteLinkDTO, RewritePickerItemDTO } from "@/types/video-link";
+import type { VideoRewriteLinkDTO } from "@/types/video-link";
 import { ApiError, apiClient } from "@/lib/api-client";
 import { formatDateTime } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/shared/common/confirm-dialog";
-import { RewritePickerDialog } from "./rewrite-picker-dialog";
+import { Button } from "@/components/ui/button";
 
 interface VideoRewriteLinkSectionProps {
   videoId: string;
@@ -19,9 +18,7 @@ export function VideoRewriteLinkSection({ videoId }: VideoRewriteLinkSectionProp
   const [link, setLink] = useState<VideoRewriteLinkDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [hidden, setHidden] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
-  const [linking, setLinking] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
 
   const fetchLink = useCallback(async () => {
@@ -45,23 +42,6 @@ export function VideoRewriteLinkSection({ videoId }: VideoRewriteLinkSectionProp
   useEffect(() => {
     fetchLink();
   }, [fetchLink]);
-
-  async function handleLink(item: RewritePickerItemDTO) {
-    setLinking(true);
-    try {
-      const data = await apiClient.put<VideoRewriteLinkDTO>(
-        `/videos/${videoId}/rewrite-link`,
-        { rewriteId: item.id },
-      );
-      setLink(data);
-      setPickerOpen(false);
-      toast.success("关联成功");
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "关联失败，请重试");
-    } finally {
-      setLinking(false);
-    }
-  }
 
   async function handleUnlink() {
     setUnlinking(true);
@@ -101,15 +81,8 @@ export function VideoRewriteLinkSection({ videoId }: VideoRewriteLinkSectionProp
       {link ? (
         <LinkedState link={link} onUnlink={() => setConfirmUnlinkOpen(true)} />
       ) : (
-        <UnlinkedState onOpen={() => setPickerOpen(true)} />
+        <UnlinkedState />
       )}
-
-      <RewritePickerDialog
-        open={pickerOpen}
-        onOpenChange={setPickerOpen}
-        onConfirm={handleLink}
-        confirming={linking}
-      />
 
       <ConfirmDialog
         open={confirmUnlinkOpen}
@@ -125,16 +98,13 @@ export function VideoRewriteLinkSection({ videoId }: VideoRewriteLinkSectionProp
   );
 }
 
-function UnlinkedState({ onOpen }: { onOpen: () => void }) {
+function UnlinkedState() {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-dashed border-border/45 bg-background px-4 py-3">
+    <div className="rounded-lg border border-dashed border-border/45 bg-background px-4 py-3">
       <div className="flex items-center gap-2 text-sm text-muted-foreground/80">
         <Link2 className="h-4 w-4 shrink-0" />
-        <span>尚未关联仿写文案</span>
+        <span>尚未关联仿写文案，请前往仿写版本区域进行绑定</span>
       </div>
-      <Button variant="outline" size="sm" onClick={onOpen}>
-        关联文案
-      </Button>
     </div>
   );
 }

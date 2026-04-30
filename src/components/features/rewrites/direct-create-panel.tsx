@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { RewritePublicationSection } from "./rewrite-publication-section";
 import { ViewpointPicker } from "../benchmarks/viewpoint-picker";
 
 interface DirectCreatePanelProps {
@@ -462,6 +463,15 @@ export const DirectCreatePanel = memo(function DirectCreatePanel({
           )}
           </div>
         </div>
+
+        {activeVersion ? (
+          <div className="mb-4">
+            <RewritePublicationSection
+              rewriteVersionId={activeVersion.id}
+              canBind={Boolean(rewrite?.targetAccountId && activeVersion.status === "COMPLETED")}
+            />
+          </div>
+        ) : null}
 
         {activeVersion?.status === "FAILED" ? (
           <div className="flex flex-1 flex-col rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">

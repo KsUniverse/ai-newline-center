@@ -8,7 +8,7 @@ import { createBullMQRedisConnection } from "@/lib/redis";
 import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 import { promptTemplateService } from "@/server/services/prompt-template.service";
-import { styleExperienceService } from "@/server/services/style-experience.service";
+import { rewriteLearningRetrievalService } from "@/server/services/rewrite-learning-retrieval.service";
 import type { AiDecompositionAnnotation } from "@prisma/client";
 
 declare global {
@@ -210,12 +210,20 @@ export function startRewriteWorker(): void {
       const targetAccountSignature = targetAccount?.signature ?? null;
       let systemPrompt: string;
       let userPrompt: string;
+      let retrievalTranscriptText: string | null = null;
+      let retrievalAnnotations: Array<{
+        quotedText: string;
+        note?: string | null;
+        function?: string | null;
+      }> = [];
+      let retrievalTopic: string | null = version.rewrite.topic ?? null;
 
       if (mode === "direct") {
         const topic = version.rewrite.topic?.trim();
         if (!topic) {
           throw new Error(`Direct Rewrite ${version.rewrite.id} has no topic`);
         }
+        retrievalTopic = topic;
 
         const directTemplate = await promptTemplateService.getDefaultTemplate("DIRECT_REWRITE");
 
@@ -273,6 +281,12 @@ export function startRewriteWorker(): void {
           workspace.transcript?.currentText?.trim() ??
           workspace.transcript?.originalText?.trim() ??
           "";
+        retrievalTranscriptText = transcriptText;
+        retrievalAnnotations = workspace.annotations.map((annotation) => ({
+          quotedText: annotation.quotedText,
+          note: annotation.note ?? null,
+          function: annotation.function ?? null,
+        }));
 
         const rewriteTemplate = await promptTemplateService.getDefaultTemplate("REWRITE");
 
@@ -317,23 +331,82 @@ export function startRewriteWorker(): void {
         }
       }
 
-      // 4.5 Inject few-shot examples from StyleExperience (if available)
+      // 4.5 Inject learning profile + cases (if available)
       if (targetAccount) {
         try {
-          const fewShotBlock = await styleExperienceService.getFewShotExamples(
-            targetAccount.id,
-            version.rewrite.organizationId,
-            3,
-          );
-          if (fewShotBlock) {
-            userPrompt = userPrompt + "\n\n" + fewShotBlock;
+          const learningContext = await rewriteLearningRetrievalService.retrieveForRewrite({
+            organizationId: version.rewrite.organizationId,
+            targetAccountId: targetAccount.id,
+            transcriptText: retrievalTranscriptText,
+            annotations: retrievalAnnotations,
+            viewpoints: orderedFragments.map((fragment) => fragment.content),
+            topic: retrievalTopic,
+            limit: 6,
+          });
+
+          const learningBlocks: string[] = [];
+          if (learningContext.profile?.summary) {
+            learningBlocks.push(
+              ["【目标账号历史风格画像】", learningContext.profile.summary].join("\n"),
+            );
           }
+
+          if (learningContext.cases.length > 0) {
+            learningBlocks.push(
+              [
+                "【同账号历史高表现仿写案例】",
+                learningContext.cases
+                  .map((item, index) => {
+                    const metrics = item.metricsSnapshot as Record<string, number>;
+                    return [
+                      `案例 ${index + 1}（表现分 ${item.performanceScore}，播放 ${Number(
+                        metrics.playCount ?? 0,
+                      ).toLocaleString()}，点赞 ${Number(metrics.likeCount ?? 0).toLocaleString()}）`,
+                      item.sourceTranscriptSnapshot
+                        ? `原文摘要：${item.sourceTranscriptSnapshot.slice(0, 120)}`
+                        : "",
+                      `最终发布文案：${item.finalContentSnapshot}`,
+                    ]
+                      .filter(Boolean)
+                      .join("\n");
+                  })
+                  .join("\n\n"),
+              ].join("\n"),
+            );
+          }
+
+          if (learningContext.snapshot.inheritanceHints) {
+            learningBlocks.push(
+              ["【本次生成需继承的经验】", learningContext.snapshot.inheritanceHints].join("\n"),
+            );
+          }
+
+          if (learningBlocks.length > 0) {
+            userPrompt = `${userPrompt}\n\n${learningBlocks.join("\n\n")}`;
+          }
+
+          await rewriteRepository.updateLearningContext(rewriteVersionId, {
+            usedLearningCaseIds: learningContext.snapshot.caseIds,
+            learningContextSnapshot: learningContext.snapshot,
+            promptTemplateVersion: "rewrite-learning-v1",
+          });
         } catch (error) {
-          console.warn("[RewriteWorker] Failed to load few-shot examples:", {
+          console.warn("[RewriteWorker] Failed to load rewrite learning context:", {
             accountId: targetAccount.id,
             error,
           });
+          await rewriteRepository.updateLearningContext(rewriteVersionId, {
+            usedLearningCaseIds: [],
+            learningContextSnapshot: null,
+            promptTemplateVersion: "rewrite-learning-v1",
+          });
         }
+      } else {
+        await rewriteRepository.updateLearningContext(rewriteVersionId, {
+          usedLearningCaseIds: [],
+          learningContextSnapshot: null,
+          promptTemplateVersion: "rewrite-learning-v1",
+        });
       }
 
       // 5. Call AI gateway

@@ -12,15 +12,22 @@ export async function ensureServerBootstrap(): Promise<void> {
     return;
   }
 
+  if (process.env.NODE_ENV !== "production") {
+    globalThis.__serverBootstrapStarted = true;
+    console.log("[ServerBootstrap] skipping background services outside production", {
+      pid: process.pid,
+      nodeEnv: process.env.NODE_ENV ?? null,
+    });
+    return;
+  }
+
   globalThis.__serverBootstrapStarted = true;
 
   try {
-    const shouldStartScheduler = process.env.NODE_ENV === "production";
-
     console.log("[ServerBootstrap] starting background services", {
       pid: process.pid,
       nodeEnv: process.env.NODE_ENV ?? null,
-      schedulerEnabled: shouldStartScheduler,
+      schedulerEnabled: true,
     });
 
     const { startScheduler } = await import("@/lib/scheduler");
@@ -29,11 +36,8 @@ export async function ensureServerBootstrap(): Promise<void> {
     const { startTranscriptionWorker } = await import("@/lib/transcription-worker");
     const { startRewriteWorker } = await import("@/lib/rewrite-worker");
 
-    if (shouldStartScheduler) {
-      startScheduler();
-      startVideoSyncScheduler();
-    }
-
+    startScheduler();
+    startVideoSyncScheduler();
     startCrawlerVideoSyncWorker();
     startTranscriptionWorker();
     startRewriteWorker();

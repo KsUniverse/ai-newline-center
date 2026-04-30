@@ -49,7 +49,7 @@ describe("ensureServerBootstrap", () => {
     resetServerBootstrapForTests();
   });
 
-  it("skips scheduler outside production but still starts the worker only once", async () => {
+  it("skips all background services outside production", async () => {
     const { ensureServerBootstrap } = await import("@/lib/server-bootstrap");
 
     await ensureServerBootstrap();
@@ -57,9 +57,9 @@ describe("ensureServerBootstrap", () => {
 
     expect(startSchedulerMock).not.toHaveBeenCalled();
     expect(startVideoSyncSchedulerMock).not.toHaveBeenCalled();
-    expect(startTranscriptionWorkerMock).toHaveBeenCalledTimes(1);
-    expect(startRewriteWorkerMock).toHaveBeenCalledTimes(1);
-    expect(startCrawlerVideoSyncWorkerMock).toHaveBeenCalledTimes(1);
+    expect(startTranscriptionWorkerMock).not.toHaveBeenCalled();
+    expect(startRewriteWorkerMock).not.toHaveBeenCalled();
+    expect(startCrawlerVideoSyncWorkerMock).not.toHaveBeenCalled();
   });
 
   it("starts the scheduler in production", async () => {

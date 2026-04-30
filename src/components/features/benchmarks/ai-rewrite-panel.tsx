@@ -44,6 +44,7 @@ import {
   getRewritePanelFocus,
   REWRITE_PANEL_SETTINGS_GRID_CLASS_NAME,
 } from "./ai-rewrite-panel-layout";
+import { RewritePublicationSection } from "../rewrites/rewrite-publication-section";
 import { ViewpointPicker } from "./viewpoint-picker";
 
 export interface AiRewritePanelProps {
@@ -479,6 +480,13 @@ export const AiRewritePanel = memo(function AiRewritePanel({
               </Badge>
             )}
           </div>
+
+          {activeVersion ? (
+            <RewritePublicationSection
+              rewriteVersionId={activeVersion.id}
+              canBind={Boolean(rewrite?.targetAccountId && activeVersion.status === "COMPLETED")}
+            />
+          ) : null}
         </div>
 
         <div className="mt-3 flex flex-col gap-2">

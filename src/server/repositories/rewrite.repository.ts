@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient, Rewrite, RewriteMode, RewriteVersion } from "@prisma/client";
+import { Prisma, type PrismaClient, type Rewrite, type RewriteMode, type RewriteVersion } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import type { RewriteDTO, RewriteVersionDTO } from "@/types/ai-workspace";
@@ -219,6 +219,8 @@ class RewriteRepository {
             id: true;
             workspaceId: true;
             mode: true;
+            targetAccountId: true;
+            topic: true;
             userId: true;
             organizationId: true;
           };
@@ -234,6 +236,8 @@ class RewriteRepository {
             id: true,
             workspaceId: true,
             mode: true,
+            targetAccountId: true,
+            topic: true,
             userId: true,
             organizationId: true,
           },
@@ -261,6 +265,25 @@ class RewriteRepository {
     await db.rewriteVersion.update({
       where: { id: versionId },
       data: { generatedContent, status: "COMPLETED" },
+    });
+  }
+
+  async updateLearningContext(
+    versionId: string,
+    data: {
+      usedLearningCaseIds: string[];
+      learningContextSnapshot: Prisma.InputJsonValue | null;
+      promptTemplateVersion: string | null;
+    },
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await db.rewriteVersion.update({
+      where: { id: versionId },
+      data: {
+        usedLearningCaseIds: data.usedLearningCaseIds,
+        learningContextSnapshot: data.learningContextSnapshot ?? Prisma.JsonNull,
+        promptTemplateVersion: data.promptTemplateVersion,
+      },
     });
   }
 

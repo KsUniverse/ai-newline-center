@@ -1,18 +1,14 @@
 import { UserRole } from "@prisma/client";
-import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { requireRole } from "@/lib/auth-guard";
 import { handleApiError, successResponse } from "@/lib/api-response";
+import { AppError } from "@/lib/errors";
 import { videoService } from "@/server/services/video.service";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const linkBodySchema = z.object({
-  rewriteId: z.string().min(1),
-});
 
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
@@ -32,11 +28,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
     const session = await auth();
     requireRole(session, UserRole.EMPLOYEE);
 
-    const { id: videoId } = await params;
-    const body = linkBodySchema.parse(await request.json());
-
-    const link = await videoService.linkRewrite(videoId, body.rewriteId, session.user);
-    return successResponse(link);
+    await params;
+    void request;
+    void session;
+    throw new AppError(
+      "VIDEO_LINK_ENTRY_DEPRECATED",
+      "请前往仿写版本区域使用新的“关联已发布视频”入口",
+      410,
+    );
   } catch (error) {
     return handleApiError(error);
   }

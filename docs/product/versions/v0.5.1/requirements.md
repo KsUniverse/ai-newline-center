@@ -1,154 +1,338 @@
-# v0.5.1 需求文档 — 经验反馈闭环（AI 风格训练）
+# v0.5.1 需求文档 — 成长型 AI 仿写
 
 > 版本: v0.5.1
-> 里程碑: v0.5.x（发布复盘）
+> 里程碑: v0.5.x（成长型 AI 创作闭环）
 > 创建日期: 2026-04-30
-> 依赖版本: v0.5.0（视频-文案关联 VideoRewriteLink + 视频快照 VideoSnapshot）
+> 依赖版本: v0.5.0（视频数据趋势图 + 视频-文案关联）
 
 ---
 
 ## 1. 版本定位
 
-v0.5.1 实现 PRD M-006 发布复盘的最后一个功能点：
-- **F-006-3**: 经验反馈闭环（AI 风格训练）
+v0.5.1 在现有 AI 仿写基础上，补齐“采用稿发布反馈 -> 账号学习 -> 下次生成注入”的闭环。
 
-将"AI 仿写稿 + 人工最终修正稿 + 视频发布数据"三者打通，构成账号维度的学习经验，让后续同账号的仿写自动注入历史优秀案例（few-shot learning）。
+本版本不改变用户从对标视频进入 AI 工作台的主路径，也不改变单次生成一个 `RewriteVersion` 的交互。新增的是后台学习能力、账号级风格画像和轻量发布绑定入口，使目标账号的仿写质量可以随案例积累持续提升。
+
+> 说明：本版本正式范围以本文档为准，替代此前仅围绕 `StyleExperience` 的轻量方案。
 
 ---
 
-## 2. 核心概念
+## 2. 用户目标
+
+### 2.1 员工
+
+1. 我希望把某个 AI 仿写版本和我真实发布的视频绑定起来，让系统知道这篇稿子最终发布后的表现。
+2. 我希望下一次给同一个账号仿写时，AI 能参考该账号过去表现好的仿写案例，而不是每次都重新猜风格。
+3. 我希望绑定发布视频的操作足够轻，不影响当前写稿流程。
+4. 我希望绑定错了可以解绑，避免错误样本污染账号风格。
+
+### 2.2 管理者
+
+1. 我希望系统的数据闭环能沉淀账号级经验，降低员工重复试错。
+2. 我希望第一版不引入自动发布风险。
+3. 我希望后续可以基于这些案例扩展自动评分、候选推荐、提示词优化和模型优化。
+
+---
+
+## 3. 核心原则
+
+1. **数据为主**：学习效果主要来自真实发布数据，而不是人工主观评分。
+2. **人工为辅**：第一版人工只负责绑定和纠错。
+3. **样本纯净**：只学习已绑定的仿写案例，不从普通历史视频冷启动。
+4. **隐式生效**：账号画像后台使用，不在第一版增加学习看板。
+5. **可追溯**：每次生成记录使用过的画像、案例、Prompt 版本和模型。
+6. **可回退**：无案例、embedding 失败或向量检索不可用时，仿写生成仍按现有逻辑可用。
+7. **单一事实源**：本版本以 `RewritePublication` / `RewriteLearningCase` / `DouyinAccountStyleProfile` 为正式领域模型，不再新增第二套经验模型并存。
+
+---
+
+## 4. 核心概念
 
 | 概念 | 说明 |
 |------|------|
-| **StyleExperience** | 经验记录：一条绑定到账号的 few-shot 示例 |
-| **AI 原稿** | `RewriteVersion.generatedContent`（AI 生成的原始文案） |
-| **人工最终稿** | `RewriteVersion.editedContent` or `generatedContent`（`isFinalVersion=true` 的版本内容） |
-| **数据表现摘要** | 视频关联后最新 `VideoSnapshot` 的播放/点赞/评论/转发数字 |
-| **质量评分** | 基于播放量的简单归一化分值（见 §5） |
+| `RewritePublication` | 仿写版本与真实发布视频的绑定记录 |
+| `RewriteLearningCase` | 可被检索、注入 Prompt 的账号级学习案例 |
+| `DouyinAccountStyleProfile` | 由多个学习案例聚合而成的账号风格画像 |
+| 最终稿 | `RewriteVersion.editedContent ?? RewriteVersion.generatedContent` |
+| 有效案例 | `RewriteLearningCase.status = ACTIVE` 的案例 |
+| 学习上下文 | 画像摘要 + 检索出的历史案例 + 本次继承经验摘要 |
 
 ---
 
-## 3. F-006-3：经验反馈闭环
+## 5. 功能清单
 
-### 3.1 经验记录自动生成
+### F-050-A: 发布视频绑定（P0）
 
-**触发时机**：视频快照采集任务（每 10 分钟一次）完成时，对"已关联仿写且有最终稿"的视频触发经验生成。
+**描述**：用户可以将一个已完成的 `RewriteVersion` 绑定到目标账号下已同步的真实 `DouyinVideo`。
 
-> **决策 A — 触发时机**
-> 选择方案：**有 VideoSnapshot 后自动生成/更新**（非关联时立即生成）
-> 理由：关联时可能视频还没有快照数据，应以"有数据"为条件才有意义。快照采集定时器是天然的触发点，重复执行时使用 upsert 语义，避免重复创建。
+#### 入口
 
-**触发条件**（需同时满足）：
-1. `DouyinVideo` 有 `VideoRewriteLink`（已关联仿写）
-2. 对应 `Rewrite` 有 `isFinalVersion=true` 的 `RewriteVersion`
-3. 该视频有至少一条 `VideoSnapshot` 记录
+在仿写版本区域中，当当前版本状态为 `COMPLETED` 时展示“关联已发布视频”操作。
 
-**生成动作**：
-- 取最新 `VideoSnapshot` 数据作为数据表现摘要
-- 用最终稿版本的内容（`editedContent ?? generatedContent`）作为人工修正稿
-- 用同一版本的 `generatedContent` 作为 AI 原稿
-- 计算质量评分（见 §5）
-- upsert `StyleExperience`（若已存在则更新数据表现摘要和评分）
+- 工作台仿写：AI 工作台右侧版本面板
+- 直接创作：直接创作页面的版本面板
 
-### 3.2 few-shot 注入
+视频详情页保留关联结果展示与解绑能力，但不再作为主绑定入口。
 
-**注入时机**：仿写 Worker 生成 Prompt 时
+#### 可绑定条件
 
-> **决策 B — Prompt 注入位置**
-> 选择方案：**注入到 user prompt 中**（非 system prompt）
-> 理由：few-shot 示例是上下文内容，放 system prompt 会使其变成"永久背景指令"，语义上不准确；user prompt 中的历史示例更符合 few-shot 的语义，且易于控制格式和数量。
+1. 当前版本状态为 `COMPLETED`。
+2. 当前版本所属 `Rewrite.targetAccountId` 不为空。
+3. 可选视频必须属于该 `targetAccountId`。
+4. 可选视频必须未被其他有效发布绑定占用。
+5. 当前用户必须有该目标账号权限。
+6. 当前版本必须存在可学习的最终稿内容。
 
-**注入逻辑**：
-1. 从 `StyleExperience` 中查询同账号的历史经验
-2. 按质量评分降序取前 **3 条**（`§5` 中说明选择 3 条的原因）
-3. 格式化为文本块，追加到 user prompt 末尾
+#### 交互
 
-> **决策 C — 经验条数**
-> 选择方案：**3 条**
-> 理由：few-shot 示例过少（1 条）效果有限；过多（5 条+）占用大量 token 且可能引入噪音；3 条是经验平衡点，足以展示风格多样性，token 成本可控。
+1. 用户点击“关联已发布视频”。
+2. 打开弹框，展示目标账号下已同步视频列表。
+3. 列表按 `publishedAt desc` 排序。
+4. 每项展示封面、标题、发布时间、播放、点赞、评论、分享。
+5. 用户选择一个视频并确认。
+6. 系统创建或更新 `RewritePublication`。
+7. 系统异步生成或刷新 `RewriteLearningCase`。
+8. 当前版本区域展示已关联视频摘要。
 
-**注入格式**：
+#### 解绑
+
+已绑定版本展示“解除关联”操作。用户确认后：
+
+1. `RewritePublication.status` 置为 `UNLINKED`。
+2. 对应 `RewriteLearningCase.status` 置为 `ARCHIVED`。
+3. 系统重建该账号 `DouyinAccountStyleProfile`。
+4. 当前版本恢复可绑定状态。
+
+---
+
+### F-050-B: 学习案例沉淀（P0）
+
+**描述**：每次绑定真实发布视频后，系统把仿写版本沉淀为账号级学习案例。
+
+#### 案例内容
+
+`RewriteLearningCase` 至少包含：
+
+1. `rewriteVersionId`
+2. `rewriteId`
+3. `targetAccountId`
+4. `organizationId`
+5. `sourceBenchmarkVideoId`
+6. `publishedVideoId`
+7. `sourceTranscriptSnapshot`
+8. `sourceAnnotationsSnapshot`
+9. `generatedContentSnapshot`
+10. `editedContentSnapshot`
+11. `finalContentSnapshot`
+12. `usedFragmentSnapshot`
+13. `metricsSnapshot`
+14. `performanceScore`
+15. `embeddingText`
+16. `embeddingJson`
+17. `embeddingStatus`
+18. `status`
+
+#### 最终稿规则
+
+`finalContentSnapshot = editedContent ?? generatedContent`
+
+如果最终稿为空，绑定接口返回 400，提示“当前版本没有可学习的文案内容”。
+
+#### 指标快照
+
+指标快照来自 `DouyinVideo` 和 `VideoSnapshot`：
+
+1. 当前播放、点赞、评论、分享、收藏、赞赏、推荐。
+2. 最新快照时间。
+3. 首个快照到最新快照的播放增长。
+4. 点赞率、评论率、分享率、收藏率。
+
+#### 刷新时机
+
+1. 绑定成功后立即尝试生成或刷新案例。
+2. 后续视频快照采集任务继续刷新已绑定案例的指标与分数。
+3. 解绑后该案例不再参与后续生成。
+
+---
+
+### F-050-C: 表现分计算（P0）
+
+**描述**：系统为每个学习案例计算 `performanceScore`，用于后续案例检索排序。
+
+#### 分数范围
+
+`performanceScore` 为 `0-100` 的整数。
+
+#### 输入指标
+
+1. `playCount`
+2. `likeCount`
+3. `commentCount`
+4. `shareCount`
+5. `collectCount`
+6. `admireCount`
+7. `recommendCount`
+8. 快照播放增长
+9. 发布时间距当前的时间衰减
+
+#### 账号内样本不足时
+
+当同一 `targetAccountId` 有效学习案例少于 `5` 条时，使用平滑后的绝对互动率计算：
+
+```text
+score = basePlayScore * 0.30
+      + engagementRateScore * 0.45
+      + shareCollectScore * 0.20
+      + growthScore * 0.05
 ```
-【账号历史优秀案例参考】
-以下是「{账号名称}」账号的历史仿写优秀案例（按数据表现排序），供参考其风格：
 
-案例 1（播放 {playsCount}，点赞 {likesCount}）：
-{finalContent}
+#### 账号内样本充足时
 
-案例 2（播放 {playsCount}，点赞 {likesCount}）：
-{finalContent}
+当有效学习案例不少于 `5` 条时，使用账号内分位归一化：
 
-案例 3（播放 {playsCount}，点赞 {likesCount}）：
-{finalContent}
+1. 播放量按账号内分位。
+2. 互动率按账号内分位。
+3. 分享收藏率按账号内分位。
+4. 近期增长按账号内分位。
+
+---
+
+### F-050-D: 向量 RAG 检索（P0）
+
+**描述**：每次生成仿写前，系统根据本次对标原文、拆解、临时素材和目标账号，从历史学习案例中检索相似高表现案例。
+
+#### 本版本交付范围
+
+本版本正式交付 **MySQL 检索主链路**。`Qdrant` 作为后续可选后端，仅保留抽象与降级策略，不要求本轮打通。
+
+#### MySQL 检索
+
+1. embedding 存储为 JSON。
+2. 应用层读取同账号有效案例。
+3. 使用 cosine similarity 计算相似度。
+4. 与 `performanceScore`、时间衰减组合排序。
+
+#### 预留的可选后端
+
+当未来启用 `REWRITE_VECTOR_BACKEND=qdrant` 时：
+
+1. collection 名称为 `rewrite_learning_cases`
+2. payload 包含 `organizationId`、`targetAccountId`、`caseId`、`performanceScore`、`status`
+3. 检索必须按 `organizationId` 和 `targetAccountId` 过滤
+
+#### 检索数量
+
+每次生成最多注入 `6` 个案例。
+
+排序公式：
+
+```text
+rankScore = similarity * 0.55
+          + normalizedPerformanceScore * 0.35
+          + recencyScore * 0.10
 ```
 
-若没有历史经验，则不注入该区块。
+---
 
-### 3.3 经验状态展示（前端）
+### F-050-E: 账号风格画像（P0）
 
-**位置**：仿写任务列表页的仿写卡片 / 仿写详情区域（已有的仿写列表页）
+**描述**：系统按目标账号聚合有效学习案例，生成隐式 `DouyinAccountStyleProfile`。
 
-**展示内容**：
-- 若该仿写已生成经验记录：显示 `已积累经验` 标签 + 数据摘要（播放数/点赞数）
-- 若该仿写未生成经验：不显示（不显示"无经验"提示，减少噪音）
+#### 画像字段
 
-**位置约定**：在仿写列表页的每条仿写卡片上，若对应 `VideoRewriteLink` 存在且 `StyleExperience` 已生成，则在卡片底部展示一行数据摘要标签。
+1. `summary`
+2. `toneKeywords`
+3. `structurePatterns`
+4. `openingPatterns`
+5. `ctaPatterns`
+6. `avoidPatterns`
+7. `sampleCount`
+8. `lastBuiltAt`
+
+#### 更新触发
+
+1. 绑定发布视频成功后
+2. 解绑发布视频成功后
+3. 学习案例指标刷新后
+
+#### 可用条件
+
+有效学习案例数大于等于 `2` 条时生成画像。少于 `2` 条时保留空画像，下次生成只注入案例，不注入画像摘要。
 
 ---
 
-## 4. 数据模型
+### F-050-F: 仿写生成增强（P0）
 
-### StyleExperience
+**描述**：`RewriteWorker` 在构建 Prompt 时注入学习上下文。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | String (cuid) | 主键 |
-| accountId | String | 抖音账号 ID（风格维度绑定到账号） |
-| rewriteId | String | 仿写任务 ID |
-| videoId | String | 视频 ID（来源于 VideoRewriteLink） |
-| aiContent | Text | AI 生成原稿 |
-| finalContent | Text | 人工最终稿（editedContent ?? generatedContent） |
-| playsCount | Int | 视频播放数（来自最新 VideoSnapshot） |
-| likesCount | Int | 点赞数 |
-| commentsCount | Int | 评论数 |
-| sharesCount | Int | 转发数 |
-| qualityScore | Float | 质量评分（归一化分值） |
-| organizationId | String | 组织 ID（数据隔离） |
-| createdAt | DateTime | — |
-| updatedAt | DateTime | — |
+#### 新增 Prompt 区块
 
-**唯一约束**：`(rewriteId, videoId)` — 一个仿写+视频组合只有一条经验记录（防止重复）
+1. `【目标账号历史风格画像】`
+2. `【同账号历史高表现仿写案例】`
+3. `【本次生成需继承的经验】`
+
+#### 生成规则
+
+1. 保持现有对标原文、拆解、观点、临时素材区块。
+2. 有画像时注入画像摘要。
+3. 有案例时按排序注入最多 `6` 个案例。
+4. 每个案例包含原文案摘要、拆解摘要、最终发布文案、关键指标和表现分。
+5. 明确要求模型学习结构和表达规律，不复制历史文案原句。
+
+#### 快照记录
+
+创建或完成 `RewriteVersion` 时记录：
+
+1. `usedLearningCaseIds`
+2. `learningContextSnapshot`
+3. `promptTemplateVersion = "rewrite-learning-v1"`
 
 ---
 
-## 5. 质量评分策略
+## 6. 页面流程
 
-采用简单线性归一化方式，以播放量为主要权重：
-
+```text
+用户生成仿写版本
+  -> 用户编辑最终稿
+  -> 用户发布到抖音
+  -> 系统同步目标账号视频
+  -> 用户回到仿写版本
+  -> 点击关联已发布视频
+  -> 选择真实 DouyinVideo
+  -> 后台生成学习案例和画像
+  -> 下一次同账号仿写自动读取学习上下文
 ```
-qualityScore = playsCount + (likesCount * 10) + (commentsCount * 5) + (sharesCount * 3)
-```
-
-> 说明：这是原始加权分，用于相对排序。不做归一化到 [0,1] 区间（避免需要全量数据上下文），排序时直接用此分值降序即可。
 
 ---
 
-## 6. 验收标准
+## 7. 空状态与错误提示
 
-| # | 验收项 | 说明 |
-|---|--------|------|
-| 1 | 自动生成经验 | 视频有关联仿写 + 最终稿 + VideoSnapshot，快照采集触发后自动创建 StyleExperience |
-| 2 | 经验注入 Prompt | 后续同账号仿写 Worker 生成 Prompt 时，自动注入历史 3 条优秀经验（按质量评分降序） |
-| 3 | 无经验不注入 | 若账号无历史经验，Prompt 无注入块，不影响现有仿写流程 |
-| 4 | UI 展示 | 仿写列表页卡片中，已有经验的仿写显示"已积累经验"标签及数据摘要 |
-| 5 | 数据隔离 | StyleExperience 查询强制过滤 organizationId |
-| 6 | 重复安全 | 快照定时器多次触发时，upsert 语义保证不重复创建记录 |
+1. 目标账号无已同步视频：弹框展示“该账号暂无可关联视频，请先同步账号视频”
+2. 视频已被其他版本绑定：该视频置灰并展示“已被其他仿写版本关联”
+3. 当前版本无内容：接口返回 400，前端展示“当前版本没有可学习的文案内容”
+4. embedding 生成失败：学习案例保留，`embeddingStatus=FAILED`，不影响绑定成功
+5. 向量检索后端不可用：后端降级 MySQL 检索，并记录错误日志
 
 ---
 
-## 7. 范围界定（不在本版本）
+## 8. 验收标准
 
-- 不实现经验的手动编辑/删除 UI
-- 不实现经验列表管理页面
-- 不实现自动经验评分的后台调整功能
-- 不对现有仿写历史做批量经验初始化（只对新产生的快照触发）
+1. 已完成的仿写版本可以绑定目标账号下已同步视频。
+2. 绑定后版本区域展示发布视频摘要和核心指标。
+3. 解绑后学习案例不再参与下一次生成。
+4. 绑定成功后生成 `RewriteLearningCase`。
+5. 有效案例满足条件后生成 `DouyinAccountStyleProfile`。
+6. 同账号再次仿写时，生成上下文包含历史案例快照。
+7. 无学习案例时，仿写功能保持现有行为。
+8. MySQL 向量检索可按同账号隔离案例。
+9. 预留的向量后端不可用时不阻塞仿写主链路。
+10. 文档定义的能力在后端和前端任务文档中都有承接。
+
+---
+
+## 9. 范围界定（不在本版本）
+
+1. 不实现经验的手动编辑/删除管理页面
+2. 不实现学习案例的独立看板
+3. 不实现真实 Qdrant 接入与运维配置
+4. 不对现有历史仿写做批量数据迁移或初始化

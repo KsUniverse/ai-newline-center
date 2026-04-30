@@ -3,10 +3,13 @@ import { UserRole } from "@prisma/client";
 import { AppError } from "@/lib/errors";
 import { douyinAccountRepository } from "@/server/repositories/douyin-account.repository";
 import { douyinVideoRepository } from "@/server/repositories/douyin-video.repository";
+import { rewritePublicationRepository } from "@/server/repositories/rewrite-publication.repository";
 import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import { videoRewriteLinkRepository } from "@/server/repositories/video-rewrite-link.repository";
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { mapDouyinVideoWithAccountToDto } from "@/server/services/douyin-account.mapper";
+import { douyinAccountStyleProfileService } from "@/server/services/douyin-account-style-profile.service";
+import { rewriteLearningCaseService } from "@/server/services/rewrite-learning-case.service";
 import type { SessionUser } from "@/types/session";
 import type { DouyinVideoWithAccountDTO } from "@/types/douyin-account";
 import type { PaginatedData } from "@/types/api";
@@ -78,6 +81,25 @@ class VideoService {
   ): Promise<VideoRewriteLinkDTO | null> {
     await this.assertVideoVisible(videoId, caller);
 
+    const publication = await rewritePublicationRepository.findActiveByPublishedVideoId(videoId);
+    if (publication) {
+      const finalContent =
+        publication.rewriteVersion.editedContent ??
+        publication.rewriteVersion.generatedContent ??
+        null;
+
+      return {
+        id: publication.id,
+        rewriteId: publication.rewriteId,
+        rewriteMode: publication.rewriteVersion.rewrite.mode as "WORKSPACE" | "DIRECT",
+        rewriteTopic: publication.rewriteVersion.rewrite.topic ?? null,
+        targetAccountNickname:
+          publication.rewriteVersion.rewrite.targetAccount?.nickname ?? null,
+        finalContent,
+        linkedAt: publication.linkedAt.toISOString(),
+      };
+    }
+
     const link = await videoRewriteLinkRepository.findByVideoId(videoId);
     if (!link) return null;
 
@@ -120,6 +142,16 @@ class VideoService {
     }
 
     await this.assertVideoOwnedByCaller(videoId, caller);
+    const publication = await rewritePublicationRepository.findActiveByPublishedVideoId(videoId);
+    if (publication) {
+      await rewritePublicationRepository.unlinkActiveByVersionId(publication.rewriteVersionId);
+      await rewriteLearningCaseService.archiveByPublicationId(publication.id);
+      await douyinAccountStyleProfileService.rebuildForAccount(
+        publication.targetAccountId,
+        publication.organizationId,
+      );
+      return;
+    }
     await videoRewriteLinkRepository.deleteByVideoId(videoId);
   }
 

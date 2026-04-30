@@ -32,7 +32,7 @@ import {
 import { videoSnapshotRepository } from "@/server/repositories/video-snapshot.repository";
 import { crawlerService } from "@/server/services/crawler.service";
 import { storageService } from "@/server/services/storage.service";
-import { styleExperienceService } from "@/server/services/style-experience.service";
+import { rewriteLearningCaseService } from "@/server/services/rewrite-learning-case.service";
 
 const INITIAL_SYNC_LIMIT = 10;
 const INCREMENTAL_BATCH_SIZE = 5;
@@ -482,12 +482,12 @@ class SyncService {
       now,
     );
 
-    // After snapshot collection, generate/update style experiences for my videos
+    // After snapshot collection, refresh rewrite learning cases for my published videos
     for (const video of myVideos) {
       try {
-        await styleExperienceService.upsertForVideo(video.id);
+        await rewriteLearningCaseService.refreshForPublishedVideo(video.id);
       } catch (error) {
-        console.error("[StyleExperience] Failed to upsert experience:", {
+        console.error("[RewriteLearningCase] Failed to refresh learning case:", {
           videoId: video.id,
           error,
         });

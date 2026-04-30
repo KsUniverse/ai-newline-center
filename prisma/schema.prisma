@@ -36,6 +36,9 @@ model Organization {
   crawlerCookies CrawlerCookie[]
   accountVideoSyncProfiles AccountVideoSyncProfile[]
   styleExperiences StyleExperience[]
+  rewritePublications RewritePublication[]
+  rewriteLearningCases RewriteLearningCase[]
+  douyinAccountStyleProfiles DouyinAccountStyleProfile[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -185,6 +188,9 @@ model DouyinAccount {
   deletedAt      DateTime?
   rewrites       Rewrite[]
   styleExperiences StyleExperience[]
+  rewritePublications RewritePublication[]
+  rewriteLearningCases RewriteLearningCase[]
+  styleProfile DouyinAccountStyleProfile?
 
   @@index([userId])
   @@index([organizationId])
@@ -343,6 +349,7 @@ model DouyinVideo {
   snapshots       VideoSnapshot[]
   rewriteLink     VideoRewriteLink?
   styleExperience StyleExperience?
+  rewritePublications RewritePublication[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
@@ -654,6 +661,22 @@ enum RewriteMode {
   DIRECT
 }
 
+enum RewritePublicationStatus {
+  LINKED
+  UNLINKED
+}
+
+enum RewriteLearningCaseStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum RewriteLearningEmbeddingStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
 model Rewrite {
   id              String           @id @default(cuid())
   workspaceId     String?          @unique
@@ -672,6 +695,8 @@ model Rewrite {
   versions         RewriteVersion[]
   videoLinks       VideoRewriteLink[]
   styleExperiences StyleExperience[]
+  rewritePublications RewritePublication[]
+  rewriteLearningCases RewriteLearningCase[]
 
   @@index([organizationId])
   @@index([userId])
@@ -691,11 +716,16 @@ model RewriteVersion {
   status           RewriteVersionStatus @default(GENERATING)
   errorMessage     String?              @db.Text
   isFinalVersion   Boolean              @default(false)
+  usedLearningCaseIds     Json          @default("[]")
+  learningContextSnapshot Json?
+  promptTemplateVersion   String?
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
   rewrite     Rewrite        @relation(fields: [rewriteId], references: [id])
   modelConfig AiModelConfig? @relation(fields: [modelConfigId], references: [id], onDelete: SetNull)
+  rewritePublications RewritePublication[]
+  learningCase RewriteLearningCase?
 
   @@unique([rewriteId, versionNumber])
   @@index([rewriteId])
@@ -730,6 +760,87 @@ model VideoRewriteLink {
 
   @@index([rewriteId])
   @@map("video_rewrite_links")
+}
+
+model RewritePublication {
+  id               String                   @id @default(cuid())
+  rewriteVersionId String
+  rewriteVersion   RewriteVersion           @relation(fields: [rewriteVersionId], references: [id])
+  rewriteId        String
+  rewrite          Rewrite                  @relation(fields: [rewriteId], references: [id])
+  targetAccountId  String
+  targetAccount    DouyinAccount            @relation(fields: [targetAccountId], references: [id])
+  publishedVideoId String
+  publishedVideo   DouyinVideo              @relation(fields: [publishedVideoId], references: [id])
+  organizationId   String
+  organization     Organization             @relation(fields: [organizationId], references: [id])
+  linkedAt         DateTime                 @default(now())
+  status           RewritePublicationStatus @default(LINKED)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  learningCase     RewriteLearningCase?
+
+  @@unique([rewriteVersionId, status])
+  @@unique([publishedVideoId, status])
+  @@index([rewriteVersionId])
+  @@index([publishedVideoId])
+  @@index([targetAccountId, status])
+  @@index([organizationId, status])
+  @@map("rewrite_publications")
+}
+
+model RewriteLearningCase {
+  id                        String                         @id @default(cuid())
+  rewriteVersionId          String                         @unique
+  rewriteVersion            RewriteVersion                 @relation(fields: [rewriteVersionId], references: [id])
+  rewriteId                 String
+  rewrite                   Rewrite                        @relation(fields: [rewriteId], references: [id])
+  publicationId             String                         @unique
+  publication               RewritePublication             @relation(fields: [publicationId], references: [id])
+  targetAccountId           String
+  targetAccount             DouyinAccount                  @relation(fields: [targetAccountId], references: [id])
+  organizationId            String
+  organization              Organization                   @relation(fields: [organizationId], references: [id])
+  sourceBenchmarkVideoId    String?
+  sourceTranscriptSnapshot  String?                        @db.LongText
+  sourceAnnotationsSnapshot Json                           @default("[]")
+  generatedContentSnapshot  String?                        @db.LongText
+  editedContentSnapshot     String?                        @db.LongText
+  finalContentSnapshot      String                         @db.LongText
+  usedFragmentSnapshot      Json                           @default("[]")
+  metricsSnapshot           Json
+  performanceScore          Int                            @default(0)
+  embeddingText             String?                        @db.LongText
+  embeddingJson             Json?
+  embeddingStatus           RewriteLearningEmbeddingStatus @default(PENDING)
+  status                    RewriteLearningCaseStatus      @default(ACTIVE)
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
+
+  @@index([targetAccountId, status, performanceScore])
+  @@index([organizationId, status])
+  @@map("rewrite_learning_cases")
+}
+
+model DouyinAccountStyleProfile {
+  id                String        @id @default(cuid())
+  targetAccountId   String        @unique
+  targetAccount     DouyinAccount @relation(fields: [targetAccountId], references: [id])
+  organizationId    String
+  organization      Organization  @relation(fields: [organizationId], references: [id])
+  summary           String?       @db.Text
+  toneKeywords      Json          @default("[]")
+  structurePatterns Json          @default("[]")
+  openingPatterns   Json          @default("[]")
+  ctaPatterns       Json          @default("[]")
+  avoidPatterns     Json          @default("[]")
+  sampleCount       Int           @default(0)
+  lastBuiltAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@map("douyin_account_style_profiles")
 }
 
 // ─── StyleExperience AI 风格训练经验 ──────────────────────────────────────────

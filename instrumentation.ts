@@ -11,14 +11,12 @@
   }
 
   try {
-    const { startScheduler } = await import("./src/lib/scheduler");
-    const { startTranscriptionWorker } = await import("./src/lib/transcription-worker");
+    const { ensureServerBootstrap } = await import("./src/lib/server-bootstrap");
 
-    console.log("[Instrumentation] starting scheduler and transcription worker", {
+    console.log("[Instrumentation] delegating background bootstrap", {
       pid: process.pid,
     });
-    startScheduler();
-    startTranscriptionWorker();
+    await ensureServerBootstrap();
   } catch (error) {
     console.error("[Instrumentation] background bootstrap failed", {
       pid: process.pid,
