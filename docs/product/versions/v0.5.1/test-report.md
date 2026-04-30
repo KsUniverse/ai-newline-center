@@ -2,18 +2,29 @@
 
 > 测试日期: 2026-04-30
 > 版本: v0.5.1
-> 测试依据: requirements.md §6 验收标准
+> 测试方式: 静态代码分析
+> 测试依据: requirements.md §6 验收标准 + technical-design.md
+
+---
+
+## 摘要
+
+- 测试功能数: 6（F-006-3 子功能块）
+- 验收项总数: 27
+- 通过: 25 ✅ / 警告: 1 ⚠️ / 失败: 1 ❌
+- 构建检查：`type-check` ✅ `lint` ✅
+- **结论: 需修复 ❌**（存在 1 项部署阻断性问题）
 
 ---
 
 ## 构建验证
 
-| 项目 | 结果 |
-|------|------|
-| `pnpm type-check` | ✅ 通过，无类型错误 |
-| `pnpm lint` | ✅ 通过，无 lint 错误 |
-| `pnpm build` | ✅ 通过，所有路由正常编译 |
-| `pnpm db:push` | ✅ `style_experiences` 表已创建，约束生效 |
+| 项目 | 结果 | 备注 |
+|------|------|------|
+| `pnpm type-check` | ✅ 通过 | tsc --noEmit 无错误 |
+| `pnpm lint` | ✅ 通过 | ESLint 无错误 |
+| `pnpm build` | 未执行 | 静态分析阶段 |
+| `pnpm db:push` | ⚠️ 开发环境 | 无 migration 文件（见 T-001）|
 
 ---
 
@@ -80,6 +91,70 @@
 
 ---
 
+## 验收矩阵（补充核查）
+
+### Schema 字段与关联完整性
+
+| 检查项 | 状态 | 备注 |
+|--------|------|------|
+| `StyleExperience` 模型存在 | ✅ | schema.prisma 第 737 行 |
+| `@@unique([rewriteId, videoId])` upsert 键 | ✅ | 幂等约束正确 |
+| `videoId @unique`（一视频一经验） | ✅ | Prisma 一对一关系必需 |
+| `@@index([accountId, qualityScore])` | ✅ | 查询性能索引 |
+| `@@index([organizationId])` | ✅ | 数据隔离索引 |
+| Organization 反向关联 | ✅ | schema 第 38 行 |
+| DouyinAccount 反向关联 | ✅ | schema 第 187 行 |
+| DouyinVideo 反向关联（一对一） | ✅ | schema 第 345 行 |
+| Rewrite 反向关联 | ✅ | schema 第 674 行 |
+| **数据库迁移文件** | ❌ | 无 migration SQL，见 T-001 |
+
+### qualityScore 公式验证
+
+设计规范：`playsCount + likesCount × 10 + commentsCount × 5 + sharesCount × 3`
+
+实现（`style-experience.service.ts`）：
+```typescript
+return playsCount + likesCount * 10 + commentsCount * 5 + sharesCount * 3;
+```
+✅ 完全一致
+
+### few-shot 注入格式验证
+
+设计规范标题：`【账号历史优秀案例参考】`
+实现：
+```typescript
+`【账号历史优秀案例参考】`
+`以下是「${accountName}」账号的历史仿写优秀案例（按数据表现排序），供参考其风格：`
+`案例 ${idx + 1}（播放 ${exp.playsCount.toLocaleString()}，点赞 ${exp.likesCount.toLocaleString()}）：`
+```
+✅ 与 requirements.md §3.2 完全一致
+
+---
+
+## 问题列表
+
+### [T-001] 缺少 Prisma 迁移文件 ❌
+
+- **严重度**: High（**生产部署阻断**）
+- **位置**: `prisma/migrations/`
+- **描述**: `style_experiences` 表仅通过 `pnpm db:push` 推送到开发数据库，无对应 migration SQL。当前最新迁移为 `20260430000000_add_video_rewrite_link`，不含 StyleExperience 表结构。
+- **预期**: 存在 migration 文件（如 `20260430010000_add_style_experience/migration.sql`），可通过 `pnpm db:migrate` 在生产部署
+- **实际**: 无 migration 文件，生产环境部署后数据库无 `style_experiences` 表，所有经验相关功能运行时报错
+- **修复方式**: 执行 `pnpm db:migrate --name add_style_experience` 生成迁移文件并提交
+
+---
+
+### [T-002] 经验徽章实现位置与技术设计不符 ⚠️
+
+- **严重度**: Low（非阻断，UX 可接受）
+- **位置**: `src/components/features/rewrites/direct-create-panel.tsx`（缺失）
+- **描述**: 技术设计 §4.3 指定在 `direct-create-panel.tsx` 展示经验徽章，但该组件是单一仿写创建面板，无仿写卡片列表。实现放在了 `src/components/features/accounts/rewrite-picker-dialog.tsx`（视频关联选择器弹框）。
+- **预期**: 技术设计指定组件（`direct-create-panel.tsx`）
+- **实际**: `rewrite-picker-dialog.tsx`，场景合理（用户选择仿写时看到经验标签），但与文档不符
+- **建议**: 产品/技术负责人确认实现位置是否符合产品意图。若认可，需更新技术设计文档
+
+---
+
 ## 已知限制（不在本版本范围）
 
 - 经验列表管理页面（手动删除/编辑）未实现
@@ -90,6 +165,11 @@
 
 ## 测试结论
 
-**验收通过** ✅
+**本版本不可直接合并到生产** ❌
 
-所有 6 条验收标准均通过代码静态验证和构建验证。v0.5.1 可进入 Release 流程。
+| # | 问题 | 严重度 | 是否阻断 |
+|---|------|--------|---------|
+| T-001 | 缺少 Prisma 迁移文件 | High | ✅ 是 |
+| T-002 | 经验徽章组件位置与技术设计不符 | Low | ❌ 否 |
+
+**T-001 修复后可重新评估合并**。T-002 建议提交产品确认，不阻断版本发布。
