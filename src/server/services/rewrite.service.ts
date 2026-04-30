@@ -322,6 +322,35 @@ class RewriteService {
     await rewriteRepository.markVersionAsFinal(versionId, rewriteId);
     return { ...version, isFinalVersion: true };
   }
+
+  async listMineWithFinalVersion(caller: SessionUser) {
+    const items = await rewriteRepository.findMineWithFinalVersion(
+      caller.id,
+      caller.organizationId,
+    );
+
+    return items.map((r) => {
+      const finalVersion = r.versions[0];
+      const finalContent = finalVersion?.editedContent ?? finalVersion?.generatedContent ?? null;
+      const benchmarkVideoTitle =
+        r.mode === "WORKSPACE" ? (r.workspace?.video?.title ?? null) : null;
+      const topExperience = r.styleExperiences[0] ?? null;
+
+      return {
+        id: r.id,
+        mode: r.mode as "WORKSPACE" | "DIRECT",
+        topic: r.topic ?? null,
+        benchmarkVideoTitle,
+        targetAccountNickname: r.targetAccount?.nickname ?? null,
+        targetAccountId: r.targetAccount?.id ?? null,
+        finalContent,
+        createdAt: r.createdAt.toISOString(),
+        experienceSummary: topExperience
+          ? { playsCount: topExperience.playsCount, likesCount: topExperience.likesCount }
+          : null,
+      };
+    });
+  }
 }
 
 export const rewriteService = new RewriteService();

@@ -8,6 +8,7 @@ import { createBullMQRedisConnection } from "@/lib/redis";
 import { rewriteRepository } from "@/server/repositories/rewrite.repository";
 import { aiGateway } from "@/server/services/ai-gateway.service";
 import { promptTemplateService } from "@/server/services/prompt-template.service";
+import { styleExperienceService } from "@/server/services/style-experience.service";
 import type { AiDecompositionAnnotation } from "@prisma/client";
 
 declare global {
@@ -312,6 +313,25 @@ export function startRewriteWorker(): void {
             transcriptText,
             fragments: orderedFragments,
             userInputContent: version.userInputContent ?? null,
+          });
+        }
+      }
+
+      // 4.5 Inject few-shot examples from StyleExperience (if available)
+      if (targetAccount) {
+        try {
+          const fewShotBlock = await styleExperienceService.getFewShotExamples(
+            targetAccount.id,
+            version.rewrite.organizationId,
+            3,
+          );
+          if (fewShotBlock) {
+            userPrompt = userPrompt + "\n\n" + fewShotBlock;
+          }
+        } catch (error) {
+          console.warn("[RewriteWorker] Failed to load few-shot examples:", {
+            accountId: targetAccount.id,
+            error,
           });
         }
       }

@@ -35,6 +35,7 @@ model Organization {
   douyinLoginSessions DouyinLoginSession[]
   crawlerCookies CrawlerCookie[]
   accountVideoSyncProfiles AccountVideoSyncProfile[]
+  styleExperiences StyleExperience[]
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
   deletedAt DateTime?
@@ -183,6 +184,7 @@ model DouyinAccount {
   updatedAt      DateTime          @updatedAt
   deletedAt      DateTime?
   rewrites       Rewrite[]
+  styleExperiences StyleExperience[]
 
   @@index([userId])
   @@index([organizationId])
@@ -338,10 +340,12 @@ model DouyinVideo {
   recommendCount Int         @default(0)
   // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
   tags         Json          @default("[]")
-  snapshots    VideoSnapshot[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?
+  snapshots       VideoSnapshot[]
+  rewriteLink     VideoRewriteLink?
+  styleExperience StyleExperience?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
 
   @@index([accountId])
   @@map("douyin_videos")
@@ -665,7 +669,9 @@ model Rewrite {
   targetAccount DouyinAccount?   @relation(fields: [targetAccountId], references: [id], onDelete: SetNull)
   organization  Organization     @relation(fields: [organizationId], references: [id])
   user          User             @relation(fields: [userId], references: [id])
-  versions      RewriteVersion[]
+  versions         RewriteVersion[]
+  videoLinks       VideoRewriteLink[]
+  styleExperiences StyleExperience[]
 
   @@index([organizationId])
   @@index([userId])
@@ -708,4 +714,48 @@ model CrawlerCookie {
 
   @@index([organizationId, createdAt])
   @@map("crawler_cookies")
+}
+
+// ─── VideoRewriteLink 视频-文案关联 ─────────────────────────────────────────
+
+model VideoRewriteLink {
+  id        String      @id @default(cuid())
+  videoId   String      @unique
+  video     DouyinVideo @relation(fields: [videoId], references: [id])
+  rewriteId String
+  rewrite   Rewrite     @relation(fields: [rewriteId], references: [id])
+  linkedAt  DateTime    @default(now())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([rewriteId])
+  @@map("video_rewrite_links")
+}
+
+// ─── StyleExperience AI 风格训练经验 ──────────────────────────────────────────
+
+model StyleExperience {
+  id             String        @id @default(cuid())
+  accountId      String
+  account        DouyinAccount @relation(fields: [accountId], references: [id])
+  rewriteId      String
+  rewrite        Rewrite       @relation(fields: [rewriteId], references: [id])
+  videoId        String        @unique
+  video          DouyinVideo   @relation(fields: [videoId], references: [id])
+  aiContent      String        @db.Text
+  finalContent   String        @db.Text
+  playsCount     Int
+  likesCount     Int
+  commentsCount  Int
+  sharesCount    Int
+  qualityScore   Float
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([rewriteId, videoId])
+  @@index([accountId, qualityScore])
+  @@index([organizationId])
+  @@map("style_experiences")
 }

@@ -29,6 +29,9 @@
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
     --info: 217 91% 60%;
+    --chart-orange: 25 95% 53%;
+    --chart-purple: 271 81% 56%;
+    --chart-cyan: 186 94% 47%;
   }
 
   .dark {

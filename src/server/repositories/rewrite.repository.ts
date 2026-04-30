@@ -296,6 +296,42 @@ class RewriteRepository {
     }
     return execute(db);
   }
+
+  async findMineWithFinalVersion(
+    userId: string,
+    organizationId: string,
+    db: DatabaseClient = prisma,
+  ) {
+    return db.rewrite.findMany({
+      where: {
+        userId,
+        organizationId,
+        versions: {
+          some: { isFinalVersion: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        targetAccount: { select: { id: true, nickname: true } },
+        versions: {
+          where: { isFinalVersion: true },
+          orderBy: { versionNumber: "desc" },
+          take: 1,
+          select: { editedContent: true, generatedContent: true },
+        },
+        workspace: {
+          select: {
+            video: { select: { title: true } },
+          },
+        },
+        styleExperiences: {
+          orderBy: { qualityScore: "desc" },
+          take: 1,
+          select: { playsCount: true, likesCount: true },
+        },
+      },
+    });
+  }
 }
 
 export const rewriteRepository = new RewriteRepository();
