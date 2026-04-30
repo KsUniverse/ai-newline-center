@@ -1,11 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ExternalLink, Heart, MessageCircle, Play, Share2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { UserRole } from "@prisma/client";
 
 import type { DouyinVideoDTO, DouyinVideoWithAccountDTO } from "@/types/douyin-account";
+import type { VideoSnapshotDTO } from "@/types/video-link";
+import { apiClient } from "@/lib/api-client";
 import { formatDateTime, formatNumber, proxyImageUrl } from "@/lib/utils";
 import { SlidePanel } from "@/components/shared/common/slide-panel";
 
+import { VideoSnapshotChart } from "./video-snapshot-chart";
+import { VideoRewriteLinkSection } from "./video-rewrite-link-section";
 import { getAccountDetailPanelTitle } from "./accounts-copy";
 
 interface VideoDetailDialogProps {
@@ -15,6 +22,38 @@ interface VideoDetailDialogProps {
 }
 
 export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDialogProps) {
+  const { data: session } = useSession();
+  const isEmployee = session?.user?.role === UserRole.EMPLOYEE;
+
+  const [snapshots, setSnapshots] = useState<VideoSnapshotDTO[]>([]);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !video) {
+      setSnapshots([]);
+      return;
+    }
+
+    let cancelled = false;
+    setSnapshotsLoading(true);
+
+    apiClient
+      .get<VideoSnapshotDTO[]>(`/videos/${video.id}/snapshots?days=7`)
+      .then((data) => {
+        if (!cancelled) setSnapshots(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSnapshots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, video]);
+
   if (!video) return null;
 
   return (
@@ -77,6 +116,17 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
             </a>
           ) : null}
         </section>
+
+        <section className="rounded-xl border border-border/55 bg-background/70 p-4">
+          <p className="mb-3 text-2xs font-medium uppercase tracking-[0.18em] text-primary/85">
+            数据趋势
+          </p>
+          <VideoSnapshotChart snapshots={snapshots} loading={snapshotsLoading} />
+        </section>
+
+        {isEmployee ? (
+          <VideoRewriteLinkSection videoId={video.id} />
+        ) : null}
       </div>
     </SlidePanel>
   );
