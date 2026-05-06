@@ -1,6 +1,6 @@
 // ecosystem.config.cjs
-// PM2 进程管理配置 — 服务器端使用
-// 由 scripts/server/start.sh 自动调用，无需手动执行
+// PM2 进程管理配置 — 宝塔源码部署使用
+// 适用于: 在服务器执行 pnpm install && pnpm build 后，由 PM2 / 宝塔启动
 //
 // PM2 常用命令:
 //   pm2 status                      查看状态
@@ -15,7 +15,10 @@ module.exports = {
   apps: [
     {
       name: "ai-newline-center",
-      script: "server.js",
+      cwd: __dirname,
+      script: "./node_modules/next/dist/bin/next",
+      args: "start -H 0.0.0.0 -p 3000",
+      interpreter: "node",
 
       // 单实例 fork 模式
       // (应用内含 BullMQ Worker + node-cron 定时任务，不能多实例)
@@ -32,11 +35,10 @@ module.exports = {
       max_memory_restart: "1500M",
 
       // 生产环境基础变量
-      // 注意: DATABASE_URL 等业务变量由 start.sh 从 .env.production 注入
       env: {
         NODE_ENV: "production",
         PORT: "3000",
-        HOSTNAME: "0.0.0.0", // 监听所有网卡，允许外部访问
+        HOSTNAME: "0.0.0.0",
       },
 
       // 日志配置

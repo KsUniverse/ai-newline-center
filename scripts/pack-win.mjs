@@ -4,6 +4,6 @@ import { runPack } from "./pack-lib.mjs";
 
 runPack({
   scriptUrl: import.meta.url,
-  target: "linux",
+  target: "windows",
   versionArg: process.argv[2],
 });
