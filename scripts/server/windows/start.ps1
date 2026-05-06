@@ -70,13 +70,28 @@ function Import-DotEnv {
 function Get-Pm2App {
   param([string]$Pm2Command)
 
-  $json = & $Pm2Command jlist 2>$null
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($json)) {
+  # pm2 daemon 首次启动时会在 jlist JSON 前输出初始化日志（含 --- 分隔线），
+  # 需要从完整输出中提取 [ ... ] 纯 JSON 数组部分。
+  $raw = & $Pm2Command jlist 2>$null
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($raw)) {
     return $null
   }
 
-  $apps = @($json | ConvertFrom-Json)
-  return $apps | Where-Object { $_.name -eq $AppName } | Select-Object -First 1
+  # 拼接多行输出为单字符串，提取第一个 JSON 数组
+  $combined = ($raw -join "`n")
+  $start = $combined.IndexOf('[')
+  $end   = $combined.LastIndexOf(']')
+  if ($start -lt 0 -or $end -le $start) {
+    return $null
+  }
+  $json = $combined.Substring($start, $end - $start + 1)
+
+  try {
+    $apps = @($json | ConvertFrom-Json)
+    return $apps | Where-Object { $_.name -eq $AppName } | Select-Object -First 1
+  } catch {
+    return $null
+  }
 }
 
 Set-Location $AppDir
