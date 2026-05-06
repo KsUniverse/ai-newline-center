@@ -38,10 +38,16 @@ pnpm dev           # http://localhost:3000
 ## 打包（Windows 和 Mac 通用）
 
 ```bash
+# Linux/Mac 服务器打包
 pnpm deploy:pack
+
+# Windows Server 打包（输出 .zip）
+pnpm deploy:pack:win
 ```
 
-输出文件：`dist/app-v0.x.x.tar.gz`（约 30-60 MB）
+输出文件：
+- Linux 包：`dist/app-v0.x.x.tar.gz`（约 30-60 MB）
+- Windows 包：`dist/app-v0.x.x-windows.zip`（约 30-60 MB）
 
 **打包做了什么：**
 1. 运行 `next build`，生成 `.next/standalone/`（自包含 Node.js 服务）
@@ -210,3 +216,128 @@ server {
 
 **Q: 修改了环境变量需要重新打包吗？**  
 A: 不需要。直接在服务器上编辑 `.env.production`，然后运行 `bash /opt/ai-newline-center/scripts/start.sh` 重载即可。
+
+---
+
+## Windows Server 部署（宝塔面板）
+
+> 适用于宝塔面板 Windows 版，项目根目录：`C:\wwwroot\ai-newline-center`
+
+### 前置条件（服务器只需装一次）
+
+1. 安装 [Node.js 20+](https://nodejs.org/)（安装时勾选"Add to PATH"）
+2. 以**管理员身份**打开 PowerShell，安装 PM2：
+   ```powershell
+   npm install -g pm2
+   ```
+
+### 首次部署
+
+**第一步：在本地打 Windows 包**
+```bash
+pnpm deploy:pack:win
+# 输出：dist/app-v0.x.x-windows.zip
+```
+
+**第二步：上传包到服务器**  
+通过宝塔文件管理器或 FTP 将 zip 包上传到服务器，如 `C:\wwwroot\`
+
+**第三步：解压**  
+在 PowerShell 中执行：
+```powershell
+Expand-Archive C:\wwwroot\app-v0.x.x-windows.zip C:\wwwroot\ai-newline-center
+```
+或直接右键 zip 文件 → 解压到 `C:\wwwroot\ai-newline-center`
+
+**第四步：创建 .env.production（首次只做一次）**
+```powershell
+cd C:\wwwroot\ai-newline-center
+copy .env.production.example .env.production
+notepad .env.production
+```
+
+填写以下必填项：
+```env
+DATABASE_URL="mysql://ai_newline:你的数据库密码@127.0.0.1:3306/ai_newline?charset=utf8mb4"
+REDIS_URL="redis://:你的Redis密码@localhost:6379"
+NEXTAUTH_SECRET="随机32位密钥（可在 Linux 用 openssl rand -base64 32 生成）"
+NEXTAUTH_URL="http://你的服务器公网IP:3000"
+AUTH_TRUST_HOST="true"
+CRAWLER_API_URL="http://localhost:8011"
+```
+
+**第五步：以管理员身份初始化**
+
+> ⚠ 必须用**管理员**身份运行 PowerShell（右键 → 以管理员身份运行）
+
+```powershell
+cd C:\wwwroot\ai-newline-center
+PowerShell -ExecutionPolicy Bypass -File .\scripts\windows\setup.ps1
+```
+
+`setup.ps1` 会自动：设置全局 npm/PM2 目录 → 安装 PM2 → 加载 .env.production → 生成 Prisma Client → 执行数据库迁移 → 启动 PM2 → 注册开机自启计划任务
+
+### 版本更新
+
+```powershell
+# 1. 本地打包
+pnpm deploy:pack:win
+
+# 2. 上传 zip 到服务器（宝塔文件管理器或 FTP），如 C:\wwwroot\
+
+# 3. 服务器 PowerShell 一键更新（普通权限即可）
+cd C:\wwwroot\ai-newline-center
+PowerShell -ExecutionPolicy Bypass -File .\scripts\windows\update.ps1 -ArchivePath C:\wwwroot\app-v0.x.x-windows.zip
+```
+
+`update.ps1` 会自动：停止 PM2 → 解压新版本（保留 .env.production 和 public\storage\） → 生成 Prisma Client → 执行数据库迁移 → 重新启动 PM2
+
+### Windows 常用运维命令
+
+```powershell
+# 需要先设置 PM2 环境（首次打开新 PowerShell 窗口时）
+$env:PM2_HOME = "C:\ProgramData\pm2"
+
+# 查看运行状态
+pm2 status
+
+# 实时查看日志
+pm2 logs ai-newline-center
+
+# 查看最近 100 行日志
+pm2 logs ai-newline-center --lines 100
+
+# 重启服务
+pm2 restart ai-newline-center
+
+# 停止服务
+pm2 stop ai-newline-center
+
+# 修改 .env.production 后重新加载
+cd C:\wwwroot\ai-newline-center
+PowerShell -ExecutionPolicy Bypass -File .\scripts\windows\start.ps1
+```
+
+### Windows 服务器目录结构
+
+```
+C:\wwwroot\ai-newline-center\
+├── server.js               ← Next.js 启动文件（由 PM2 运行）
+├── .next\                  ← 编译后的应用代码
+├── public\
+│   └── storage\            ← 用户上传文件（更新时保留）
+├── node_modules\           ← 仅生产依赖
+├── prisma\
+│   ├── schema.prisma
+│   └── migrations\
+├── ecosystem.config.cjs    ← PM2 配置
+├── scripts\
+│   └── windows\
+│       ├── setup.ps1       ← 首次部署（需管理员）
+│       ├── start.ps1       ← 启动/重载
+│       └── update.ps1      ← 版本更新
+├── logs\
+│   ├── app.log
+│   └── error.log
+└── .env.production         ← 生产环境变量（手动创建，永不打包）
+```

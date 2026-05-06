@@ -14,7 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "deploy:pack": "node scripts/pack.mjs",
-    "deploy:pack:win": "node scripts/pack.mjs"
+    "deploy:pack:win": "node scripts/pack.mjs --target=windows"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.50",
