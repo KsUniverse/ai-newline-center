@@ -236,7 +236,7 @@ class BenchmarkAccountService {
     const dateRange = this.resolveBannedDateRange(params.dateRange);
 
     const items = await benchmarkAccountRepository.findBannedAccounts({
-      organizationId: caller.organizationId,
+      organizationId: this.resolveOrganizationScope(caller),
       bannedAtGte: dateRange.gte,
       bannedAtLt: dateRange.lt,
     });

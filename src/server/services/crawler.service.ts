@@ -57,6 +57,7 @@ interface CrawlerVideoListResult {
 interface CrawlerVideoDetail {
   awemeId: string;
   shareUrl: string | null;
+  contentStatus: "ACTIVE" | "DELETED";
   playCount: number;
   likeCount: number;
   commentCount: number;
@@ -229,6 +230,11 @@ class CrawlerService {
       { aweme_id: awemeId },
       { organizationId },
     );
+    const contentStatus =
+      this.pickString(this.pickRecord(raw, ["filter_detail"]), ["filter_reason"]) ===
+      "status_deleted"
+        ? "DELETED"
+        : "ACTIVE";
     const detail = this.pickRecord(raw, ["aweme_detail", "aweme", "video"]) ?? raw;
     const statistics = this.pickRecord(detail, ["statistics", "stats"]) ?? detail;
     const shareUrl = await this.resolveShareUrl(detail, {
@@ -242,6 +248,7 @@ class CrawlerService {
         this.pickString(raw, ["aweme_id", "awemeId"]) ??
         awemeId,
       shareUrl,
+      contentStatus,
       playCount: this.pickNumber(statistics, ["play_count", "playCount"]) ?? 0,
       likeCount: this.pickNumber(statistics, ["digg_count", "like_count", "likeCount"]) ?? 0,
       commentCount:

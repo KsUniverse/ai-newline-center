@@ -168,6 +168,7 @@ export function mapDouyinVideoWithAccountToDto(
     collectCount: item.collectCount,
     admireCount: item.admireCount,
     recommendCount: item.recommendCount,
+    contentStatus: item.contentStatus,
     tags: Array.isArray(item.tags) ? (item.tags as string[]) : [],
     createdAt: item.createdAt.toISOString(),
     accountNickname: item.account.nickname,

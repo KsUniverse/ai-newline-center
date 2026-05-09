@@ -5,6 +5,7 @@ const {
   archiveMock,
   createWithMemberMock,
   fetchUserProfileMock,
+  findBannedAccountsMock,
   findByIdMock,
   findByOrganizationAndProfileUrlIncludingDeletedMock,
   findByOrganizationAndSecUserIdIncludingDeletedMock,
@@ -18,6 +19,7 @@ const {
   archiveMock: vi.fn(),
   createWithMemberMock: vi.fn(),
   fetchUserProfileMock: vi.fn(),
+  findBannedAccountsMock: vi.fn(),
   findByIdMock: vi.fn(),
   findByOrganizationAndProfileUrlIncludingDeletedMock: vi.fn(),
   findByOrganizationAndSecUserIdIncludingDeletedMock: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("@/server/repositories/benchmark-account.repository", () => ({
   benchmarkAccountRepository: {
     archive: archiveMock,
     createWithMember: createWithMemberMock,
+    findBannedAccounts: findBannedAccountsMock,
     findById: findByIdMock,
     findByOrganizationAndProfileUrlIncludingDeleted:
       findByOrganizationAndProfileUrlIncludingDeletedMock,
@@ -63,6 +66,7 @@ describe("benchmarkAccountService", () => {
     archiveMock.mockReset();
     createWithMemberMock.mockReset();
     fetchUserProfileMock.mockReset();
+    findBannedAccountsMock.mockReset();
     findByIdMock.mockReset();
     findByOrganizationAndProfileUrlIncludingDeletedMock.mockReset();
     findByOrganizationAndSecUserIdIncludingDeletedMock.mockReset();
@@ -461,6 +465,47 @@ describe("benchmarkAccountService", () => {
     expect(result).toEqual({
       id: "benchmark_1",
       deletedAt: "2026-04-05T00:00:00.000Z",
+    });
+  });
+
+  it("lists banned accounts across organizations for super admins", async () => {
+    findBannedAccountsMock.mockResolvedValue([
+      {
+        id: "benchmark_1",
+        nickname: "被封账号",
+        avatar: "https://cdn.example.com/avatar.jpg",
+        douyinNumber: "dy001",
+        bannedAt: new Date("2026-05-08T02:03:10.237Z"),
+      },
+    ]);
+
+    const { benchmarkAccountService } = await import("@/server/services/benchmark-account.service");
+    const result = await benchmarkAccountService.listBannedAccounts(
+      {
+        id: "super_admin_1",
+        account: "admin",
+        name: "超级管理员",
+        role: UserRole.SUPER_ADMIN,
+        organizationId: "seed_default_group",
+      },
+      { dateRange: "this_week" },
+    );
+
+    expect(findBannedAccountsMock).toHaveBeenCalledWith({
+      organizationId: undefined,
+      bannedAtGte: expect.any(Date),
+      bannedAtLt: undefined,
+    });
+    expect(result).toEqual({
+      items: [
+        {
+          id: "benchmark_1",
+          nickname: "被封账号",
+          avatar: "https://cdn.example.com/avatar.jpg",
+          douyinNumber: "dy001",
+          bannedAt: "2026-05-08T02:03:10.237Z",
+        },
+      ],
     });
   });
 });

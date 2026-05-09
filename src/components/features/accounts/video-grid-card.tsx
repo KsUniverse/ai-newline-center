@@ -61,6 +61,8 @@ export function VideoGridCard({ video, onClick }: VideoGridCardProps) {
     el.currentTime = ratio * el.duration;
   };
 
+  const isDeleted = video.contentStatus === "DELETED";
+
   return (
     <button
       type="button"
@@ -118,8 +120,15 @@ export function VideoGridCard({ video, onClick }: VideoGridCardProps) {
           ))}
         </div>
 
-        <span className="inline-flex items-center rounded-md border border-white/15 bg-black/35 px-2 py-0.5 text-2xs font-medium text-white/85 backdrop-blur-sm">
-          内容样本
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-medium backdrop-blur-sm",
+            isDeleted
+              ? "border-amber-300/20 bg-amber-500/15 text-amber-100"
+              : "border-white/15 bg-black/35 text-white/85",
+          )}
+        >
+          {isDeleted ? "已删除" : "内容样本"}
         </span>
       </div>
 

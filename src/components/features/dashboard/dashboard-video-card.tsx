@@ -55,6 +55,7 @@ export function DashboardVideoCard({
 }: DashboardVideoCardProps) {
   const tagTone = getVideoTagTone(video.customTag);
   const bringOrderTone = getBringOrderTone(video.isBringOrder);
+  const isDeleted = video.contentStatus === "DELETED";
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -223,6 +224,7 @@ export function DashboardVideoCard({
           </span>
           <span className="truncate text-right tabular-nums tracking-tight">
             {formatDateTime(video.publishedAt)}
+            {isDeleted ? " · 已删除" : ""}
           </span>
         </div>
       </div>

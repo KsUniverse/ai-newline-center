@@ -47,6 +47,8 @@ export type DouyinLoginSessionCurrentStep =
   | "EXPIRED"
   | "CANCELLED";
 
+export type VideoContentStatus = "ACTIVE" | "DELETED";
+
 export interface DouyinAccountDTO {
   id: string;
   profileUrl: string;
@@ -125,6 +127,7 @@ export interface DouyinVideoDTO {
   collectCount: number;
   admireCount: number;
   recommendCount: number;
+  contentStatus: VideoContentStatus;
   tags: string[];
   createdAt: string;
 }

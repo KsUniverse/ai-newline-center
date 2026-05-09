@@ -120,6 +120,11 @@ enum DouyinLoginSessionPurpose {
   RELOGIN
 }
 
+enum VideoContentStatus {
+  ACTIVE
+  DELETED
+}
+
 enum DouyinLoginSessionStatus {
   CREATED
   QRCODE_READY
@@ -344,6 +349,7 @@ model DouyinVideo {
   collectCount Int           @default(0)
   admireCount  Int           @default(0)
   recommendCount Int         @default(0)
+  contentStatus VideoContentStatus @default(ACTIVE)
   // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
   tags         Json          @default("[]")
   snapshots       VideoSnapshot[]
@@ -381,6 +387,7 @@ model BenchmarkVideo {
   collectCount     Int                     @default(0)
   admireCount      Int                     @default(0)
   recommendCount   Int                     @default(0)
+  contentStatus    VideoContentStatus      @default(ACTIVE)
   // MySQL 不支持原生数组，使用 JSON 存储。要求 MySQL 8.0.13+
   tags             Json                    @default("[]")
   customTag        BenchmarkVideoTag?

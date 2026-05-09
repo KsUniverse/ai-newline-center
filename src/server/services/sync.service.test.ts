@@ -11,11 +11,13 @@ const {
   benchmarkCreateWithMemberMock,
   benchmarkFindAllMock,
   benchmarkFindByOrgSecUserIdMock,
+  benchmarkFindAllActiveVideosForSnapshotSyncMock,
   benchmarkFindVideoByAccountAndVideoIdMock,
   benchmarkSnapshotCreateMock,
   benchmarkUpdateAccountInfoMock,
   benchmarkUpdateSecUserIdMock,
   benchmarkUpdateStatsByAccountVideoIdMock,
+  benchmarkUpdateVideoContentStatusMock,
   benchmarkUpdateStatsMock,
   benchmarkUpsertMemberMock,
   benchmarkUpsertVideoMock,
@@ -43,6 +45,7 @@ const {
   updateAccountInfoMock,
   updateSecUserIdMock,
   updateStatsMock,
+  updateVideoContentStatusMock,
   upsertVideoMock,
   videoSnapshotCreateMock,
 } = vi.hoisted(() => ({
@@ -52,11 +55,13 @@ const {
   benchmarkCreateWithMemberMock: vi.fn(),
   benchmarkFindAllMock: vi.fn(),
   benchmarkFindByOrgSecUserIdMock: vi.fn(),
+  benchmarkFindAllActiveVideosForSnapshotSyncMock: vi.fn(),
   benchmarkFindVideoByAccountAndVideoIdMock: vi.fn(),
   benchmarkSnapshotCreateMock: vi.fn(),
   benchmarkUpdateAccountInfoMock: vi.fn(),
   benchmarkUpdateSecUserIdMock: vi.fn(),
   benchmarkUpdateStatsByAccountVideoIdMock: vi.fn(),
+  benchmarkUpdateVideoContentStatusMock: vi.fn(),
   benchmarkUpdateStatsMock: vi.fn(),
   benchmarkUpsertMemberMock: vi.fn(),
   benchmarkUpsertVideoMock: vi.fn(),
@@ -84,6 +89,7 @@ const {
   updateAccountInfoMock: vi.fn(),
   updateSecUserIdMock: vi.fn(),
   updateStatsMock: vi.fn(),
+  updateVideoContentStatusMock: vi.fn(),
   upsertVideoMock: vi.fn(),
   videoSnapshotCreateMock: vi.fn(),
 }));
@@ -144,6 +150,7 @@ vi.mock("@/server/repositories/douyin-video.repository", () => ({
     findRecentPublishedAtByAccountId: findRecentPublishedAtMock,
     updateStats: updateStatsMock,
     updateStatsByVideoId: updateStatsMock,
+    updateContentStatus: updateVideoContentStatusMock,
     upsertByVideoId: upsertVideoMock,
   },
 }));
@@ -151,11 +158,12 @@ vi.mock("@/server/repositories/douyin-video.repository", () => ({
 vi.mock("@/server/repositories/benchmark-video.repository", () => ({
   benchmarkVideoRepository: {
     countByAccountId: countByAccountIdMock,
-    findAllActiveForSnapshotSync: vi.fn().mockResolvedValue([]),
+    findAllActiveForSnapshotSync: benchmarkFindAllActiveVideosForSnapshotSyncMock,
     findByAccountAndVideoId: benchmarkFindVideoByAccountAndVideoIdMock,
     findRecentPublishedAtByAccountId: findRecentBenchmarkPublishedAtMock,
     updateStats: benchmarkUpdateStatsMock,
     updateStatsByAccountVideoId: benchmarkUpdateStatsByAccountVideoIdMock,
+    updateContentStatus: benchmarkUpdateVideoContentStatusMock,
     upsertByVideoId: benchmarkUpsertVideoMock,
   },
 }));
@@ -190,15 +198,21 @@ vi.mock("@/server/services/storage.service", () => ({
 
 describe("syncService", () => {
   beforeEach(() => {
+    vi.stubEnv("DATABASE_URL", "mysql://user:pass@localhost:3306/test");
+    vi.stubEnv("NEXTAUTH_SECRET", "a".repeat(32));
+    vi.stubEnv("CRAWLER_COOKIE_ENCRYPTION_KEY", "a".repeat(64));
+
     addCrawlerVideoSyncJobMock.mockReset();
     benchmarkCreateWithMemberMock.mockReset();
     benchmarkFindAllMock.mockReset();
     benchmarkFindByOrgSecUserIdMock.mockReset();
+    benchmarkFindAllActiveVideosForSnapshotSyncMock.mockReset();
     benchmarkFindVideoByAccountAndVideoIdMock.mockReset();
     benchmarkSnapshotCreateMock.mockReset();
     benchmarkUpdateAccountInfoMock.mockReset();
     benchmarkUpdateSecUserIdMock.mockReset();
     benchmarkUpdateStatsByAccountVideoIdMock.mockReset();
+    benchmarkUpdateVideoContentStatusMock.mockReset();
     benchmarkUpdateStatsMock.mockReset();
     benchmarkUpsertMemberMock.mockReset();
     benchmarkUpsertVideoMock.mockReset();
@@ -228,10 +242,12 @@ describe("syncService", () => {
     updateAccountInfoMock.mockReset();
     updateSecUserIdMock.mockReset();
     updateStatsMock.mockReset();
+    updateVideoContentStatusMock.mockReset();
     upsertVideoMock.mockReset();
     videoSnapshotCreateMock.mockReset();
 
     benchmarkFindAllMock.mockResolvedValue([]);
+    benchmarkFindAllActiveVideosForSnapshotSyncMock.mockResolvedValue([]);
     addCrawlerVideoSyncJobMock.mockResolvedValue(undefined);
     collectionCreateMock.mockResolvedValue(undefined);
     collectionExistsByAwemeIdMock.mockResolvedValue(false);
@@ -663,5 +679,39 @@ describe("syncService", () => {
       count: 10,
     });
     expect(collectionCreateMock).toHaveBeenCalledTimes(10);
+  });
+
+  it("marks deleted benchmark videos without overwriting historical stats during snapshot sync", async () => {
+    benchmarkFindAllActiveVideosForSnapshotSyncMock.mockResolvedValue([
+      {
+        id: "video_1",
+        videoId: "aweme_deleted",
+        publishedAt: new Date("2026-05-08T08:00:00.000Z"),
+        collectCount: 12,
+        admireCount: 8,
+        recommendCount: 5,
+        snapshots: [],
+      },
+    ]);
+    fetchOneVideoMock.mockResolvedValue({
+      awemeId: "aweme_deleted",
+      shareUrl: null,
+      contentStatus: "DELETED",
+      playCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      shareCount: 0,
+    });
+
+    const { syncService } = await import("@/server/services/sync.service");
+
+    await expect(syncService.runVideoSnapshotCollection()).resolves.toBeUndefined();
+
+    expect(benchmarkUpdateVideoContentStatusMock).toHaveBeenCalledWith(
+      "video_1",
+      "DELETED",
+    );
+    expect(benchmarkSnapshotCreateMock).not.toHaveBeenCalled();
+    expect(benchmarkUpdateStatsMock).not.toHaveBeenCalled();
   });
 });

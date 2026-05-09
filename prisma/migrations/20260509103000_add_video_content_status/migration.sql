@@ -1,0 +1,5 @@
+ALTER TABLE `douyin_videos`
+  ADD COLUMN `contentStatus` ENUM('ACTIVE', 'DELETED') NOT NULL DEFAULT 'ACTIVE';
+
+ALTER TABLE `benchmark_videos`
+  ADD COLUMN `contentStatus` ENUM('ACTIVE', 'DELETED') NOT NULL DEFAULT 'ACTIVE';

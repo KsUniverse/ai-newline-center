@@ -24,6 +24,7 @@ interface VideoDetailDialogProps {
 export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDialogProps) {
   const { data: session } = useSession();
   const isEmployee = session?.user?.role === UserRole.EMPLOYEE;
+  const isDeleted = video?.contentStatus === "DELETED";
 
   const [snapshots, setSnapshots] = useState<VideoSnapshotDTO[]>([]);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
@@ -86,10 +87,21 @@ export function VideoDetailDialog({ video, open, onOpenChange }: VideoDetailDial
                 {video.accountNickname}
               </span>
             ) : null}
+            {isDeleted ? (
+              <span className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 normal-case tracking-normal text-amber-200">
+                已删除
+              </span>
+            ) : null}
             <span className="inline-flex items-center rounded-md border border-border/45 bg-background/80 px-2.5 py-1 normal-case tracking-normal text-muted-foreground">
               {formatDateTime(video.publishedAt)}
             </span>
           </div>
+
+          {isDeleted ? (
+            <p className="rounded-md border border-amber-500/16 bg-amber-500/8 px-3 py-2 text-xs leading-5 text-amber-100/90">
+              作品已删除，以下互动数据保留删除前最后一次同步结果。
+            </p>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatItem icon={Play} label="播放" value={video.playCount} />

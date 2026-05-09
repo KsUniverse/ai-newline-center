@@ -75,7 +75,10 @@ class DouyinVideoRepository {
       where: {
         videoId: data.videoId,
       },
-      create: data,
+      create: {
+        ...data,
+        contentStatus: "ACTIVE",
+      },
       update: {
         title: data.title,
         shareUrl: data.shareUrl,
@@ -93,6 +96,7 @@ class DouyinVideoRepository {
         collectCount: data.collectCount,
         admireCount: data.admireCount,
         recommendCount: data.recommendCount,
+        contentStatus: "ACTIVE",
         ...(data.tags ? { tags: data.tags } : {}),
       },
     });
@@ -114,7 +118,21 @@ class DouyinVideoRepository {
   ): Promise<void> {
     await db.douyinVideo.update({
       where: { videoId },
-      data: stats,
+      data: {
+        ...stats,
+        contentStatus: "ACTIVE",
+      },
+    });
+  }
+
+  async updateContentStatus(
+    id: string,
+    contentStatus: "ACTIVE" | "DELETED",
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await db.douyinVideo.update({
+      where: { id },
+      data: { contentStatus },
     });
   }
 
@@ -312,7 +330,10 @@ class DouyinVideoRepository {
       where: {
         id,
       },
-      data,
+      data: {
+        ...data,
+        contentStatus: "ACTIVE",
+      },
     });
   }
 }

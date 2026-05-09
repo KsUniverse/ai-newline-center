@@ -22,6 +22,7 @@ export interface DashboardVideoItem {
   videoUrl: string | null;
   likeCount: number;
   publishedAt: string | null;
+  contentStatus: "ACTIVE" | "DELETED";
   customTag: BenchmarkVideoTag | null;
   isBringOrder: boolean;
   account: { id: string; nickname: string; avatar: string };
@@ -70,6 +71,7 @@ class BenchmarkVideoService {
       collectCount: video.collectCount,
       admireCount: video.admireCount,
       recommendCount: video.recommendCount,
+      contentStatus: video.contentStatus,
       tags: video.tags as string[],
       createdAt: video.createdAt.toISOString(),
     };

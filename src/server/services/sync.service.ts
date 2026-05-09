@@ -128,6 +128,7 @@ interface CrawlerVideoListResult {
 
 interface CrawlerVideoDetail {
   awemeId: string;
+  contentStatus: "ACTIVE" | "DELETED";
   playCount: number;
   likeCount: number;
   commentCount: number;
@@ -238,6 +239,10 @@ interface SnapshotSyncAdapter {
       admireCount: number;
       recommendCount: number;
     },
+  ) => Promise<unknown>;
+  updateContentStatus: (
+    id: string,
+    contentStatus: "ACTIVE" | "DELETED",
   ) => Promise<unknown>;
 }
 
@@ -753,6 +758,8 @@ class SyncService {
       label: "MY_ACCOUNT",
       createSnapshot: (data) => videoSnapshotRepository.create(data),
       updateStats: (id, data) => douyinVideoRepository.updateStats(id, data),
+      updateContentStatus: (id, contentStatus) =>
+        douyinVideoRepository.updateContentStatus(id, contentStatus),
     };
   }
 
@@ -761,6 +768,8 @@ class SyncService {
       label: "BENCHMARK_ACCOUNT",
       createSnapshot: (data) => benchmarkVideoSnapshotRepository.create(data),
       updateStats: (id, data) => benchmarkVideoRepository.updateStats(id, data),
+      updateContentStatus: (id, contentStatus) =>
+        benchmarkVideoRepository.updateContentStatus(id, contentStatus),
     };
   }
 
@@ -888,6 +897,10 @@ class SyncService {
 
       try {
         const detail = await this.getCachedVideoDetail(video.videoId, caches);
+        if (detail.contentStatus === "DELETED") {
+          await adapter.updateContentStatus(video.id, "DELETED");
+          continue;
+        }
 
         await adapter.createSnapshot({
           videoId: video.id,

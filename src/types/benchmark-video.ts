@@ -1,4 +1,5 @@
 import type { BenchmarkVideoTag } from "@prisma/client";
+import type { VideoContentStatus } from "@/types/douyin-account";
 
 export type { BenchmarkVideoTag };
 
@@ -46,6 +47,7 @@ export interface DashboardVideoItem {
   videoUrl: string | null;
   likeCount: number;
   publishedAt: string | null;
+  contentStatus: VideoContentStatus;
   customTag: BenchmarkVideoTag | null;
   isBringOrder: boolean;
   account: { id: string; nickname: string; avatar: string };

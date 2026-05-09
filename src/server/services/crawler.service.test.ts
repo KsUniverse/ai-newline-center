@@ -480,10 +480,44 @@ describe("crawlerService", () => {
     expect(result).toEqual({
       awemeId: "video_1",
       shareUrl: null,
+      contentStatus: "ACTIVE",
       playCount: 200,
       likeCount: 20,
       commentCount: 3,
       shareCount: 4,
+    });
+  });
+
+  it("marks single video detail as deleted when crawler returns status_deleted", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 200,
+        data: {
+          aweme_detail: null,
+          filter_detail: {
+            aweme_id: "video_1",
+            filter_reason: "status_deleted",
+            notice: "抱歉，作品不见了",
+            detail_msg: "因作品权限或已被删除，无法观看，去看看其他作品吧",
+          },
+          status_code: 0,
+        },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { crawlerService } = await import("@/server/services/crawler.service");
+    const result = await crawlerService.fetchOneVideo("video_1");
+
+    expect(result).toEqual({
+      awemeId: "video_1",
+      shareUrl: null,
+      contentStatus: "DELETED",
+      playCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      shareCount: 0,
     });
   });
 
@@ -531,6 +565,7 @@ describe("crawlerService", () => {
       awemeId: "video_1",
       shareUrl:
         "3.84 T@l.PK Okc:/ 02/24 连续反弹后要补缺，接下来谁是香饽饽？ https://v.douyin.com/rgyF09XQn84/ 复制此链接，打开Dou音搜索，直接观看视频！",
+      contentStatus: "ACTIVE",
       playCount: 200,
       likeCount: 20,
       commentCount: 3,

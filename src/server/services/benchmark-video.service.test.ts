@@ -139,6 +139,7 @@ describe("benchmarkVideoService", () => {
       collectCount: 2,
       admireCount: 3,
       recommendCount: 4,
+      contentStatus: "DELETED",
       tags: ["题材梳理"],
       createdAt: new Date("2026-04-17T02:44:10.105Z"),
       account: {
@@ -161,6 +162,7 @@ describe("benchmarkVideoService", () => {
       id: "video_1",
       videoId: "aweme_1",
       title: "测试视频",
+      contentStatus: "DELETED",
       tags: ["题材梳理"],
       createdAt: "2026-04-17T02:44:10.105Z",
     });

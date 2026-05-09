@@ -23,6 +23,7 @@ export function BenchmarkVideoGridCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const statusLabel = getBenchmarkVideoStatusLabel(video.videoStoragePath);
+  const isDeleted = video.contentStatus === "DELETED";
   const [isHoverPlaying, setIsHoverPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -140,10 +141,14 @@ export function BenchmarkVideoGridCard({
           <span
             className={cn(
               "h-1.5 w-1.5 rounded-full",
-              video.videoStoragePath ? "bg-emerald-400" : "bg-white/40",
+              isDeleted
+                ? "bg-amber-300"
+                : video.videoStoragePath
+                  ? "bg-emerald-400"
+                  : "bg-white/40",
             )}
           />
-          {statusLabel}
+          {isDeleted ? "已删除" : statusLabel}
         </span>
       </div>
 

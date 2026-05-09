@@ -324,7 +324,7 @@ class BenchmarkAccountRepository {
 
   async findBannedAccounts(
     params: {
-      organizationId: string;
+      organizationId?: string;
       bannedAtGte?: Date;
       bannedAtLt?: Date;
     },
@@ -340,7 +340,7 @@ class BenchmarkAccountRepository {
   > {
     const results = await db.benchmarkAccount.findMany({
       where: {
-        organizationId: params.organizationId,
+        ...(params.organizationId ? { organizationId: params.organizationId } : {}),
         deletedAt: null,
         bannedAt: {
           not: null,

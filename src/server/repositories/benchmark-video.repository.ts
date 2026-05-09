@@ -83,7 +83,10 @@ class BenchmarkVideoRepository {
           videoId: data.videoId,
         },
       },
-      create: data,
+      create: {
+        ...data,
+        contentStatus: "ACTIVE",
+      },
       update: {
         title: data.title,
         shareUrl: data.shareUrl,
@@ -101,6 +104,7 @@ class BenchmarkVideoRepository {
         collectCount: data.collectCount,
         admireCount: data.admireCount,
         recommendCount: data.recommendCount,
+        contentStatus: "ACTIVE",
         ...(data.tags ? { tags: data.tags } : {}),
       },
     });
@@ -128,7 +132,21 @@ class BenchmarkVideoRepository {
           videoId,
         },
       },
-      data: stats,
+      data: {
+        ...stats,
+        contentStatus: "ACTIVE",
+      },
+    });
+  }
+
+  async updateContentStatus(
+    id: string,
+    contentStatus: "ACTIVE" | "DELETED",
+    db: DatabaseClient = prisma,
+  ): Promise<void> {
+    await db.benchmarkVideo.update({
+      where: { id },
+      data: { contentStatus },
     });
   }
 
@@ -283,7 +301,10 @@ class BenchmarkVideoRepository {
       where: {
         id,
       },
-      data,
+      data: {
+        ...data,
+        contentStatus: "ACTIVE",
+      },
     });
   }
 
@@ -304,8 +325,11 @@ class BenchmarkVideoRepository {
       id: string;
       videoId: string;
       title: string;
-      coverUrl: string | null;      videoUrl: string | null;      likeCount: number;
+      coverUrl: string | null;
+      videoUrl: string | null;
+      likeCount: number;
       publishedAt: Date | null;
+      contentStatus: "ACTIVE" | "DELETED";
       customTag: BenchmarkVideoTag | null;
       isBringOrder: boolean;
       account: { id: string; nickname: string; avatar: string };
@@ -390,6 +414,7 @@ class BenchmarkVideoRepository {
           videoUrl: true,
           likeCount: true,
           publishedAt: true,
+          contentStatus: true,
           customTag: true,
           isBringOrder: true,
           account: {
